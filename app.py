@@ -734,7 +734,7 @@ receipt_layout = """<!DOCTYPE html>
 <meta charset="utf-8">
 <title>Receipt__{ORD_ID}</title>
 <style>
-  @page { size: A5 portrait; margin: 5 mm; }
+  @page { size: A5 portrait; margin: (5mm); }
   * { box-sizing: border-box; font-family: 'Courier New', Courier, monospace; color: #000000; }
   body { margin: 0; padding: 6px; background: #FFFFFF; font-size: 12px; line-height: 1.3; }
   .ticket { width: 100%; max-width: 138mm; margin: 0 auto; border: 1px solid #000000; padding: 10px 12px; }
