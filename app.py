@@ -728,35 +728,35 @@ elif st.session_state.page == "Print Slip":
             unit = str(slip_data['unit'])
 
             pure_receipt_html = f"""<!DOCTYPE html>
-pure_receipt_html = f"""<!DOCTYPE html>
+receipt_template = """<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
 <title>Receipt_{ord_id}</title>
 <style>
-  @page {{ size: A5 portrait; margin: 5mm; }}
-  * {{ box-sizing: border-box; font-family: 'Courier New', Courier, monospace; color: #000000; }}
-  body {{ margin: 0; padding: 6px; background: #FFFFFF; font-size: 12px; line-height: 1.3; }}
-  .ticket {{ width: 100%; max-width: 138mm; margin: 0 auto; border: 1px solid #000000; padding: 10px 12px; }}
-  .center {{ text-align: center; }}
-  .right {{ text-align: right; }}
-  .bold {{ font-weight: bold; }}
-  .title {{ font-size: 16px; font-weight: bold; margin: 0; letter-spacing: 1px; }}
-  .sub {{ font-size: 10px; margin: 2px 0; text-transform: uppercase; }}
-  .dash {{ border: none; border-top: 1px dashed #000; margin: 6px 0; }}
-  table {{ width: 100%; border-collapse: collapse; }}
-  td, th {{ padding: 2px 0; vertical-align: top; }}
-  .grid-table {{ margin: 4px 0; }}
-  .grid-table td, .grid-table th {{ border: 1px solid #000; padding: 3px 4px; font-size: 11px; }}
-  .print-btn {{
+  @page { size: A5 portrait; margin: 5mm; }
+  * { box-sizing: border-box; font-family: 'Courier New', Courier, monospace; color: #000000; }
+  body { margin: 0; padding: 6px; background: #FFFFFF; font-size: 12px; line-height: 1.3; }
+  .ticket { width: 100%; max-width: 138mm; margin: 0 auto; border: 1px solid #000000; padding: 10px 12px; }
+  .center { text-align: center; }
+  .right { text-align: right; }
+  .bold { font-weight: bold; }
+  .title { font-size: 16px; font-weight: bold; margin: 0; letter-spacing: 1px; }
+  .sub { font-size: 10px; margin: 2px 0; text-transform: uppercase; }
+  .dash { border: none; border-top: 1px dashed #000; margin: 6px 0; }
+  table { width: 100%; border-collapse: collapse; }
+  td, th { padding: 2px 0; vertical-align: top; }
+  .grid-table { margin: 4px 0; }
+  .grid-table td, .grid-table th { border: 1px solid #000; padding: 3px 4px; font-size: 11px; }
+  .print-btn {
     display: block; width: 100%; background: #111827; color: #FFFFFF; border: none;
     padding: 10px; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 6px; margin-bottom: 10px;
-  }}
-  @media print {{
-    .print-btn {{ display: none !important; }}
-    body {{ padding: 0 !important; }}
-    .ticket {{ border: 1px solid #000 !important; }}
-  }}
+  }
+  @media print {
+    .print-btn { display: none !important; }
+    body { padding: 0 !important; }
+    .ticket { border: 1px solid #000 !important; }
+  }
 </style>
 </head>
 <body>
@@ -781,13 +781,13 @@ pure_receipt_html = f"""<!DOCTYPE html>
       <tr style="background:#EEEEEE;">
         <th>PART</th><th>SPEC</th><th>PART</th><th>SPEC</th>
       </tr>
-      <tr><td>Length</td><td><b>{slip_data['full_length_jacket'] or '-'}</b></td><td>Waist</td><td><b>{slip_data['trouser_waist'] or '-'}</b></td></tr>
-      <tr><td>Neck</td><td><b>{slip_data['neck'] or '-'}</b></td><td>Front Rise</td><td><b>{slip_data['front_rise'] or '-'}</b></td></tr>
-      <tr><td>Shoulder</td><td><b>{slip_data['cross_shoulder'] or '-'}</b></td><td>Crotch</td><td><b>{slip_data['crotch_depth'] or '-'}</b></td></tr>
-      <tr><td>Chest</td><td><b>{slip_data['chest_full'] or '-'}</b></td><td>Seat/Hips</td><td><b>{slip_data['seat_hip'] or '-'}</b></td></tr>
-      <tr><td>Stomach</td><td><b>{slip_data['waist_stomach'] or '-'}</b></td><td>Thigh</td><td><b>{slip_data['thigh'] or '-'}</b></td></tr>
-      <tr><td>Armhole</td><td><b>{slip_data['armhole'] or '-'}</b></td><td>Bottom Opening</td><td><b>{slip_data['bottom_opening'] or '-'}</b></td></tr>
-      <tr><td>Sleeve</td><td><b>{slip_data['sleeve_length'] or '-'}</b></td><td>Wrist</td><td><b>{slip_data['wrist'] or '-'}</b></td></tr>
+      <tr><td>Length</td><td><b>{m_len}</b></td><td>Waist</td><td><b>{m_waist}</b></td></tr>
+      <tr><td>Neck</td><td><b>{m_neck}</b></td><td>Front Rise</td><td><b>{m_frise}</b></td></tr>
+      <tr><td>Shoulder</td><td><b>{m_shld}</b></td><td>Crotch</td><td><b>{m_crotch}</b></td></tr>
+      <tr><td>Chest</td><td><b>{m_chest}</b></td><td>Seat/Hips</td><td><b>{m_hip}</b></td></tr>
+      <tr><td>Stomach</td><td><b>{m_stom}</b></td><td>Thigh</td><td><b>{m_thigh}</b></td></tr>
+      <tr><td>Armhole</td><td><b>{m_armh}</b></td><td>Bottom Opening</td><td><b>{m_bot}</b></td></tr>
+      <tr><td>Sleeve</td><td><b>{m_slv}</b></td><td>Wrist</td><td><b>{m_wrst}</b></td></tr>
     </table>
     <hr class="dash">
     <table>
@@ -812,6 +812,38 @@ pure_receipt_html = f"""<!DOCTYPE html>
   </div>
 </body>
 </html>"""
+
+            pure_receipt_html = receipt_template.format(
+                store_name=store_name,
+                c_name=c_name,
+                c_id=c_id,
+                c_phone=c_phone,
+                ord_id=ord_id,
+                book_date=book_date,
+                del_date=del_date,
+                garment=garment,
+                fit=fit,
+                unit=unit,
+                m_len=slip_data['full_length_jacket'] or '-',
+                m_neck=slip_data['neck'] or '-',
+                m_shld=slip_data['cross_shoulder'] or '-',
+                m_chest=slip_data['chest_full'] or '-',
+                m_stom=slip_data['waist_stomach'] or '-',
+                m_armh=slip_data['armhole'] or '-',
+                m_slv=slip_data['sleeve_length'] or '-',
+                m_waist=slip_data['trouser_waist'] or '-',
+                m_frise=slip_data['front_rise'] or '-',
+                m_crotch=slip_data['crotch_depth'] or '-',
+                m_hip=slip_data['seat_hip'] or '-',
+                m_thigh=slip_data['thigh'] or '-',
+                m_bot=slip_data['bottom_opening'] or '-',
+                m_wrst=slip_data['wrist'] or '-',
+                total_amt=total_amt,
+                paid_amt=paid_amt,
+                bal_amt=bal_amt,
+                pay_mode=pay_mode,
+                pay_stat=pay_stat
+            )
 
             st.components.v1.html(pure_receipt_html, height=650, scrolling=True)
 
