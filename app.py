@@ -16,7 +16,7 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Courier+Prime:wght@400;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
 
     .stApp {
         background-color: #FAF7F2 !important;
@@ -337,31 +337,31 @@ if st.sidebar.button("Main Hub (Home)", use_container_width=True):
     navigate("Dashboard")
     st.rerun()
 
-if st.sidebar.button("Register Client", use_container_width=True):
+if st.sidebar.button("1. Register Client", use_container_width=True):
     navigate("New Client")
     st.rerun()
 
-if st.sidebar.button("New Order", use_container_width=True):
+if st.sidebar.button("2. New Order", use_container_width=True):
     navigate("New Order")
     st.rerun()
 
-if st.sidebar.button("Record Measurements", use_container_width=True):
+if st.sidebar.button("3. Record Measurements", use_container_width=True):
     navigate("New Measurement")
     st.rerun()
 
-if st.sidebar.button("Print Receipt", use_container_width=True):
+if st.sidebar.button("4. Print Receipt", use_container_width=True):
     navigate("Print Slip")
     st.rerun()
 
-if st.sidebar.button("Order Tracking", use_container_width=True):
+if st.sidebar.button("5. Order Tracking", use_container_width=True):
     navigate("Order Tracking")
     st.rerun()
 
-if st.sidebar.button("Order Status & Sales", use_container_width=True):
+if st.sidebar.button("6. Order Status & Sales", use_container_width=True):
     navigate("Order Status")
     st.rerun()
 
-if st.sidebar.button("Database", use_container_width=True):
+if st.sidebar.button("7. Database", use_container_width=True):
     navigate("Client Records")
     st.rerun()
 
@@ -575,28 +575,28 @@ elif st.session_state.page == "New Measurement":
 # 3. CREATE NEW ORDER / BILLING (STEP 3 OF PIPELINE)
 # ---------------------------------------------------------
 elif st.session_state.page == "New Order":
-    st.markdown("<div class='section-title-btn'>Step 3: New Order Booking & Billing</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title-btn'>New Order Booking & Billing</div>", unsafe_allow_html=True)
     if st.button("← Back to Main Hub", key="btn_back_order"):
         navigate("Dashboard")
         st.rerun()
         
     with get_db() as conn:
-        clients = conn.cursor().execute("SELECT id, client_code, full_name FROM clients ORDER BY id DESC").fetchall()
+        clients = conn.cursor().execute("SELECT id, client_code, full_name, phone FROM clients ORDER BY full_name ASC").fetchall()
         
     if not clients:
         st.warning("Please register a client before creating orders.")
     else:
-        client_dict = {f"{c['client_code']} — {c['full_name']}": c['id'] for c in clients}
+        client_options = {f"{c['full_name']} (Phone: {c['phone']} | ID: {c['client_code']})": c['id'] for c in clients}
         
         default_idx = 0
         if st.session_state.active_client_id:
-            for idx, cid in enumerate(client_dict.values()):
+            for idx, cid in enumerate(client_options.values()):
                 if cid == st.session_state.active_client_id:
                     default_idx = idx
                     break
 
-        selected_client_label = st.selectbox("Client", list(client_dict.keys()), index=default_idx)
-        selected_client_id = client_dict[selected_client_label]
+        selected_client_label = st.selectbox("Search & Select Client (Type Name or Phone)", list(client_options.keys()), index=default_idx)
+        selected_client_id = client_options[selected_client_label]
         st.session_state.active_client_id = selected_client_id
         
         with get_db() as conn:
@@ -604,10 +604,21 @@ elif st.session_state.page == "New Order":
                 "SELECT id, revision_label, garment_category, date_recorded FROM measurements WHERE client_id = ? ORDER BY id DESC", 
                 (selected_client_id,)
             ).fetchall()
+
+        st.markdown("### Client Action Options")
+        col_act_m, col_act_b = st.columns(2)
+        with col_act_m:
+            if st.button("Update / Adjust Measurements First", use_container_width=True):
+                navigate("New Measurement")
+                st.rerun()
+        with col_act_b:
+            st.info("Or fill billing details below to proceed directly")
+            
+        st.markdown("---")
             
         if not revisions:
-            st.error("No measurement sets found for this client. Please take measurements first.")
-            if st.button("Take Measurements Now →", use_container_width=True):
+            st.error("No measurement sets found for this client. Please record measurements first before billing.")
+            if st.button("Record Measurements Now →", use_container_width=True):
                 navigate("New Measurement")
                 st.rerun()
         else:
@@ -667,7 +678,7 @@ elif st.session_state.page == "New Order":
 
 
 # ---------------------------------------------------------
-# 4. PRINT RECEIPT (STEP 4 OF PIPELINE)
+# 4. PRINT RECEIPT (STEP 4 OF PIPELINE - BULLETPROOF HTML)
 # ---------------------------------------------------------
 elif st.session_state.page == "Print Slip":
     st.markdown("<div class='section-title-btn'>Step 4: Print A5 Receipt Slip</div>", unsafe_allow_html=True)
@@ -727,126 +738,75 @@ elif st.session_state.page == "Print Slip":
             pay_stat = str(slip_data['payment_status'])
             unit = str(slip_data['unit'])
 
-            pure_receipt_html = f"""<!DOCTYPE html>
-receipt_layout = """<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>Receipt__{ORD_ID}</title>
-<style>
-  @page { size: A5 portrait; margin: (5mm); }
-  * { box-sizing: border-box; font-family: 'Courier New', Courier, monospace; color: #000000; }
-  body { margin: 0; padding: 6px; background: #FFFFFF; font-size: 12px; line-height: 1.3; }
-  .ticket { width: 100%; max-width: 138mm; margin: 0 auto; border: 1px solid #000000; padding: 10px 12px; }
-  .center { text-align: center; }
-  .right { text-align: right; }
-  .bold { font-weight: bold; }
-  .title { font-size: 16px; font-weight: bold; margin: 0; letter-spacing: 1px; }
-  .sub { font-size: 10px; margin: 2px 0; text-transform: uppercase; }
-  .dash { border: none; border-top: 1px dashed #000; margin: 6px 0; }
-  table { width: 100%; border-collapse: collapse; }
-  td, th { padding: 2px 0; vertical-align: top; }
-  .grid-table { margin: 4px 0; }
-  .grid-table td, .grid-table th { border: 1px solid #000; padding: 3px 4px; font-size: 11px; }
-  .print-btn {
-    display: block; width: 100%; background: #111827; color: #FFFFFF; border: none;
-    padding: 10px; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 6px; margin-bottom: 10px;
-  }
-  @media print {
-    .print-btn { display: none !important; }
-    body { padding: 0 !important; }
-    .ticket { border: 1px solid #000 !important; }
-  }
-</style>
-</head>
-<body>
-  <button class="print-btn" onclick="window.print()">🖨️ CLICK HERE TO PRINT RECEIPT (A5)</button>
-  <div class="ticket">
-    <div class="center">
-      <div class="title">__STORE_NAME__</div>
-      <div class="sub">Bespoke Master Tailoring Atelier</div>
-      <div class="bold" style="font-size: 11px;">SALES & MEASUREMENT RECEIPT</div>
-    </div>
-    <hr class="dash">
-    <table>
-      <tr><td><b>CLIENT:</b> __CLIENT_NAME__</td><td class="right"><b>DATE:</b> __BOOK_DATE__</td></tr>
-      <tr><td><b>ID:</b> __CLIENT_ID__</td><td class="right"><b>ORDER #:</b> __ORD_ID__</td></tr>
-      <tr><td colspan="2"><b>PHONE:</b> __CLIENT_PHONE__</td></tr>
-      <tr><td colspan="2"><b>GARMENT:</b> __GARMENT__ (__FIT__)</td></tr>
-      <tr><td colspan="2"><b>COMPLETION DATE:</b> __DEL_DATE__</td></tr>
-    </table>
-    <hr class="dash">
-    <div class="bold" style="font-size: 11px;">[ MEASUREMENTS (__UNIT__) ]</div>
-    <table class="grid-table">
-      <tr style="background:#EEEEEE;">
-        <th>PART</th><th>SPEC</th><th>PART</th><th>SPEC</th>
-      </tr>
-      <tr><td>Length</td><td><b>__M_LEN__</b></td><td>Waist</td><td><b>__M_WAIST__</b></td></tr>
-      <tr><td>Neck</td><td><b>__M_NECK__</b></td><td>Front Rise</td><td><b>__M_FRISE__</b></td></tr>
-      <tr><td>Shoulder</td><td><b>__M_SHLD__</b></td><td>Crotch</td><td><b>__M_CROTCH__</b></td></tr>
-      <tr><td>Chest</td><td><b>__M_CHEST__</b></td><td>Seat/Hips</td><td><b>__M_HIP__</b></td></tr>
-      <tr><td>Stomach</td><td><b>__M_STOM__</b></td><td>Thigh</td><td><b>__M_THIGH__</b></td></tr>
-      <tr><td>Armhole</td><td><b>__M_ARMH__</b></td><td>Bottom Opening</td><td><b>__M_BOT__</b></td></tr>
-      <tr><td>Sleeve</td><td><b>__M_SLV__</b></td><td>Wrist</td><td><b>__M_WRST__</b></td></tr>
-    </table>
-    <hr class="dash">
-    <table>
-      <tr><td><b>TOTAL AMOUNT:</b></td><td class="right bold">Rs. __TOTAL_AMT__</td></tr>
-      <tr><td><b>AMOUNT PAID:</b></td><td class="right">Rs. __PAID_AMT__</td></tr>
-      <tr><td class="bold">BALANCE DUE:</td><td class="right bold" style="font-size:13px;">Rs. __BAL_AMT__</td></tr>
-      <tr><td><b>PAYMENT MODE:</b></td><td class="right">__PAY_MODE__</td></tr>
-      <tr><td><b>PAYMENT STAGE:</b></td><td class="right bold">__PAY_STAT__</td></tr>
-    </table>
-    <hr class="dash">
-    <div class="center" style="font-size: 10px;">
-      THANK YOU FOR CHOOSING __STORE_NAME__<br>
-      Exact Fit & Master Craftsmanship Guaranteed
-    </div>
-    <br>
-    <table style="font-size: 9.5px;">
-      <tr>
-        <td>CLIENT SIGN: ____________</td>
-        <td class="right">MASTER TAILOR: ____________</td>
-      </tr>
-    </table>
-  </div>
-</body>
-</html>"""
+            m_len = str(slip_data['full_length_jacket'] or '-')
+            m_neck = str(slip_data['neck'] or '-')
+            m_shld = str(slip_data['cross_shoulder'] or '-')
+            m_chest = str(slip_data['chest_full'] or '-')
+            m_stom = str(slip_data['waist_stomach'] or '-')
+            m_armh = str(slip_data['armhole'] or '-')
+            m_slv = str(slip_data['sleeve_length'] or '-')
+            m_waist = str(slip_data['trouser_waist'] or '-')
+            m_frise = str(slip_data['front_rise'] or '-')
+            m_crotch = str(slip_data['crotch_depth'] or '-')
+            m_hip = str(slip_data['seat_hip'] or '-')
+            m_thigh = str(slip_data['thigh'] or '-')
+            m_bot = str(slip_data['bottom_opening'] or '-')
+            m_wrst = str(slip_data['wrist'] or '-')
 
-            pure_receipt_html = (
-                receipt_layout
-                .replace("__STORE_NAME__", str(store_name))
-                .replace("__CLIENT_NAME__", str(c_name))
-                .replace("__CLIENT_ID__", str(c_id))
-                .replace("__CLIENT_PHONE__", str(c_phone))
-                .replace("__ORD_ID__", str(ord_id))
-                .replace("__BOOK_DATE__", str(book_date))
-                .replace("__DEL_DATE__", str(del_date))
-                .replace("__GARMENT__", str(garment))
-                .replace("__FIT__", str(fit))
-                .replace("__UNIT__", str(unit))
-                .replace("__M_LEN__", str(slip_data['full_length_jacket'] or '-'))
-                .replace("__M_NECK__", str(slip_data['neck'] or '-'))
-                .replace("__M_SHLD__", str(slip_data['cross_shoulder'] or '-'))
-                .replace("__M_CHEST__", str(slip_data['chest_full'] or '-'))
-                .replace("__M_STOM__", str(slip_data['waist_stomach'] or '-'))
-                .replace("__M_ARMH__", str(slip_data['armhole'] or '-'))
-                .replace("__M_SLV__", str(slip_data['sleeve_length'] or '-'))
-                .replace("__M_WAIST__", str(slip_data['trouser_waist'] or '-'))
-                .replace("__M_FRISE__", str(slip_data['front_rise'] or '-'))
-                .replace("__M_CROTCH__", str(slip_data['crotch_depth'] or '-'))
-                .replace("__M_HIP__", str(slip_data['seat_hip'] or '-'))
-                .replace("__M_THIGH__", str(slip_data['thigh'] or '-'))
-                .replace("__M_BOT__", str(slip_data['bottom_opening'] or '-'))
-                .replace("__M_WRST__", str(slip_data['wrist'] or '-'))
-                .replace("__TOTAL_AMT__", f"{total_amt:,.2f}")
-                .replace("__PAID_AMT__", f"{paid_amt:,.2f}")
-                .replace("__BAL_AMT__", f"{bal_amt:,.2f}")
-                .replace("__PAY_MODE__", str(pay_mode))
-                .replace("__PAY_STAT__", str(pay_stat))
-            )
+            # Safe HTML Assembly without any CSS brace conflicts
+            receipt_html_parts = [
+                "<!DOCTYPE html><html><head><meta charset='utf-8'>",
+                "<title>Receipt_" + ord_id + "</title>",
+                "</head>",
+                "<body style='margin:0; padding:6px; background:#FFFFFF; font-family:Courier New, Courier, monospace; color:#000000; font-size:12px; line-height:1.3;'>",
+                "<button onclick='window.print()' style='display:block; width:100%; max-width:138mm; margin:0 auto 10px auto; background:#111827; color:#FFFFFF; border:none; padding:10px; font-size:14px; font-weight:bold; cursor:pointer; border-radius:6px;'>PRINT RECEIPT (A5)</button>",
+                "<div style='width:100%; max-width:138mm; margin:0 auto; border:1px solid #000000; padding:10px 12px;'>",
+                "<div style='text-align:center;'>",
+                "<div style='font-size:16px; font-weight:bold; letter-spacing:1px; margin:0;'>" + store_name + "</div>",
+                "<div style='font-size:10px; margin:2px 0; text-transform:uppercase;'>Bespoke Master Tailoring Atelier</div>",
+                "<div style='font-size:11px; font-weight:bold;'>SALES & MEASUREMENT RECEIPT</div>",
+                "</div>",
+                "<hr style='border:none; border-top:1px dashed #000; margin:6px 0;'>",
+                "<table style='width:100%; border-collapse:collapse; font-size:11.5px;'>",
+                "<tr><td><b>CLIENT:</b> " + c_name + "</td><td style='text-align:right;'><b>DATE:</b> " + book_date + "</td></tr>",
+                "<tr><td><b>ID:</b> " + c_id + "</td><td style='text-align:right;'><b>ORDER #:</b> " + ord_id + "</td></tr>",
+                "<tr><td colspan='2'><b>PHONE:</b> " + c_phone + "</td></tr>",
+                "<tr><td colspan='2'><b>GARMENT:</b> " + garment + " (" + fit + ")</td></tr>",
+                "<tr><td colspan='2'><b>COMPLETION DATE:</b> " + del_date + "</td></tr>",
+                "</table>",
+                "<hr style='border:none; border-top:1px dashed #000; margin:6px 0;'>",
+                "<div style='font-weight:bold; font-size:11px;'>[ MEASUREMENTS (" + unit + ") ]</div>",
+                "<table style='width:100%; border-collapse:collapse; margin:4px 0; font-size:11px;'>",
+                "<tr style='background:#EEEEEE;'>",
+                "<th style='border:1px solid #000; padding:3px 4px; text-align:left;'>PART</th><th style='border:1px solid #000; padding:3px 4px; text-align:left;'>SPEC</th>",
+                "<th style='border:1px solid #000; padding:3px 4px; text-align:left;'>PART</th><th style='border:1px solid #000; padding:3px 4px; text-align:left;'>SPEC</th>",
+                "</tr>",
+                "<tr><td style='border:1px solid #000; padding:3px 4px;'>Length</td><td style='border:1px solid #000; padding:3px 4px;'><b>" + m_len + "</b></td><td style='border:1px solid #000; padding:3px 4px;'>Waist</td><td style='border:1px solid #000; padding:3px 4px;'><b>" + m_waist + "</b></td></tr>",
+                "<tr><td style='border:1px solid #000; padding:3px 4px;'>Neck</td><td style='border:1px solid #000; padding:3px 4px;'><b>" + m_neck + "</b></td><td style='border:1px solid #000; padding:3px 4px;'>Front Rise</td><td style='border:1px solid #000; padding:3px 4px;'><b>" + m_frise + "</b></td></tr>",
+                "<tr><td style='border:1px solid #000; padding:3px 4px;'>Shoulder</td><td style='border:1px solid #000; padding:3px 4px;'><b>" + m_shld + "</b></td><td style='border:1px solid #000; padding:3px 4px;'>Crotch</td><td style='border:1px solid #000; padding:3px 4px;'><b>" + m_crotch + "</b></td></tr>",
+                "<tr><td style='border:1px solid #000; padding:3px 4px;'>Chest</td><td style='border:1px solid #000; padding:3px 4px;'><b>" + m_chest + "</b></td><td style='border:1px solid #000; padding:3px 4px;'>Seat/Hips</td><td style='border:1px solid #000; padding:3px 4px;'><b>" + m_hip + "</b></td></tr>",
+                "<tr><td style='border:1px solid #000; padding:3px 4px;'>Stomach</td><td style='border:1px solid #000; padding:3px 4px;'><b>" + m_stom + "</b></td><td style='border:1px solid #000; padding:3px 4px;'>Thigh</td><td style='border:1px solid #000; padding:3px 4px;'><b>" + m_thigh + "</b></td></tr>",
+                "<tr><td style='border:1px solid #000; padding:3px 4px;'>Armhole</td><td style='border:1px solid #000; padding:3px 4px;'><b>" + m_armh + "</b></td><td style='border:1px solid #000; padding:3px 4px;'>Bottom Opening</td><td style='border:1px solid #000; padding:3px 4px;'><b>" + m_bot + "</b></td></tr>",
+                "<tr><td style='border:1px solid #000; padding:3px 4px;'>Sleeve</td><td style='border:1px solid #000; padding:3px 4px;'><b>" + m_slv + "</b></td><td style='border:1px solid #000; padding:3px 4px;'>Wrist</td><td style='border:1px solid #000; padding:3px 4px;'><b>" + m_wrst + "</b></td></tr>",
+                "</table>",
+                "<hr style='border:none; border-top:1px dashed #000; margin:6px 0;'>",
+                "<table style='width:100%; border-collapse:collapse; font-size:11.5px;'>",
+                "<tr><td><b>TOTAL AMOUNT:</b></td><td style='text-align:right; font-weight:bold;'>Rs. " + f"{total_amt:,.2f}" + "</td></tr>",
+                "<tr><td><b>AMOUNT PAID:</b></td><td style='text-align:right;'>Rs. " + f"{paid_amt:,.2f}" + "</td></tr>",
+                "<tr><td style='font-weight:bold;'>BALANCE DUE:</td><td style='text-align:right; font-weight:bold; font-size:13px;'>Rs. " + f"{bal_amt:,.2f}" + "</td></tr>",
+                "<tr><td><b>PAYMENT MODE:</b></td><td style='text-align:right;'>" + pay_mode + "</td></tr>",
+                "<tr><td><b>PAYMENT STAGE:</b></td><td style='text-align:right; font-weight:bold;'>" + pay_stat + "</td></tr>",
+                "</table>",
+                "<hr style='border:none; border-top:1px dashed #000; margin:6px 0;'>",
+                "<div style='text-align:center; font-size:10px;'>THANK YOU FOR CHOOSING " + store_name + "<br>Exact Fit & Master Craftsmanship Guaranteed</div>",
+                "<br>",
+                "<table style='width:100%; font-size:9.5px;'><tr><td>CLIENT SIGN: ____________</td><td style='text-align:right;'>MASTER TAILOR: ____________</td></tr></table>",
+                "</div></body></html>"
+            ]
 
+            pure_receipt_html = "".join(receipt_html_parts)
             st.components.v1.html(pure_receipt_html, height=650, scrolling=True)
+
 
 # ---------------------------------------------------------
 # 5A. ORDER TRACKING (WORKSHOP PRODUCTION PIPELINE)
@@ -869,7 +829,7 @@ elif st.session_state.page == "Order Tracking":
     if orders_df.empty:
         st.info("No active garment orders in production.")
     else:
-        filter_q = st.text_input("🔍 Search Order in Workshop by Client Name, Phone or Order #")
+        filter_q = st.text_input("Search Order in Workshop by Client Name, Phone or Order #")
         filtered_orders = orders_df
         if filter_q:
             filtered_orders = orders_df[orders_df.apply(lambda r: filter_q.lower() in r.astype(str).str.lower().values, axis=1)]
@@ -900,21 +860,21 @@ elif st.session_state.page == "Order Tracking":
 
                 with c_del:
                     st.write("")
-                    if st.button(f"🗑️ Delete", key=f"del_track_{order['order_number']}", use_container_width=True):
+                    if st.button(f"Delete Order", key=f"del_track_{order['order_number']}", use_container_width=True):
                         st.session_state.delete_target_order = order['order_number']
                 
                 if st.session_state.delete_target_order == order['order_number']:
                     st.warning(f"Confirm deleting {order['order_number']} permanently?")
                     y_col, n_col = st.columns(2)
                     with y_col:
-                        if st.button("✅ Yes, Delete", key=f"y_track_{order['order_number']}", use_container_width=True):
+                        if st.button("Yes, Delete", key=f"y_track_{order['order_number']}", use_container_width=True):
                             with get_db() as conn:
                                 conn.cursor().execute("DELETE FROM orders WHERE order_number = ?", (order['order_number'],))
                                 conn.commit()
                             st.session_state.delete_target_order = None
                             st.rerun()
                     with n_col:
-                        if st.button("❌ Cancel", key=f"n_track_{order['order_number']}", use_container_width=True):
+                        if st.button("Cancel", key=f"n_track_{order['order_number']}", use_container_width=True):
                             st.session_state.delete_target_order = None
                             st.rerun()
                 st.markdown("<hr style='margin:0.5rem 0 1rem 0; border:0.5px solid #E5DCCE;'>", unsafe_allow_html=True)
@@ -947,17 +907,17 @@ elif st.session_state.page == "Order Status":
         total_collected = orders_df['amount_paid'].sum()
         total_receivable = total_revenue - total_collected
         
-        st.markdown("### 📊 Financial & Billing Summary")
+        st.markdown("### Financial & Billing Summary")
         m1, m2, m3 = st.columns(3)
         m1.metric("Gross Sales Booked", f"₹{total_revenue:,.2f}")
         m2.metric("Payments Collected", f"₹{total_collected:,.2f}")
         m3.metric("Outstanding Balance Due", f"₹{total_receivable:,.2f}")
         
         st.markdown("---")
-        st.markdown("### 📋 Order Financial List")
+        st.markdown("### Order Financial List")
         st.dataframe(orders_df, use_container_width=True)
         
-        st.markdown("### 💳 Quick Payment Reconciliation")
+        st.markdown("### Quick Payment Reconciliation")
         for _, order in orders_df.iterrows():
             if order['balance_due'] > 0:
                 col_info, col_btn = st.columns([3, 1])
@@ -973,7 +933,7 @@ elif st.session_state.page == "Order Status":
 
 
 # ---------------------------------------------------------
-# 6. DATABASE (INTEGRATED CLIENT SEARCH & ACTION POPUP)
+# 6. DATABASE (INTEGRATED CLIENT SEARCH & ACTION POPOVER)
 # ---------------------------------------------------------
 elif st.session_state.page == "Client Records":
     st.markdown("<div class='section-title-btn'>Client Database</div>", unsafe_allow_html=True)
@@ -985,13 +945,13 @@ elif st.session_state.page == "Client Records":
         clients_df = pd.read_sql_query("SELECT id, client_code, full_name, phone, posture_notes, asymmetry_notes FROM clients ORDER BY full_name", conn)
         
     if not clients_df.empty:
-        search_query = st.text_input("🔍 Search Client by Name or Phone Number", placeholder="Type name or phone...")
+        search_query = st.text_input("Search Client by Name or Phone Number", placeholder="Type name or phone...")
         
         matched_clients = clients_df
         if search_query:
             matched_clients = clients_df[clients_df.apply(lambda r: search_query.lower() in r.astype(str).str.lower().values, axis=1)]
         
-        st.markdown("### 👥 Matched Client Records")
+        st.markdown("### Matched Client Records")
         if matched_clients.empty:
             st.info("No client records matched your search.")
         else:
@@ -1001,19 +961,18 @@ elif st.session_state.page == "Client Records":
                     with c_info:
                         st.markdown(f"**{client['full_name']}** (ID: `{client['client_code']}` | Phone: `{client['phone']}`)")
                     with c_action:
-                        # Action selection popup directly under the matched client
-                        with st.popover(f"⚡ Actions for {client['full_name']}"):
+                        with st.popover(f"Actions for {client['full_name']}"):
                             st.write(f"Choose next step for **{client['full_name']}**:")
-                            if st.button("📏 Update Measurements", key=f"pop_m_{client['id']}", use_container_width=True):
+                            if st.button("Update Measurements", key=f"pop_m_{client['id']}", use_container_width=True):
                                 st.session_state.active_client_id = client['id']
                                 navigate("New Measurement")
                                 st.rerun()
-                            if st.button("➕ Proceed to Direct Billing (New Order)", key=f"pop_o_{client['id']}", use_container_width=True):
+                            if st.button("Proceed to Direct Billing (New Order)", key=f"pop_o_{client['id']}", use_container_width=True):
                                 st.session_state.active_client_id = client['id']
                                 navigate("New Order")
                                 st.rerun()
                     with c_del:
-                        if st.button("🗑️", key=f"db_del_{client['id']}", use_container_width=True):
+                        if st.button("Delete", key=f"db_del_{client['id']}", use_container_width=True):
                             st.session_state.delete_target_client = client['id']
                     
                     if st.session_state.delete_target_client == client['id']:
