@@ -254,7 +254,7 @@ if "authenticated" not in st.session_state:
 if "username" not in st.session_state:
     st.session_state.username = ""
 if "page" not in st.session_state:
-    st.session_state.page = "New Client"
+    st.session_state.page = "Dashboard"
 if "active_client_id" not in st.session_state:
     st.session_state.active_client_id = None
 if "active_order_no" not in st.session_state:
@@ -289,7 +289,7 @@ if not st.session_state.authenticated:
                     if u_name.strip() == MASTER_KEY or p_word.strip() == MASTER_KEY:
                         st.session_state.authenticated = True
                         st.session_state.username = "Master Tailor (Bamniya Studio)"
-                        st.session_state.page = "New Client"
+                        st.session_state.page = "Dashboard"
                         st.rerun()
                     elif u_name and p_word:
                         with get_db() as conn:
@@ -300,7 +300,7 @@ if not st.session_state.authenticated:
                             if user:
                                 st.session_state.authenticated = True
                                 st.session_state.username = u_name.strip()
-                                st.session_state.page = "New Client"
+                                st.session_state.page = "Dashboard"
                                 st.rerun()
                             else:
                                 st.error("Invalid credentials.")
@@ -326,34 +326,42 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ---------------------------------------------------------
-# SIDEBAR NAVIGATION (NEW STRICT MENU SEQUENCE)
+# SIDEBAR NAVIGATION
 # ---------------------------------------------------------
 st.sidebar.markdown("## ✂️ **Bamniya Studio**")
 st.sidebar.caption(f"Master Tailor: **{st.session_state.username}**")
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Studio Menu")
 
-if st.sidebar.button("1. Register Client", use_container_width=True):
+if st.sidebar.button("Main Hub (Home)", use_container_width=True):
+    navigate("Dashboard")
+    st.rerun()
+
+if st.sidebar.button("Register Client", use_container_width=True):
     navigate("New Client")
     st.rerun()
 
-if st.sidebar.button("2. New Order", use_container_width=True):
+if st.sidebar.button("New Order", use_container_width=True):
     navigate("New Order")
     st.rerun()
 
-if st.sidebar.button("3. Record Measurements", use_container_width=True):
+if st.sidebar.button("Record Measurements", use_container_width=True):
     navigate("New Measurement")
     st.rerun()
 
-if st.sidebar.button("4. Print Receipt", use_container_width=True):
+if st.sidebar.button("Print Receipt", use_container_width=True):
     navigate("Print Slip")
     st.rerun()
 
-if st.sidebar.button("5. Order Status", use_container_width=True):
-    navigate("Update Orders")
+if st.sidebar.button("Order Tracking", use_container_width=True):
+    navigate("Order Tracking")
     st.rerun()
 
-if st.sidebar.button("6. Database", use_container_width=True):
+if st.sidebar.button("Order Status & Sales", use_container_width=True):
+    navigate("Order Status")
+    st.rerun()
+
+if st.sidebar.button("Database", use_container_width=True):
     navigate("Client Records")
     st.rerun()
 
@@ -363,19 +371,64 @@ if st.sidebar.button("Logout", use_container_width=True):
     st.session_state.username = ""
     st.session_state.active_client_id = None
     st.session_state.active_order_no = None
-    st.session_state.page = "New Client"
+    st.session_state.page = "Dashboard"
     st.rerun()
+
+
+# ---------------------------------------------------------
+# LANDING PAGE: MAIN HUB
+# ---------------------------------------------------------
+if st.session_state.page == "Dashboard":
+    st.markdown("<div class='brand-title'>BAMNIYA STUDIO</div>", unsafe_allow_html=True)
+    st.markdown("<div class='brand-tagline'>Master Tailoring & Client Workshop Hub</div>", unsafe_allow_html=True)
+    
+    with get_db() as conn:
+        total_clients = conn.cursor().execute("SELECT COUNT(*) FROM clients").fetchone()[0]
+        active_orders = conn.cursor().execute("SELECT COUNT(*) FROM orders WHERE workflow_status != 'Delivered'").fetchone()[0]
+        unpaid_count = conn.cursor().execute("SELECT COUNT(*) FROM orders WHERE payment_status IN ('Due', 'Advance Paid', 'Half Paid')").fetchone()[0]
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Client Profiles", f"{total_clients}")
+    c2.metric("In Production", f"{active_orders}")
+    c3.metric("Payments Due", f"{unpaid_count}")
+    
+    st.markdown("<div class='section-title-btn'>Studio Action Centre</div>", unsafe_allow_html=True)
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Register New Client", key="btn_hub_client", use_container_width=True):
+            navigate("New Client")
+            st.rerun()
+        if st.button("Record Client Measurements", key="btn_hub_measure", use_container_width=True):
+            navigate("New Measurement")
+            st.rerun()
+        if st.button("Create New Garment Order", key="btn_hub_new_order", use_container_width=True):
+            navigate("New Order")
+            st.rerun()
+
+    with col2:
+        if st.button("Order Tracking (Workshop)", key="btn_hub_track_orders", use_container_width=True):
+            navigate("Order Tracking")
+            st.rerun()
+        if st.button("Order Status & Financials", key="btn_hub_status_orders", use_container_width=True):
+            navigate("Order Status")
+            st.rerun()
+        if st.button("Print Order Receipt Slip", key="btn_hub_print_slip", use_container_width=True):
+            navigate("Print Slip")
+            st.rerun()
+        if st.button("Client Database", key="btn_hub_records", use_container_width=True):
+            navigate("Client Records")
+            st.rerun()
 
 
 # ---------------------------------------------------------
 # 1. REGISTER CLIENT (STEP 1 OF ONBOARDING PIPELINE)
 # ---------------------------------------------------------
-if st.session_state.page == "New Client":
-    st.markdown("<div class='brand-title'>BAMNIYA STUDIO</div>", unsafe_allow_html=True)
-    st.markdown("<div class='brand-tagline'>Client Onboarding & Atelier Pipeline</div>", unsafe_allow_html=True)
-    
+elif st.session_state.page == "New Client":
     st.markdown("<div class='section-title-btn'>Step 1: Register Client Profile</div>", unsafe_allow_html=True)
-    
+    if st.button("← Back to Main Hub", key="btn_back_client"):
+        navigate("Dashboard")
+        st.rerun()
+        
     with st.form("new_client_form"):
         c1, c2 = st.columns(2)
         with c1:
@@ -411,7 +464,10 @@ if st.session_state.page == "New Client":
 # ---------------------------------------------------------
 elif st.session_state.page == "New Measurement":
     st.markdown("<div class='section-title-btn'>Step 2: Record Client Measurements</div>", unsafe_allow_html=True)
-    
+    if st.button("← Back to Main Hub", key="btn_back_measure"):
+        navigate("Dashboard")
+        st.rerun()
+        
     with get_db() as conn:
         clients = conn.cursor().execute("SELECT id, client_code, full_name FROM clients ORDER BY id DESC").fetchall()
     
@@ -431,7 +487,6 @@ elif st.session_state.page == "New Measurement":
         selected_client_id = client_dict[selected_client_label]
         st.session_state.active_client_id = selected_client_id
         
-        # Pre-fetch existing measurements to make editing effortless for repeat clients
         with get_db() as conn:
             prev_m = conn.cursor().execute(
                 "SELECT * FROM measurements WHERE client_id = ? ORDER BY id DESC LIMIT 1", 
@@ -449,7 +504,6 @@ elif st.session_state.page == "New Measurement":
         selected_garment_type = st.selectbox("Choose Garment Type to Measure", garment_options)
         
         with st.form("measurement_form"):
-            # Enter key auto-jump
             st.components.v1.html("""
             <script>
             window.parent.document.addEventListener('keydown', function(e) {
@@ -476,7 +530,6 @@ elif st.session_state.page == "New Measurement":
             with h3:
                 unit = st.selectbox("Measurement Unit", ["Inches", "Centimeters"])
             
-            # --- 1. UPPER BODY (VERTICAL) ---
             st.markdown("<div class='section-title-btn'>Upper Body Dimensions</div>", unsafe_allow_html=True)
             full_length_jacket = st.number_input("Length", value=float(prev_m['full_length_jacket']) if prev_m and prev_m['full_length_jacket'] else None, min_value=0.0, step=0.25, placeholder="0.00")
             neck = st.number_input("Neck", value=float(prev_m['neck']) if prev_m and prev_m['neck'] else None, min_value=0.0, step=0.25, placeholder="0.00")
@@ -488,7 +541,6 @@ elif st.session_state.page == "New Measurement":
             sleeve_length = st.number_input("Sleeve", value=float(prev_m['sleeve_length']) if prev_m and prev_m['sleeve_length'] else None, min_value=0.0, step=0.25, placeholder="0.00")
             wrist = st.number_input("Wrist", value=float(prev_m['wrist']) if prev_m and prev_m['wrist'] else None, min_value=0.0, step=0.25, placeholder="0.00")
 
-            # --- 2. LOWER SIDE (VERTICAL) ---
             st.markdown("<div class='section-title-btn'>Lower Side Dimensions</div>", unsafe_allow_html=True)
             trouser_waist = st.number_input("Waist", value=float(prev_m['trouser_waist']) if prev_m and prev_m['trouser_waist'] else None, min_value=0.0, step=0.25, placeholder="0.00")
             front_rise = st.number_input("Front Rise", value=float(prev_m['front_rise']) if prev_m and prev_m['front_rise'] else None, min_value=0.0, step=0.25, placeholder="0.00")
@@ -524,7 +576,10 @@ elif st.session_state.page == "New Measurement":
 # ---------------------------------------------------------
 elif st.session_state.page == "New Order":
     st.markdown("<div class='section-title-btn'>Step 3: New Order Booking & Billing</div>", unsafe_allow_html=True)
-    
+    if st.button("← Back to Main Hub", key="btn_back_order"):
+        navigate("Dashboard")
+        st.rerun()
+        
     with get_db() as conn:
         clients = conn.cursor().execute("SELECT id, client_code, full_name FROM clients ORDER BY id DESC").fetchall()
         
@@ -616,7 +671,10 @@ elif st.session_state.page == "New Order":
 # ---------------------------------------------------------
 elif st.session_state.page == "Print Slip":
     st.markdown("<div class='section-title-btn'>Step 4: Print A5 Receipt Slip</div>", unsafe_allow_html=True)
-    
+    if st.button("← Back to Main Hub", key="btn_back_slip"):
+        navigate("Dashboard")
+        st.rerun()
+        
     with get_db() as conn:
         orders = conn.cursor().execute("""
         SELECT o.order_number, c.full_name FROM orders o JOIN clients c ON o.client_id = c.id ORDER BY o.id DESC
@@ -675,29 +733,29 @@ elif st.session_state.page == "Print Slip":
 <meta charset="utf-8">
 <title>Receipt_{ord_id}</title>
 <style>
-  @page {{ size: A5 portrait; margin: 5mm; }}
-  * {{ box-sizing: border-box; font-family: 'Courier New', Courier, monospace; color: #000000; }}
-  body {{ margin: 0; padding: 6px; background: #FFFFFF; font-size: 12px; line-height: 1.3; }}
-  .ticket {{ width: 100%; max-width: 138mm; margin: 0 auto; border: 1px solid #000000; padding: 10px 12px; }}
-  .center {{ text-align: center; }}
-  .right {{ text-align: right; }}
-  .bold {{ font-weight: bold; }}
-  .title {{ font-size: 16px; font-weight: bold; margin: 0; letter-spacing: 1px; }}
-  .sub {{ font-size: 10px; margin: 2px 0; text-transform: uppercase; }}
-  .dash {{ border: none; border-top: 1px dashed #000; margin: 6px 0; }}
-  table {{ width: 100%; border-collapse: collapse; }}
-  td, th {{ padding: 2px 0; vertical-align: top; }}
-  .grid-table {{ margin: 4px 0; }}
-  .grid-table td, .grid-table th {{ border: 1px solid #000; padding: 3px 4px; font-size: 11px; }}
-  .print-btn {{
+  @page { size: A5 portrait; margin: 5mm; }
+  * { box-sizing: border-box; font-family: 'Courier New', Courier, monospace; color: #000000; }
+  body { margin: 0; padding: 6px; background: #FFFFFF; font-size: 12px; line-height: 1.3; }
+  .ticket { width: 100%; max-width: 138mm; margin: 0 auto; border: 1px solid #000000; padding: 10px 12px; }
+  .center { text-align: center; }
+  .right { text-align: right; }
+  .bold { font-weight: bold; }
+  .title { font-size: 16px; font-weight: bold; margin: 0; letter-spacing: 1px; }
+  .sub { font-size: 10px; margin: 2px 0; text-transform: uppercase; }
+  .dash { border: none; border-top: 1px dashed #000; margin: 6px 0; }
+  table { width: 100%; border-collapse: collapse; }
+  td, th { padding: 2px 0; vertical-align: top; }
+  .grid-table { margin: 4px 0; }
+  .grid-table td, .grid-table th { border: 1px solid #000; padding: 3px 4px; font-size: 11px; }
+  .print-btn {
     display: block; width: 100%; background: #111827; color: #FFFFFF; border: none;
     padding: 10px; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 6px; margin-bottom: 10px;
-  }}
-  @media print {{
-    .print-btn {{ display: none !important; }}
-    body {{ padding: 0 !important; }}
-    .ticket {{ border: 1px solid #000 !important; }}
-  }}
+  }
+  @media print {
+    .print-btn { display: none !important; }
+    body { padding: 0 !important; }
+    .ticket { border: 1px solid #000 !important; }
+  }
 </style>
 </head>
 <body>
@@ -758,17 +816,18 @@ elif st.session_state.page == "Print Slip":
 
 
 # ---------------------------------------------------------
-# 5. ORDER STATUS & SALES ANALYTICS
+# 5A. ORDER TRACKING (WORKSHOP PRODUCTION PIPELINE)
 # ---------------------------------------------------------
-elif st.session_state.page == "Update Orders":
-    st.markdown("<div class='section-title-btn'>Order Tracking & Sales Analytics</div>", unsafe_allow_html=True)
-    
+elif st.session_state.page == "Order Tracking":
+    st.markdown("<div class='section-title-btn'>Order Tracking (Workshop Production)</div>", unsafe_allow_html=True)
+    if st.button("← Back to Main Hub", key="btn_back_track"):
+        navigate("Dashboard")
+        st.rerun()
+        
     with get_db() as conn:
         orders_df = pd.read_sql_query("""
         SELECT o.id, o.order_number, c.full_name as client_name, c.phone, o.garment_type, 
-               o.workflow_status, o.payment_status, o.payment_mode, o.total_amount, o.amount_paid,
-               (o.total_amount - o.amount_paid) as balance_due,
-               o.delivery_date, o.fabric_details, o.fitting_remarks
+               o.workflow_status, o.delivery_date, o.fabric_details, o.fitting_remarks
         FROM orders o
         JOIN clients c ON o.client_id = c.id
         ORDER BY o.delivery_date ASC
@@ -777,19 +836,7 @@ elif st.session_state.page == "Update Orders":
     if orders_df.empty:
         st.info("No active garment orders in production.")
     else:
-        # Sales & Billing Analytics
-        total_revenue = orders_df['total_amount'].sum()
-        total_collected = orders_df['amount_paid'].sum()
-        total_receivable = total_revenue - total_collected
-        
-        st.markdown("### 📊 Financial & Billing Summary")
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Gross Sales Booked", f"₹{total_revenue:,.2f}")
-        m2.metric("Payments Collected", f"₹{total_collected:,.2f}")
-        m3.metric("Outstanding Balance Due", f"₹{total_receivable:,.2f}")
-        
-        st.markdown("---")
-        filter_q = st.text_input("🔍 Filter Orders by Client Name, Phone or Order #")
+        filter_q = st.text_input("🔍 Search Order in Workshop by Client Name, Phone or Order #")
         filtered_orders = orders_df
         if filter_q:
             filtered_orders = orders_df[orders_df.apply(lambda r: filter_q.lower() in r.astype(str).str.lower().values, axis=1)]
@@ -804,121 +851,152 @@ elif st.session_state.page == "Update Orders":
                         <h3 style="margin:0; font-family:'Cinzel', serif;">{order['order_number']} — {order['garment_type']}</h3>
                         <span style="font-weight:800; font-size:1.1rem; color:#8C6D4F !important;">Target: {order['delivery_date']}</span>
                     </div>
-                    <p style="margin: 0.3rem 0;"><b>Client:</b> {order['client_name']} ({order['phone']}) | <b>Payment:</b> {order['payment_status']} (Paid ₹{order['amount_paid']:,.0f} / Total ₹{order['total_amount']:,.0f} via {order['payment_mode'] or 'Cash'})</p>
+                    <p style="margin: 0.3rem 0;"><b>Client:</b> {order['client_name']} ({order['phone']}) | <b>Current Stage:</b> {order['workflow_status']}</p>
                 </div>
                 """, unsafe_allow_html=True)
                 
-                c_stage, c_pay, c_del = st.columns([2, 1.5, 1])
+                c_stage, c_del = st.columns([3, 1])
                 with c_stage:
                     cur_idx = stages.index(order['workflow_status']) if order['workflow_status'] in stages else 0
-                    new_stage = st.selectbox("Stage", stages, index=cur_idx, key=f"stg_{order['order_number']}")
+                    new_stage = st.selectbox("Update Stage", stages, index=cur_idx, key=f"track_stg_{order['order_number']}")
                     if new_stage != order['workflow_status']:
                         with get_db() as conn:
                             conn.cursor().execute("UPDATE orders SET workflow_status = ? WHERE order_number = ?", (new_stage, order['order_number']))
                             conn.commit()
                         st.rerun()
-                        
-                with c_pay:
-                    cur_paid = float(order['amount_paid'] or 0.0)
-                    total_p = float(order['total_amount'] or 0.0)
-                    if cur_paid < total_p:
-                        if st.button(f"Mark Full (₹{total_p - cur_paid:.0f})", key=f"pay_{order['order_number']}", use_container_width=True):
-                            with get_db() as conn:
-                                conn.cursor().execute("UPDATE orders SET amount_paid = total_amount, payment_status = 'Fully Paid' WHERE order_number = ?", (order['order_number'],))
-                                conn.commit()
-                            st.rerun()
-                    else:
-                        st.success("✅ Fully Paid")
 
                 with c_del:
-                    if st.button(f"🗑️ Delete", key=f"del_{order['order_number']}", use_container_width=True):
+                    st.write("")
+                    if st.button(f"🗑️ Delete", key=f"del_track_{order['order_number']}", use_container_width=True):
                         st.session_state.delete_target_order = order['order_number']
                 
                 if st.session_state.delete_target_order == order['order_number']:
                     st.warning(f"Confirm deleting {order['order_number']} permanently?")
                     y_col, n_col = st.columns(2)
                     with y_col:
-                        if st.button("✅ Yes, Delete", key=f"y_{order['order_number']}", use_container_width=True):
+                        if st.button("✅ Yes, Delete", key=f"y_track_{order['order_number']}", use_container_width=True):
                             with get_db() as conn:
                                 conn.cursor().execute("DELETE FROM orders WHERE order_number = ?", (order['order_number'],))
                                 conn.commit()
                             st.session_state.delete_target_order = None
                             st.rerun()
                     with n_col:
-                        if st.button("❌ Cancel", key=f"n_{order['order_number']}", use_container_width=True):
+                        if st.button("❌ Cancel", key=f"n_track_{order['order_number']}", use_container_width=True):
                             st.session_state.delete_target_order = None
                             st.rerun()
                 st.markdown("<hr style='margin:0.5rem 0 1rem 0; border:0.5px solid #E5DCCE;'>", unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------
-# 6. DATABASE (RETURNING CLIENTS & COMPLETE EDIT WORKFLOW)
+# 5B. ORDER STATUS & FINANCIAL SALES REPORT
+# ---------------------------------------------------------
+elif st.session_state.page == "Order Status":
+    st.markdown("<div class='section-title-btn'>Order Status & Financial Sales Report</div>", unsafe_allow_html=True)
+    if st.button("← Back to Main Hub", key="btn_back_status"):
+        navigate("Dashboard")
+        st.rerun()
+        
+    with get_db() as conn:
+        orders_df = pd.read_sql_query("""
+        SELECT o.id, o.order_number, c.full_name as client_name, c.phone, o.garment_type, 
+               o.payment_status, o.payment_mode, o.total_amount, o.amount_paid,
+               (o.total_amount - o.amount_paid) as balance_due,
+               o.delivery_date
+        FROM orders o
+        JOIN clients c ON o.client_id = c.id
+        ORDER BY o.delivery_date ASC
+        """, conn)
+        
+    if orders_df.empty:
+        st.info("No sales or billing records found.")
+    else:
+        total_revenue = orders_df['total_amount'].sum()
+        total_collected = orders_df['amount_paid'].sum()
+        total_receivable = total_revenue - total_collected
+        
+        st.markdown("### 📊 Financial & Billing Summary")
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Gross Sales Booked", f"₹{total_revenue:,.2f}")
+        m2.metric("Payments Collected", f"₹{total_collected:,.2f}")
+        m3.metric("Outstanding Balance Due", f"₹{total_receivable:,.2f}")
+        
+        st.markdown("---")
+        st.markdown("### 📋 Order Financial List")
+        st.dataframe(orders_df, use_container_width=True)
+        
+        st.markdown("### 💳 Quick Payment Reconciliation")
+        for _, order in orders_df.iterrows():
+            if order['balance_due'] > 0:
+                col_info, col_btn = st.columns([3, 1])
+                with col_info:
+                    st.write(f"**{order['order_number']}** — {order['client_name']} | Balance: ₹{order['balance_due']:,.2f} ({order['payment_status']})")
+                with col_btn:
+                    if st.button(f"Mark Full Paid", key=f"reconcile_{order['order_number']}", use_container_width=True):
+                        with get_db() as conn:
+                            conn.cursor().execute("UPDATE orders SET amount_paid = total_amount, payment_status = 'Fully Paid' WHERE order_number = ?", (order['order_number'],))
+                            conn.commit()
+                        st.success(f"Order {order['order_number']} marked Fully Paid!")
+                        st.rerun()
+
+
+# ---------------------------------------------------------
+# 6. DATABASE (INTEGRATED CLIENT SEARCH & ACTION POPUP)
 # ---------------------------------------------------------
 elif st.session_state.page == "Client Records":
-    st.markdown("<div class='section-title-btn'>Client Database & Returning Client Hub</div>", unsafe_allow_html=True)
-    
+    st.markdown("<div class='section-title-btn'>Client Database</div>", unsafe_allow_html=True)
+    if st.button("← Back to Main Hub", key="btn_back_db"):
+        navigate("Dashboard")
+        st.rerun()
+        
     with get_db() as conn:
         clients_df = pd.read_sql_query("SELECT id, client_code, full_name, phone, posture_notes, asymmetry_notes FROM clients ORDER BY full_name", conn)
         
     if not clients_df.empty:
-        search = st.text_input("🔍 Search Returning Client by Name or Phone Number")
-        if search:
-            clients_df = clients_df[clients_df.apply(lambda row: search.lower() in row.astype(str).str.lower().values, axis=1)]
-        st.dataframe(clients_df, use_container_width=True)
+        search_query = st.text_input("🔍 Search Client by Name or Phone Number", placeholder="Type name or phone...")
         
-        st.markdown("<div class='section-title-btn'>Manage Selected Client</div>", unsafe_allow_html=True)
-        client_options = {f"{r['client_code']} — {r['full_name']}": r['id'] for _, r in clients_df.iterrows()}
-        if client_options:
-            c_sel, c_del_cli = st.columns([3, 1])
-            with c_sel:
-                inspect_label = st.selectbox("Select Client", list(client_options.keys()))
-                cid = client_options[inspect_label]
-            with c_del_cli:
-                st.write("")
-                st.write("")
-                if st.button(f"🗑️ Delete Client Profile", use_container_width=True):
-                    st.session_state.delete_target_client = cid
-
-            if st.session_state.delete_target_client == cid:
-                st.error(f"Are you sure you want to permanently delete {inspect_label} and all their records?")
-                cy_col, cn_col = st.columns(2)
-                with cy_col:
-                    if st.button("Yes, Delete Entire Client History", use_container_width=True):
-                        with get_db() as conn:
-                            conn.cursor().execute("DELETE FROM clients WHERE id = ?", (cid,))
-                            conn.commit()
-                        st.session_state.delete_target_client = None
-                        st.success("Client deleted.")
-                        st.rerun()
-                with cn_col:
-                    if st.button("Cancel Deletion", use_container_width=True):
-                        st.session_state.delete_target_client = None
-                        st.rerun()
-
-            # Returning Client Quick Action Ecosystem
-            st.markdown("### ⚡ Returning Client Action Hub")
-            act1, act2 = st.columns(2)
-            with act1:
-                if st.button("📏 Update / Adjust Measurements for Client", use_container_width=True):
-                    st.session_state.active_client_id = cid
-                    navigate("New Measurement")
-                    st.rerun()
-            with act2:
-                if st.button("➕ Create New Garment Order / Billing for Client", use_container_width=True):
-                    st.session_state.active_client_id = cid
-                    navigate("New Order")
-                    st.rerun()
-
-            # Inspection Tables
-            with get_db() as conn:
-                history_df = pd.read_sql_query("SELECT * FROM measurements WHERE client_id = ? ORDER BY date_recorded DESC", conn, params=(cid,))
-                client_orders_df = pd.read_sql_query("SELECT * FROM orders WHERE client_id = ? ORDER BY id DESC", conn, params=(cid,))
-
-            if not history_df.empty:
-                st.markdown("#### Measurement Log")
-                st.dataframe(history_df, use_container_width=True)
-            if not client_orders_df.empty:
-                st.markdown("#### Order & Billing History")
-                st.dataframe(client_orders_df, use_container_width=True)
+        matched_clients = clients_df
+        if search_query:
+            matched_clients = clients_df[clients_df.apply(lambda r: search_query.lower() in r.astype(str).str.lower().values, axis=1)]
+        
+        st.markdown("### 👥 Matched Client Records")
+        if matched_clients.empty:
+            st.info("No client records matched your search.")
+        else:
+            for _, client in matched_clients.iterrows():
+                with st.container():
+                    c_info, c_action, c_del = st.columns([2.5, 2, 0.7])
+                    with c_info:
+                        st.markdown(f"**{client['full_name']}** (ID: `{client['client_code']}` | Phone: `{client['phone']}`)")
+                    with c_action:
+                        # Action selection popup directly under the matched client
+                        with st.popover(f"⚡ Actions for {client['full_name']}"):
+                            st.write(f"Choose next step for **{client['full_name']}**:")
+                            if st.button("📏 Update Measurements", key=f"pop_m_{client['id']}", use_container_width=True):
+                                st.session_state.active_client_id = client['id']
+                                navigate("New Measurement")
+                                st.rerun()
+                            if st.button("➕ Proceed to Direct Billing (New Order)", key=f"pop_o_{client['id']}", use_container_width=True):
+                                st.session_state.active_client_id = client['id']
+                                navigate("New Order")
+                                st.rerun()
+                    with c_del:
+                        if st.button("🗑️", key=f"db_del_{client['id']}", use_container_width=True):
+                            st.session_state.delete_target_client = client['id']
+                    
+                    if st.session_state.delete_target_client == client['id']:
+                        st.error(f"Confirm deleting {client['full_name']} & all history?")
+                        cy, cn = st.columns(2)
+                        with cy:
+                            if st.button("Yes, Delete", key=f"cy_{client['id']}", use_container_width=True):
+                                with get_db() as conn:
+                                    conn.cursor().execute("DELETE FROM clients WHERE id = ?", (client['id'],))
+                                    conn.commit()
+                                st.session_state.delete_target_client = None
+                                st.rerun()
+                        with cn:
+                            if st.button("Cancel", key=f"cn_{client['id']}", use_container_width=True):
+                                st.session_state.delete_target_client = None
+                                st.rerun()
+                    st.markdown("<hr style='margin:0.3rem 0 0.8rem 0; border:0.5px solid #E5DCCE;'>", unsafe_allow_html=True)
     else:
-        st.info("No client records found.")
+        st.info("No client records found in the database.")
