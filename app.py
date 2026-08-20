@@ -498,10 +498,21 @@ elif st.session_state.page == "New Client":
         navigate("Dashboard")
         st.rerun()
         
-    # Auto-generate serial ID starting from 001
+    # Strict continuation from the highest registered client ID (001, 002, 003...)
     with get_db() as conn:
-        max_id_row = conn.cursor().execute("SELECT MAX(id) FROM clients").fetchone()
-        next_num = (max_id_row[0] or 0) + 1
+        cur = conn.cursor()
+        cur.execute("SELECT client_code FROM clients")
+        rows = cur.fetchall()
+        
+        highest_num = 0
+        for r in rows:
+            code_str = str(r[0]).strip() if r[0] else ""
+            if code_str.isdigit():
+                val = int(code_str)
+                if val > highest_num:
+                    highest_num = val
+                    
+        next_num = highest_num + 1
         default_client_code = f"{next_num:03d}"
         
     with st.form("new_client_form"):
@@ -531,8 +542,7 @@ elif st.session_state.page == "New Client":
                 navigate("New Measurement")
                 st.rerun()
             except sqlite3.IntegrityError:
-                st.error("Client ID or Phone already exists.")
-
+                st.error("Client ID or Phone already exists. Please choose a different ID.")
 
 # ---------------------------------------------------------
 # 2. RECORD MEASUREMENTS (STEP 2 OF ONBOARDING PIPELINE)
