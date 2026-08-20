@@ -378,7 +378,7 @@ if not st.session_state.authenticated:
         if auth_tab == "Sign In":
             with st.form("signin_form"):
                 st.subheader("Studio Sign In")
-                u_name = st.text_input("Username / Master Key", type="password")
+                u_name = st.text_input("Username ", type="password")
                 p_word = st.text_input("Password", type="password")
                 btn_login = st.form_submit_button("Sign In to Studio Hub", use_container_width=True)
                 if btn_login:
