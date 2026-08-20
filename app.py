@@ -14,7 +14,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Global Enter-Key Navigation Script across all input boxes & forms
+# Global Enter-Key Navigation & Auto-Submit Engine
 st.components.v1.html("""
 <script>
 (function() {
@@ -29,39 +29,56 @@ st.components.v1.html("""
     function handleGlobalKeyDown(e) {
         if (e.key !== 'Enter') return;
         
-        const active = window.parent.document.activeElement;
+        const doc = window.parent.document;
+        const active = doc.activeElement;
         if (!active) return;
-        
+
+        // If user is on Receipt page and hits enter, trigger print
+        const printBtn = doc.querySelector('iframe')?.contentDocument?.querySelector('.print-btn') || doc.querySelector('.print-btn');
+        if (printBtn && active.tagName === 'BODY') {
+            printBtn.click();
+            return;
+        }
+
         const isInput = active.tagName === 'INPUT' && !['submit', 'button', 'checkbox', 'radio'].includes(active.type);
         const isTextArea = active.tagName === 'TEXTAREA';
         
         if (isInput || isTextArea) {
+            // Allow shift+enter inside textareas for explicit multi-line
             if (isTextArea && e.shiftKey) return;
             
-            const selector = 'input:not([type="hidden"]):not([disabled]):not([type="submit"]):not([type="button"]), textarea:not([disabled])';
-            const allElements = Array.from(window.parent.document.querySelectorAll(selector));
-            
-            const visibleInputs = allElements.filter(el => {
-                const rect = el.getBoundingClientRect();
-                return rect.width > 0 && rect.height > 0 && window.getComputedStyle(el).visibility !== 'hidden';
-            });
-            
-            const currentIndex = visibleInputs.indexOf(active);
-            if (currentIndex > -1 && currentIndex < visibleInputs.length - 1) {
-                e.preventDefault();
-                e.stopPropagation();
+            const currentForm = active.closest('form');
+            if (currentForm) {
+                const selector = 'input:not([type="hidden"]):not([disabled]):not([type="submit"]):not([type="button"]), textarea:not([disabled])';
+                const formInputs = Array.from(currentForm.querySelectorAll(selector)).filter(el => {
+                    const rect = el.getBoundingClientRect();
+                    return rect.width > 0 && rect.height > 0 && window.getComputedStyle(el).visibility !== 'hidden';
+                });
                 
-                const nextInput = visibleInputs[currentIndex + 1];
-                nextInput.focus();
-                if (nextInput.select) {
-                    nextInput.select();
+                const currentIndex = formInputs.indexOf(active);
+                
+                // If there are more inputs inside current form, jump to the next input
+                if (currentIndex > -1 && currentIndex < formInputs.length - 1) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const nextInput = formInputs[currentIndex + 1];
+                    nextInput.focus();
+                    if (nextInput.select) nextInput.select();
+                } else if (currentIndex === formInputs.length - 1) {
+                    // Last input in form: Automatically click the Form Submit Button
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const submitBtn = currentForm.querySelector('button[kind="primaryFormSubmit"], button[type="submit"]');
+                    if (submitBtn) {
+                        submitBtn.click();
+                    }
                 }
             }
         }
     }
 
     setTimeout(setupEnterNavigation, 300);
-    setInterval(setupEnterNavigation, 1500);
+    setInterval(setupEnterNavigation, 1200);
 })();
 </script>
 """, height=0, width=0)
@@ -461,7 +478,7 @@ if st.session_state.page == "Dashboard":
         if st.button("Order Tracking (Workshop)", key="btn_hub_track_orders", use_container_width=True):
             navigate("Order Tracking")
             st.rerun()
-        if st.button("Financials", key="btn_hub_status_orders", use_container_width=True):
+        if st.button("Order Status & Financials", key="btn_hub_status_orders", use_container_width=True):
             navigate("Order Status")
             st.rerun()
         if st.button("Print Order Receipt Slip", key="btn_hub_print_slip", use_container_width=True):
@@ -492,7 +509,7 @@ elif st.session_state.page == "New Client":
             posture_notes = st.text_area("Posture Observations", placeholder="e.g., Erect stance, forward sloping shoulders...")
             asymmetry_notes = st.text_area("Asymmetry Notes", placeholder="e.g., Right shoulder 0.5 in lower...")
         
-        submitted = st.form_submit_button("Save & Proceed to Measurements →", use_container_width=True)
+        submitted = st.form_submit_button("Save & Proceed to Measurements → (Press Enter)", use_container_width=True)
         if submitted and client_code and full_name and phone:
             try:
                 with get_db() as conn:
@@ -581,7 +598,7 @@ elif st.session_state.page == "New Measurement":
             bottom_opening = st.number_input("Bottom Opening", value=float(prev_m['bottom_opening']) if prev_m and prev_m['bottom_opening'] else None, min_value=0.0, step=0.25, placeholder="0.00")
 
             m_notes = st.text_area("Measurement Session & Fit Notes", value=str(prev_m['notes'] or "") if prev_m else "", placeholder="e.g., Slim tapering requested...")
-            save_m = st.form_submit_button("Save & Proceed to Order / Billing →", use_container_width=True)
+            save_m = st.form_submit_button("Save & Proceed to Order / Billing → (Press Enter)", use_container_width=True)
             if save_m:
                 with get_db() as conn:
                     conn.cursor().execute("""
@@ -689,7 +706,7 @@ elif st.session_state.page == "New Order":
                 fabric_details = st.text_area("Fabric Specifications & Mill Details", placeholder="e.g., Pure Silk, Worsted Wool...")
                 remarks = st.text_area("Specific Cutting / Fitting Requirements")
                 
-                place_order = st.form_submit_button("Submit Order & Generate Receipt →", use_container_width=True)
+                place_order = st.form_submit_button("Submit Order & Generate Receipt → (Press Enter)", use_container_width=True)
                 if place_order:
                     with get_db() as conn:
                         conn.cursor().execute("""
@@ -709,7 +726,7 @@ elif st.session_state.page == "New Order":
 
 
 # ---------------------------------------------------------
-# 4. PRINT RECEIPT (STEP 4 OF PIPELINE)
+# 4. PRINT RECEIPT (STEP 4: DISTINGUISHED UPPER / LOWER TABLE)
 # ---------------------------------------------------------
 elif st.session_state.page == "Print Slip":
     st.markdown("<div class='section-title-btn'>Step 4: Print A5 Receipt Slip</div>", unsafe_allow_html=True)
@@ -769,58 +786,100 @@ elif st.session_state.page == "Print Slip":
             pay_stat = str(slip_data['payment_status'])
             unit = str(slip_data['unit'])
 
-            m_len = str(slip_data['full_length_jacket'] or '-')
-            m_neck = str(slip_data['neck'] or '-')
-            m_shld = str(slip_data['cross_shoulder'] or '-')
-            m_chest = str(slip_data['chest_full'] or '-')
-            m_stom = str(slip_data['waist_stomach'] or '-')
-            m_armh = str(slip_data['armhole'] or '-')
-            m_slv = str(slip_data['sleeve_length'] or '-')
-            m_waist = str(slip_data['trouser_waist'] or '-')
-            m_frise = str(slip_data['front_rise'] or '-')
-            m_crotch = str(slip_data['crotch_depth'] or '-')
-            m_hip = str(slip_data['seat_hip'] or '-')
-            m_thigh = str(slip_data['thigh'] or '-')
-            m_bot = str(slip_data['bottom_opening'] or '-')
-            m_wrst = str(slip_data['wrist'] or '-')
+            # Upper Body Dimensions (Left Side Column)
+            up_len = str(slip_data['full_length_jacket'] or '-')
+            up_neck = str(slip_data['neck'] or '-')
+            up_shld = str(slip_data['cross_shoulder'] or '-')
+            up_chest = str(slip_data['chest_full'] or '-')
+            up_stom = str(slip_data['waist_stomach'] or '-')
+            up_hip = str(slip_data['seat_hip'] or '-')
+            up_armh = str(slip_data['armhole'] or '-')
+            up_slv = str(slip_data['sleeve_length'] or '-')
+            up_wrst = str(slip_data['wrist'] or '-')
 
+            # Lower Side Dimensions (Right Side Column)
+            lw_waist = str(slip_data['trouser_waist'] or '-')
+            lw_frise = str(slip_data['front_rise'] or '-')
+            lw_crotch = str(slip_data['crotch_depth'] or '-')
+            lw_seat = str(slip_data['seat_hip'] or '-')
+            lw_thigh = str(slip_data['thigh'] or '-')
+            lw_bot = str(slip_data['bottom_opening'] or '-')
+
+            # Clear distinguished Left (Upper) vs Right (Lower) Grid HTML
             receipt_html_parts = [
                 "<!DOCTYPE html><html><head><meta charset='utf-8'>",
                 "<title>Receipt_" + ord_id + "</title>",
+                "<style>",
+                "@page { size: A5 portrait; margin: 5mm; }",
+                "* { box-sizing: border-box; }",
+                "@media print { .print-btn { display: none !important; } }",
+                "</style>",
                 "</head>",
                 "<body style='margin:0; padding:6px; background:#FFFFFF; font-family:Courier New, Courier, monospace; color:#000000; font-size:12px; line-height:1.3;'>",
-                "<button onclick='window.print()' style='display:block; width:100%; max-width:138mm; margin:0 auto 10px auto; background:#111827; color:#FFFFFF; border:none; padding:10px; font-size:14px; font-weight:bold; cursor:pointer; border-radius:6px;'>PRINT RECEIPT (A5)</button>",
-                "<div style='width:100%; max-width:138mm; margin:0 auto; border:1px solid #000000; padding:10px 12px;'>",
+                "<button class='print-btn' onclick='window.print()' style='display:block; width:100%; max-width:138mm; margin:0 auto 10px auto; background:#111827; color:#FFFFFF; border:none; padding:10px; font-size:14px; font-weight:bold; cursor:pointer; border-radius:6px;'>🖨️ PRINT RECEIPT (A5) / PRESS ENTER</button>",
+                "<div style='width:100%; max-width:138mm; margin:0 auto; border:1.5px solid #000000; padding:10px 12px;'>",
                 "<div style='text-align:center;'>",
                 "<div style='font-size:16px; font-weight:bold; letter-spacing:1px; margin:0;'>" + store_name + "</div>",
                 "<div style='font-size:10px; margin:2px 0; text-transform:uppercase;'>Bespoke Master Tailoring Atelier</div>",
                 "<div style='font-size:11px; font-weight:bold;'>SALES & MEASUREMENT RECEIPT</div>",
                 "</div>",
                 "<hr style='border:none; border-top:1px dashed #000; margin:6px 0;'>",
-                "<table style='width:100%; border-collapse:collapse; font-size:11.5px;'>",
+                "<table style='width:100%; border-collapse:collapse; font-size:11px;'>",
                 "<tr><td><b>CLIENT:</b> " + c_name + "</td><td style='text-align:right;'><b>DATE:</b> " + book_date + "</td></tr>",
                 "<tr><td><b>ID:</b> " + c_id + "</td><td style='text-align:right;'><b>ORDER #:</b> " + ord_id + "</td></tr>",
                 "<tr><td colspan='2'><b>PHONE:</b> " + c_phone + "</td></tr>",
                 "<tr><td colspan='2'><b>GARMENT:</b> " + garment + " (" + fit + ")</td></tr>",
-                "<tr><td colspan='2'><b>COMPLETION DATE:</b> " + del_date + "</td></tr>",
+                "<tr><td colspan='2'><b>DELIVERY:</b> " + del_date + "</td></tr>",
                 "</table>",
                 "<hr style='border:none; border-top:1px dashed #000; margin:6px 0;'>",
-                "<div style='font-weight:bold; font-size:11px;'>[ MEASUREMENTS (" + unit + ") ]</div>",
-                "<table style='width:100%; border-collapse:collapse; margin:4px 0; font-size:11px;'>",
-                "<tr style='background:#EEEEEE;'>",
-                "<th style='border:1px solid #000; padding:3px 4px; text-align:left;'>PART</th><th style='border:1px solid #000; padding:3px 4px; text-align:left;'>SPEC</th>",
-                "<th style='border:1px solid #000; padding:3px 4px; text-align:left;'>PART</th><th style='border:1px solid #000; padding:3px 4px; text-align:left;'>SPEC</th>",
+                
+                # Distinguished 2-Column Measurement Table
+                "<div style='font-weight:bold; font-size:11px; text-align:center; margin-bottom:4px;'>[ BODY MEASUREMENTS (" + unit + ") ]</div>",
+                "<table style='width:100%; border-collapse:collapse; font-size:10.5px;'>",
+                "<tr style='background:#EEEEEE; text-align:center;'>",
+                "<th colspan='2' style='border:1px solid #000; padding:3px;'>UPPER BODY</th>",
+                "<th colspan='2' style='border:1px solid #000; padding:3px;'>LOWER SIDE</th>",
                 "</tr>",
-                "<tr><td style='border:1px solid #000; padding:3px 4px;'>Length</td><td style='border:1px solid #000; padding:3px 4px;'><b>" + m_len + "</b></td><td style='border:1px solid #000; padding:3px 4px;'>Waist</td><td style='border:1px solid #000; padding:3px 4px;'><b>" + m_waist + "</b></td></tr>",
-                "<tr><td style='border:1px solid #000; padding:3px 4px;'>Neck</td><td style='border:1px solid #000; padding:3px 4px;'><b>" + m_neck + "</b></td><td style='border:1px solid #000; padding:3px 4px;'>Front Rise</td><td style='border:1px solid #000; padding:3px 4px;'><b>" + m_frise + "</b></td></tr>",
-                "<tr><td style='border:1px solid #000; padding:3px 4px;'>Shoulder</td><td style='border:1px solid #000; padding:3px 4px;'><b>" + m_shld + "</b></td><td style='border:1px solid #000; padding:3px 4px;'>Crotch</td><td style='border:1px solid #000; padding:3px 4px;'><b>" + m_crotch + "</b></td></tr>",
-                "<tr><td style='border:1px solid #000; padding:3px 4px;'>Chest</td><td style='border:1px solid #000; padding:3px 4px;'><b>" + m_chest + "</b></td><td style='border:1px solid #000; padding:3px 4px;'>Seat/Hips</td><td style='border:1px solid #000; padding:3px 4px;'><b>" + m_hip + "</b></td></tr>",
-                "<tr><td style='border:1px solid #000; padding:3px 4px;'>Stomach</td><td style='border:1px solid #000; padding:3px 4px;'><b>" + m_stom + "</b></td><td style='border:1px solid #000; padding:3px 4px;'>Thigh</td><td style='border:1px solid #000; padding:3px 4px;'><b>" + m_thigh + "</b></td></tr>",
-                "<tr><td style='border:1px solid #000; padding:3px 4px;'>Armhole</td><td style='border:1px solid #000; padding:3px 4px;'><b>" + m_armh + "</b></td><td style='border:1px solid #000; padding:3px 4px;'>Bottom Opening</td><td style='border:1px solid #000; padding:3px 4px;'><b>" + m_bot + "</b></td></tr>",
-                "<tr><td style='border:1px solid #000; padding:3px 4px;'>Sleeve</td><td style='border:1px solid #000; padding:3px 4px;'><b>" + m_slv + "</b></td><td style='border:1px solid #000; padding:3px 4px;'>Wrist</td><td style='border:1px solid #000; padding:3px 4px;'><b>" + m_wrst + "</b></td></tr>",
+                "<tr>",
+                "<td style='border:1px solid #000; padding:2px 4px;'>Length</td><td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>" + up_len + "</b></td>",
+                "<td style='border:1px solid #000; padding:2px 4px;'>Waist</td><td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>" + lw_waist + "</b></td>",
+                "</tr>",
+                "<tr>",
+                "<td style='border:1px solid #000; padding:2px 4px;'>Neck</td><td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>" + up_neck + "</b></td>",
+                "<td style='border:1px solid #000; padding:2px 4px;'>Front Rise</td><td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>" + lw_frise + "</b></td>",
+                "</tr>",
+                "<tr>",
+                "<td style='border:1px solid #000; padding:2px 4px;'>Shoulder</td><td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>" + up_shld + "</b></td>",
+                "<td style='border:1px solid #000; padding:2px 4px;'>Crotch</td><td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>" + lw_crotch + "</b></td>",
+                "</tr>",
+                "<tr>",
+                "<td style='border:1px solid #000; padding:2px 4px;'>Chest</td><td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>" + up_chest + "</b></td>",
+                "<td style='border:1px solid #000; padding:2px 4px;'>Seat</td><td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>" + lw_seat + "</b></td>",
+                "</tr>",
+                "<tr>",
+                "<td style='border:1px solid #000; padding:2px 4px;'>Stomach</td><td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>" + up_stom + "</b></td>",
+                "<td style='border:1px solid #000; padding:2px 4px;'>Thigh</td><td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>" + lw_thigh + "</b></td>",
+                "</tr>",
+                "<tr>",
+                "<td style='border:1px solid #000; padding:2px 4px;'>Hips</td><td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>" + up_hip + "</b></td>",
+                "<td style='border:1px solid #000; padding:2px 4px;'>Bottom</td><td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>" + lw_bot + "</b></td>",
+                "</tr>",
+                "<tr>",
+                "<td style='border:1px solid #000; padding:2px 4px;'>Armhole</td><td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>" + up_armh + "</b></td>",
+                "<td style='border:1px solid #000; padding:2px 4px; background:#FAFAFA;'>-</td><td style='border:1px solid #000; padding:2px 4px; background:#FAFAFA; text-align:center;'>-</td>",
+                "</tr>",
+                "<tr>",
+                "<td style='border:1px solid #000; padding:2px 4px;'>Sleeve</td><td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>" + up_slv + "</b></td>",
+                "<td style='border:1px solid #000; padding:2px 4px; background:#FAFAFA;'>-</td><td style='border:1px solid #000; padding:2px 4px; background:#FAFAFA; text-align:center;'>-</td>",
+                "</tr>",
+                "<tr>",
+                "<td style='border:1px solid #000; padding:2px 4px;'>Wrist</td><td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>" + up_wrst + "</b></td>",
+                "<td style='border:1px solid #000; padding:2px 4px; background:#FAFAFA;'>-</td><td style='border:1px solid #000; padding:2px 4px; background:#FAFAFA; text-align:center;'>-</td>",
+                "</tr>",
                 "</table>",
+                
                 "<hr style='border:none; border-top:1px dashed #000; margin:6px 0;'>",
-                "<table style='width:100%; border-collapse:collapse; font-size:11.5px;'>",
+                "<table style='width:100%; border-collapse:collapse; font-size:11px;'>",
                 "<tr><td><b>TOTAL AMOUNT:</b></td><td style='text-align:right; font-weight:bold;'>Rs. " + f"{total_amt:,.2f}" + "</td></tr>",
                 "<tr><td><b>AMOUNT PAID:</b></td><td style='text-align:right;'>Rs. " + f"{paid_amt:,.2f}" + "</td></tr>",
                 "<tr><td style='font-weight:bold;'>BALANCE DUE:</td><td style='text-align:right; font-weight:bold; font-size:13px;'>Rs. " + f"{bal_amt:,.2f}" + "</td></tr>",
@@ -835,7 +894,7 @@ elif st.session_state.page == "Print Slip":
             ]
 
             pure_receipt_html = "".join(receipt_html_parts)
-            st.components.v1.html(pure_receipt_html, height=650, scrolling=True)
+            st.components.v1.html(pure_receipt_html, height=720, scrolling=True)
 
 
 # ---------------------------------------------------------
