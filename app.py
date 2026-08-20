@@ -970,7 +970,7 @@ elif st.session_state.page == "Order Tracking":
 
 
 # ---------------------------------------------------------
-# 5B. ORDER STATUS & FINANCIAL SALES REPORT
+# 5B  FINANCE
 # ---------------------------------------------------------
 elif st.session_state.page == "Order Status":
     st.markdown("<div class='section-title-btn'>Order Status & Financial Sales Report</div>", unsafe_allow_html=True)
@@ -1006,19 +1006,63 @@ elif st.session_state.page == "Order Status":
         st.markdown("### Order Financial List")
         st.dataframe(orders_df, use_container_width=True)
         
-        st.markdown("### Quick Payment Reconciliation")
-        for _, order in orders_df.iterrows():
-            if order['balance_due'] > 0:
-                col_info, col_btn = st.columns([3, 1])
-                with col_info:
-                    st.write(f"**{order['order_number']}** — {order['client_name']} | Balance: ₹{order['balance_due']:,.2f} ({order['payment_status']})")
-                with col_btn:
-                    if st.button(f"Mark Full Paid", key=f"reconcile_{order['order_number']}", use_container_width=True):
-                        with get_db() as conn:
-                            conn.cursor().execute("UPDATE orders SET amount_paid = total_amount, payment_status = 'Fully Paid' WHERE order_number = ?", (order['order_number'],))
-                            conn.commit()
-                        st.success(f"Order {order['order_number']} marked Fully Paid!")
-                        st.rerun()
+        st.markdown("### 💬 Outstanding Payment Reminders & Reconciliation")
+        unpaid_orders = orders_df[orders_df['balance_due'] > 0]
+        
+        if unpaid_orders.empty:
+            st.success("All client orders are fully paid! No outstanding balances.")
+        else:
+            for _, order in unpaid_orders.iterrows():
+                with st.container():
+                    c_details, c_msg, c_paid = st.columns([2.5, 1.5, 1.2])
+                    
+                    with c_details:
+                        st.markdown(f"**{order['client_name']}** (`{order['phone']}`)<br>"
+                                    f"Order: `{order['order_number']}` ({order['garment_type']}) | "
+                                    f"**Due: ₹{order['balance_due']:,.2f}**", unsafe_allow_html=True)
+                    
+                    with c_msg:
+                        # Clean phone number (strip spaces, symbols)
+                        clean_phone = "".join(filter(str.isdigit, str(order['phone'])))
+                        # Ensure default country code if missing (e.g. 91 for India if 10 digits)
+                        if len(clean_phone) == 10:
+                            clean_phone = "91" + clean_phone
+                        
+                        # Structured WhatsApp Message
+                        wa_text = (
+                            f"Dear {order['client_name']},\n\n"
+                            f"This is a gentle payment reminder from *Bamniya Studio* regarding your bespoke order *{order['order_number']}* ({order['garment_type']}).\n\n"
+                            f"• Total Order Price: ₹{order['total_amount']:,.2f}\n"
+                            f"• Amount Received: ₹{order['amount_paid']:,.2f}\n"
+                            f"• *Balance Due: ₹{order['balance_due']:,.2f}*\n\n"
+                            f"Kindly clear the remaining balance at your earliest convenience.\n\n"
+                            f"Thank you,\n*Bamniya Studio*"
+                        )
+                        encoded_msg = urllib.parse.quote(wa_text)
+                        wa_link = f"https://wa.me/{clean_phone}?text={encoded_msg}"
+                        
+                        st.markdown(
+                            f"""<a href="{wa_link}" target="_blank" style="text-decoration:none;">
+                                <button style="width:100%; background:#25D366; color:#FFFFFF; border:none; 
+                                border-radius:10px; padding:0.6rem; font-weight:800; font-size:0.95rem; cursor:pointer;">
+                                💬 Send WhatsApp Reminder
+                                </button>
+                            </a>""", 
+                            unsafe_allow_html=True
+                        )
+                        
+                    with c_paid:
+                        if st.button(f"Mark Paid (₹{order['balance_due']:,.0f})", key=f"reconcile_{order['order_number']}", use_container_width=True):
+                            with get_db() as conn:
+                                conn.cursor().execute(
+                                    "UPDATE orders SET amount_paid = total_amount, payment_status = 'Fully Paid' WHERE order_number = ?", 
+                                    (order['order_number'],)
+                                )
+                                conn.commit()
+                            st.success(f"Order {order['order_number']} marked Fully Paid!")
+                            st.rerun()
+                            
+                    st.markdown("<hr style='margin:0.4rem 0 0.8rem 0; border:0.5px solid #E5DCCE;'>", unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------
