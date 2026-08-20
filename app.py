@@ -17,7 +17,7 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Courier+Prime:wght@400;700&display=swap');
 
     .stApp {
         background-color: #FAF7F2 !important;
@@ -159,22 +159,71 @@ st.markdown("""
     }
 
     /* -------------------------------------------------- */
-    /* A5 RECEIPT PRINTING STYLES                         */
+    /* THERMAL / POS RECEIPT STYLE DOCKET                */
     /* -------------------------------------------------- */
-    .a5-slip-wrapper {
-        background-color: #FFFFFF;
-        border: 2px solid #111827;
-        padding: 20px;
-        border-radius: 8px;
+    .receipt-container {
+        width: 100%;
+        max-width: 420px;
+        margin: 1.5rem auto;
+        padding: 24px 20px;
+        background: #FFFFFF;
+        border: 1px solid #000000;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+        font-family: 'Courier Prime', monospace, 'Courier New', Courier;
         color: #000000 !important;
-        margin: 1rem auto;
-        max-width: 148mm;
+        line-height: 1.35;
+    }
+    .receipt-container * {
+        color: #000000 !important;
+        font-family: 'Courier Prime', monospace, 'Courier New', Courier !important;
+    }
+    .receipt-header {
+        text-align: center;
+        margin-bottom: 14px;
+    }
+    .receipt-title {
+        font-size: 1.35rem;
+        font-weight: 700;
+        letter-spacing: 2px;
+        margin: 0;
+        text-transform: uppercase;
+    }
+    .receipt-subtitle {
+        font-size: 0.82rem;
+        letter-spacing: 1px;
+        margin: 2px 0 6px 0;
+        text-transform: uppercase;
+    }
+    .receipt-divider {
+        border: none;
+        border-top: 1px dashed #000000;
+        margin: 10px 0;
+    }
+    .receipt-table {
+        width: 100%;
+        font-size: 0.83rem;
+        border-collapse: collapse;
+    }
+    .receipt-table th, .receipt-table td {
+        padding: 3px 2px;
+        vertical-align: top;
+    }
+    .receipt-grid-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 6px 0;
+        font-size: 0.8rem;
+    }
+    .receipt-grid-table td, .receipt-grid-table th {
+        border: 1px solid #000000;
+        padding: 4px;
+        text-align: left;
     }
 
     @media print {
         @page {
             size: A5 portrait;
-            margin: 8mm;
+            margin: 6mm;
         }
         body, html, .stApp {
             background-color: #FFFFFF !important;
@@ -196,12 +245,12 @@ st.markdown("""
             display: none !important;
             visibility: hidden !important;
         }
-        .a5-slip-wrapper {
-            border: 1.5px solid #000000 !important;
+        .receipt-container {
+            border: 1px solid #000000 !important;
             box-shadow: none !important;
             width: 100% !important;
             max-width: 100% !important;
-            padding: 12px !important;
+            padding: 10px !important;
             margin: 0 !important;
             display: block !important;
             visibility: visible !important;
@@ -409,7 +458,7 @@ if st.sidebar.button("📦 Order Tracking & Status", use_container_width=True):
     navigate("Update Orders")
     st.rerun()
 
-if st.sidebar.button("🖨️ Print Order Docket (A5)", use_container_width=True):
+if st.sidebar.button("🧾 Print Order Receipt Slip", use_container_width=True):
     navigate("Print Slip")
     st.rerun()
 
@@ -458,7 +507,7 @@ if st.session_state.page == "Dashboard":
         if st.button("📦  ORDER TRACKING & QUICK UPDATER\n\nMinimalist Kanban tracker, stage buttons & instant delete", key="btn_hub_manage_orders", use_container_width=True):
             navigate("Update Orders")
             st.rerun()
-        if st.button("🖨️  PRINT A5 ORDER SLIP / DOCKET\n\nGenerate printable A5 size boutique receipt with specs & measurements", key="btn_hub_print_slip", use_container_width=True):
+        if st.button("🧾  PRINT ORDER RECEIPT SLIP\n\nGenerate printable POS-style receipt docket with full measurements", key="btn_hub_print_slip", use_container_width=True):
             navigate("Print Slip")
             st.rerun()
         if st.button("🗂️  VIEW & MANAGE CLIENT DATABASE\n\nInspect client measurements, past orders & 🗑️ delete client profiles", key="btn_hub_records", use_container_width=True):
@@ -780,10 +829,10 @@ elif st.session_state.page == "Update Orders":
                 st.markdown("<hr style='margin:0.5rem 0 1rem 0; border:0.5px solid #E5DCCE;'>", unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 6. A5 PRINTABLE BOUTIQUE ORDER DOCKET & RECEIPT
+# 6. PRINTABLE SALES RECEIPT / SLIP DOCKET (POS STYLE)
 # ---------------------------------------------------------
 elif st.session_state.page == "Print Slip":
-    st.markdown("<div class='section-title-btn'>🖨️ Printable A5 Boutique Order Docket</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title-btn'>🧾 Print Order Receipt Slip</div>", unsafe_allow_html=True)
     if st.button("← Back to Hub", key="btn_back_slip"):
         navigate("Dashboard")
         st.rerun()
@@ -820,7 +869,6 @@ elif st.session_state.page == "Print Slip":
             
             c_print_btn, _ = st.columns([1, 3])
             with c_print_btn:
-                # Direct trigger to open browser print dialog configured for A5
                 components.html("""
                 <button onclick="window.parent.print()" style="
                     background-color: #111827;
@@ -832,84 +880,143 @@ elif st.session_state.page == "Print Slip":
                     font-weight: bold;
                     cursor: pointer;
                     width: 100%;
-                ">🖨️ Print / Save A5 PDF</button>
+                ">🖨️ Print / Save A5 PDF Receipt</button>
                 """, height=48)
             
-            # Pure HTML & CSS A5 Slip Layout
+            # POS Sales Receipt Layout formatted cleanly
             st.markdown(f"""
-            <div class='a5-slip-wrapper'>
-                <div style="text-align: center; border-bottom: 2px solid #000000; padding-bottom: 6px; margin-bottom: 10px;">
-                    <h2 style="font-family:'Cinzel', serif; margin:0; font-size:1.6rem; letter-spacing:1.5px; color:#000000 !important;">BAMNIYA STUDIO</h2>
-                    <p style="margin:0; font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; font-weight:700; color:#555555 !important;">
-                        Bespoke Master Tailoring Atelier & Couture
-                    </p>
+            <div class='receipt-container'>
+                <div class='receipt-header'>
+                    <div class='receipt-title'>BAMNIYA STUDIO</div>
+                    <div class='receipt-subtitle'>Bespoke Master Tailoring Atelier</div>
+                    <div style="font-size: 0.78rem;">ORDER & MEASUREMENT DOCKET</div>
                 </div>
 
-                <table style="width:100%; font-size:0.85rem; margin-bottom:10px; line-height: 1.5; color:#000000;">
+                <hr class='receipt-divider'>
+
+                <table class='receipt-table'>
                     <tr>
-                        <td><b>Order Docket:</b> {slip_data['order_number']}</td>
-                        <td style="text-align:right;"><b>Booking Date:</b> {slip_data['created_at'][:10]}</td>
+                        <td><b>STORE NAME:</b> BAMNIYA STUDIO</td>
+                        <td style="text-align:right;"><b>DATE:</b> {slip_data['created_at'][:10]}</td>
                     </tr>
                     <tr>
-                        <td><b>Client:</b> {slip_data['client_name']} ({slip_data['client_code']})</td>
-                        <td style="text-align:right;"><b>Phone:</b> {slip_data['phone']}</td>
+                        <td><b>ORDER NO:</b> {slip_data['order_number']}</td>
+                        <td style="text-align:right;"><b>DELIVERY:</b> {slip_data['delivery_date']}</td>
                     </tr>
                     <tr>
-                        <td><b>Garment:</b> {slip_data['garment_type']}</td>
-                        <td style="text-align:right;"><b>Fit:</b> {slip_data['fit_preference']}</td>
+                        <td><b>CLIENT:</b> {slip_data['client_name']}</td>
+                        <td style="text-align:right;"><b>ID:</b> {slip_data['client_code']}</td>
                     </tr>
                     <tr>
-                        <td colspan="2"><b>Target Delivery (Completion):</b> {slip_data['delivery_date']}</td>
+                        <td colspan="2"><b>PHONE:</b> {slip_data['phone']}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="2"><b>GARMENT:</b> {slip_data['garment_type']} ({slip_data['fit_preference']})</td>
                     </tr>
                 </table>
 
-                <div style="border:1px solid #000000; border-radius:4px; padding:8px; margin-bottom:10px; background-color:#FAFAFA;">
-                    <p style="margin:0 0 6px 0; font-family:'Cinzel', serif; font-size:0.9rem; font-weight:bold; border-bottom:1px solid #DDDDDD; padding-bottom:3px; color:#000000 !important;">
-                        Cutting Measurements ({slip_data['unit']})
-                    </p>
-                    <table style="width:100%; font-size:0.8rem; border-collapse: collapse; line-height:1.4; color:#000000;">
-                        <tr>
-                            <td><b>Neck:</b> {slip_data['neck'] or '-'}</td>
-                            <td><b>Chest (Full):</b> {slip_data['chest_full'] or '-'}</td>
-                            <td><b>Upper Chest:</b> {slip_data['chest_upper'] or '-'}</td>
-                            <td><b>Stomach:</b> {slip_data['waist_stomach'] or '-'}</td>
-                        </tr>
-                        <tr>
-                            <td><b>Shoulder:</b> {slip_data['cross_shoulder'] or '-'}</td>
-                            <td><b>Armhole:</b> {slip_data['armhole'] or '-'}</td>
-                            <td><b>Bicep:</b> {slip_data['bicep'] or '-'}</td>
-                            <td><b>Sleeve Lgth:</b> {slip_data['sleeve_length'] or '-'}</td>
-                        </tr>
-                        <tr>
-                            <td><b>Jacket/Shirt Lgth:</b> {slip_data['full_length_jacket'] or '-'}</td>
-                            <td><b>Trouser Waist:</b> {slip_data['trouser_waist'] or '-'}</td>
-                            <td><b>Seat / Hip:</b> {slip_data['seat_hip'] or '-'}</td>
-                            <td><b>Thigh:</b> {slip_data['thigh'] or '-'}</td>
-                        </tr>
-                        <tr>
-                            <td><b>Full Outseam:</b> {slip_data['outseam'] or '-'}</td>
-                            <td><b>Inseam:</b> {slip_data['inseam'] or '-'}</td>
-                            <td><b>Bottom Opening:</b> {slip_data['bottom_opening'] or '-'}</td>
-                            <td><b>Front Rise:</b> {slip_data['front_rise'] or '-'}</td>
-                        </tr>
-                    </table>
+                <hr class='receipt-divider'>
+
+                <div style="font-weight:700; font-size:0.85rem; margin-bottom:4px; text-transform:uppercase;">
+                    [ MEASUREMENTS RECORD ({slip_data['unit']}) ]
                 </div>
 
-                <div style="display:flex; justify-content:space-between; border-top: 1.5px solid #000000; padding-top: 8px; font-size:0.85rem; color:#000000;">
-                    <div>
-                        <p style="margin:0;"><b>Payment Mode:</b> {slip_data['payment_mode'] or 'Cash'}</p>
-                        <p style="margin:0;"><b>Payment Stage:</b> {slip_data['payment_status']}</p>
-                    </div>
-                    <div style="text-align:right;">
-                        <p style="margin:0;"><b>Total Amount:</b> ₹{total_amt:,.2f}</p>
-                        <p style="margin:0;"><b>Amount Paid:</b> ₹{paid_amt:,.2f}</p>
-                        <p style="margin:0; font-size:0.95rem; font-weight:800;"><b>Balance Due:</b> ₹{bal_amt:,.2f}</p>
-                    </div>
+                <table class='receipt-grid-table'>
+                    <thead>
+                        <tr style="background:#F2F2F2;">
+                            <th>BODY PART</th>
+                            <th>SPEC</th>
+                            <th>BODY PART</th>
+                            <th>SPEC</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Neck</td>
+                            <td><b>{slip_data['neck'] or '-'}</b></td>
+                            <td>Jkt/Shirt Lgth</td>
+                            <td><b>{slip_data['full_length_jacket'] or '-'}</b></td>
+                        </tr>
+                        <tr>
+                            <td>Chest (Full)</td>
+                            <td><b>{slip_data['chest_full'] or '-'}</b></td>
+                            <td>Trouser Waist</td>
+                            <td><b>{slip_data['trouser_waist'] or '-'}</b></td>
+                        </tr>
+                        <tr>
+                            <td>Upper Chest</td>
+                            <td><b>{slip_data['chest_upper'] or '-'}</b></td>
+                            <td>Seat / Hip</td>
+                            <td><b>{slip_data['seat_hip'] or '-'}</b></td>
+                        </tr>
+                        <tr>
+                            <td>Stomach/Waist</td>
+                            <td><b>{slip_data['waist_stomach'] or '-'}</b></td>
+                            <td>Thigh</td>
+                            <td><b>{slip_data['thigh'] or '-'}</b></td>
+                        </tr>
+                        <tr>
+                            <td>Shoulder</td>
+                            <td><b>{slip_data['cross_shoulder'] or '-'}</b></td>
+                            <td>Knee</td>
+                            <td><b>{slip_data['knee'] or '-'}</b></td>
+                        </tr>
+                        <tr>
+                            <td>Armhole</td>
+                            <td><b>{slip_data['armhole'] or '-'}</b></td>
+                            <td>Bottom Opening</td>
+                            <td><b>{slip_data['bottom_opening'] or '-'}</b></td>
+                        </tr>
+                        <tr>
+                            <td>Bicep / Muscle</td>
+                            <td><b>{slip_data['bicep'] or '-'}</b></td>
+                            <td>Full Outseam</td>
+                            <td><b>{slip_data['outseam'] or '-'}</b></td>
+                        </tr>
+                        <tr>
+                            <td>Sleeve Length</td>
+                            <td><b>{slip_data['sleeve_length'] or '-'}</b></td>
+                            <td>Inseam / Rise</td>
+                            <td><b>{slip_data['inseam'] or '-'}/{slip_data['front_rise'] or '-'}</b></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <hr class='receipt-divider'>
+
+                <table class='receipt-table' style="margin-left:auto; width:100%; font-size:0.86rem;">
+                    <tr>
+                        <td><b>TOTAL AMOUNT:</b></td>
+                        <td style="text-align:right;"><b>₹{total_amt:,.2f}</b></td>
+                    </tr>
+                    <tr>
+                        <td><b>AMOUNT PAID:</b></td>
+                        <td style="text-align:right;">₹{paid_amt:,.2f}</td>
+                    </tr>
+                    <tr>
+                        <td><b>BALANCE DUE:</b></td>
+                        <td style="text-align:right; font-size:0.95rem;"><b>₹{bal_amt:,.2f}</b></td>
+                    </tr>
+                    <tr>
+                        <td><b>PAYMENT TYPE / MODE:</b></td>
+                        <td style="text-align:right;">{slip_data['payment_mode'] or 'Cash'}</td>
+                    </tr>
+                    <tr>
+                        <td><b>PAYMENT STATUS:</b></td>
+                        <td style="text-align:right;"><b>{slip_data['payment_status']}</b></td>
+                    </tr>
+                </table>
+
+                <hr class='receipt-divider'>
+
+                <div style="text-align:center; font-size:0.75rem; margin-top:8px;">
+                    <div>THANK YOU FOR CHOOSING BAMNIYA STUDIO</div>
+                    <div style="margin-top:2px;">Bespoke Craftsmanship & Exact Fit Guaranteed</div>
                 </div>
 
-                <div style="margin-top: 20px; display:flex; justify-content:space-between; font-size:0.75rem; border-top:1px dashed #666666; padding-top:6px; color:#000000;">
-                    <span>Client Signature: __________________</span>
-                    <span>Master Tailor: __________________</span>
+                <div style="margin-top: 24px; display:flex; justify-content:space-between; font-size:0.72rem;">
+                    <span>CLIENT SIGN: ____________</span>
+                    <span>CUTTER SIGN: ____________</span>
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -945,7 +1052,6 @@ elif st.session_state.page == "Client Records":
                 if st.button(f"🗑️ Delete Client Profile", use_container_width=True):
                     st.session_state.delete_target_client = cid
 
-            # Second Confirmation Dialog for Client Deletion
             if st.session_state.delete_target_client == cid:
                 st.error(f"⚠️ Are you sure you want to permanently delete **{inspect_label}** and all their measurements & orders?")
                 cy_col, cn_col = st.columns(2)
