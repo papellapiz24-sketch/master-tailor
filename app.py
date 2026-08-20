@@ -286,8 +286,8 @@ if not st.session_state.authenticated:
         if auth_tab == "Sign In":
             with st.form("signin_form"):
                 st.subheader("Master Tailor Sign In")
-                u_name = st.text_input("Username or Master Key", type="password")
-                p_word = st.text_input("Password (Optional if using Master Key)", type="password")
+                u_name = st.text_input("Username", type="password")
+                p_word = st.text_input("Password", type="password")
                 btn_login = st.form_submit_button("Sign In to Studio Hub", use_container_width=True)
                 if btn_login:
                     if u_name.strip() == MASTER_KEY or p_word.strip() == MASTER_KEY:
@@ -463,20 +463,16 @@ elif st.session_state.page == "New Measurement":
             "All Garments / Master Measurement Set",
             "Kurta (Straight / A-Line / Short)",
             "Pajama (Traditional / Straight / Aligarhi)",
-            "Dhoti (Traditional / Stitched Readymade)",
-            "Churidar / Shalwar",
-            "Sherwani / Achkan / Indo-Western",
-            "Nehru Jacket / Sadri / Waistcoat",
-            "Bandhgala / Jodhpuri Suit",
+            "Sherwani",
+            "Nehru Jacket / Waistcoat",
             "Pathani Suit / Khan Dress",
-            "Angrakha / Royal Traditional",
             "Two-Piece / Three-Piece Suit",
             "Blazer / Formal Coat",
             "Dress Shirt & Trousers",
             "Safari Suit"
         ]
         
-        selected_garment_type = st.selectbox("🎯 Choose Garment Type to Measure", garment_options)
+        selected_garment_type = st.selectbox(" Choose Garment Type to Measure", garment_options)
         
         with st.form("measurement_form"):
             h1, h2, h3 = st.columns(3)
@@ -496,15 +492,15 @@ elif st.session_state.page == "New Measurement":
                 chest_upper = st.number_input("Upper Chest", min_value=0.0, step=0.25)
             with u2:
                 waist_stomach = st.number_input("Stomach / Waist", min_value=0.0, step=0.25)
-                cross_shoulder = st.number_input("Shoulder Width (Teera)", min_value=0.0, step=0.25)
+                cross_shoulder = st.number_input("Shoulder Width", min_value=0.0, step=0.25)
                 back_width = st.number_input("Back Width", min_value=0.0, step=0.25)
             with u3:
                 front_chest_width = st.number_input("Front Chest Width", min_value=0.0, step=0.25)
-                armhole = st.number_input("Armhole (Mudha)", min_value=0.0, step=0.25)
+                armhole = st.number_input("Armhole", min_value=0.0, step=0.25)
                 bicep = st.number_input("Bicep / Muscle", min_value=0.0, step=0.25)
             with u4:
                 wrist = st.number_input("Wrist / Cuff", min_value=0.0, step=0.25)
-                sleeve_length = st.number_input("Sleeve Length (Aasteen)", min_value=0.0, step=0.25)
+                sleeve_length = st.number_input("Sleeve Length", min_value=0.0, step=0.25)
                 full_length_jacket = st.number_input("Coat / Blazer Full Length", min_value=0.0, step=0.25)
                 nape_to_waist = st.number_input("Nape to Waist", min_value=0.0, step=0.25)
 
@@ -515,15 +511,15 @@ elif st.session_state.page == "New Measurement":
                 trouser_waist = st.number_input("Trouser / Pant Waist", min_value=0.0, step=0.25)
                 seat_hip = st.number_input("Seat / Hip", min_value=0.0, step=0.25)
             with l2:
-                thigh = st.number_input("Thigh (Jaangh)", min_value=0.0, step=0.25)
+                thigh = st.number_input("Thigh", min_value=0.0, step=0.25)
                 knee = st.number_input("Knee", min_value=0.0, step=0.25)
             with l3:
                 calf = st.number_input("Calf", min_value=0.0, step=0.25)
-                bottom_opening = st.number_input("Bottom Opening (Pant Mohri)", min_value=0.0, step=0.25)
+                bottom_opening = st.number_input("Bottom Opening", min_value=0.0, step=0.25)
             with l4:
                 outseam = st.number_input("Trouser Outseam (Full Length)", min_value=0.0, step=0.25)
                 inseam = st.number_input("Trouser Inseam", min_value=0.0, step=0.25)
-                front_rise = st.number_input("Front Rise (Latak)", min_value=0.0, step=0.25)
+                front_rise = st.number_input("Front Rise", min_value=0.0, step=0.25)
                 crotch_depth = st.number_input("Crotch Depth", min_value=0.0, step=0.25)
 
             m_notes = st.text_area("Measurement Session & Fit Notes", placeholder="e.g., Client requested loose fit for Kurta, slim fit for Churidar...")
