@@ -36,7 +36,6 @@ st.components.v1.html("""
         const isTextArea = active.tagName === 'TEXTAREA';
         
         if (isInput || isTextArea) {
-            // Allow shift+enter inside textareas for new lines
             if (isTextArea && e.shiftKey) return;
             
             const selector = 'input:not([type="hidden"]):not([disabled]):not([type="submit"]):not([type="button"]), textarea:not([disabled])';
@@ -69,7 +68,7 @@ st.components.v1.html("""
 
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Courier+Prime:wght@400;700&display=swap');
 
     .stApp {
         background-color: #FAF7F2 !important;
@@ -632,7 +631,6 @@ elif st.session_state.page == "New Order":
         selected_client_id = client_options[selected_client_label]
         st.session_state.active_client_id = selected_client_id
         
-        # Automatically grab the latest measurement record
         with get_db() as conn:
             latest_m = conn.cursor().execute(
                 "SELECT id, date_recorded FROM measurements WHERE client_id = ? ORDER BY id DESC LIMIT 1", 
@@ -711,7 +709,7 @@ elif st.session_state.page == "New Order":
 
 
 # ---------------------------------------------------------
-# 4. PRINT RECEIPT (STEP 4 OF PIPELINE - BULLETPROOF HTML)
+# 4. PRINT RECEIPT (STEP 4 OF PIPELINE)
 # ---------------------------------------------------------
 elif st.session_state.page == "Print Slip":
     st.markdown("<div class='section-title-btn'>Step 4: Print A5 Receipt Slip</div>", unsafe_allow_html=True)
@@ -786,7 +784,6 @@ elif st.session_state.page == "Print Slip":
             m_bot = str(slip_data['bottom_opening'] or '-')
             m_wrst = str(slip_data['wrist'] or '-')
 
-            # Safe HTML Assembly without any CSS brace conflicts
             receipt_html_parts = [
                 "<!DOCTYPE html><html><head><meta charset='utf-8'>",
                 "<title>Receipt_" + ord_id + "</title>",
@@ -966,7 +963,7 @@ elif st.session_state.page == "Order Status":
 
 
 # ---------------------------------------------------------
-# 6. DATABASE (INTEGRATED CLIENT SEARCH & ACTION POPOVER)
+# 6. DATABASE (INTEGRATED CLIENT SEARCH & POPUP ACTIONS)
 # ---------------------------------------------------------
 elif st.session_state.page == "Client Records":
     st.markdown("<div class='section-title-btn'>Client Database</div>", unsafe_allow_html=True)
@@ -1014,9 +1011,13 @@ elif st.session_state.page == "Client Records":
                         with cy:
                             if st.button("Yes, Delete", key=f"cy_{client['id']}", use_container_width=True):
                                 with get_db() as conn:
-                                    conn.cursor().execute("DELETE FROM clients WHERE id = ?", (client['id'],))
+                                    cur = conn.cursor()
+                                    cur.execute("DELETE FROM orders WHERE client_id = ?", (client['id'],))
+                                    cur.execute("DELETE FROM measurements WHERE client_id = ?", (client['id'],))
+                                    cur.execute("DELETE FROM clients WHERE id = ?", (client['id'],))
                                     conn.commit()
                                 st.session_state.delete_target_client = None
+                                st.success("Client and all history deleted successfully.")
                                 st.rerun()
                         with cn:
                             if st.button("Cancel", key=f"cn_{client['id']}", use_container_width=True):
