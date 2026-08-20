@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "Bamniya Studio Receipt Printer",
+  "version": "1.0",
+  "description": "1-Click Clean A5 Receipt Printer for Bamniya Studio",
+  "permissions": ["activeTab", "scripting"],
+  "action": {
+    "default_title": "Print A5 Receipt",
+    "default_popup": "popup.html"
+  }
+}
