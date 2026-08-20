@@ -80,7 +80,7 @@ st.components.v1.html("""
 """, height=0, width=0)
 
 # ---------------------------------------------------------
-# DATABASE ENGINE & DYNAMIC SETTINGS TABLE
+# DATABASE ENGINE & SETTINGS TABLE
 # ---------------------------------------------------------
 DB_FILE = "master_tailor.db"
 
@@ -102,9 +102,9 @@ def init_db():
             value TEXT NOT NULL
         );
         """)
-        # Initialize default studio and credential configurations if missing
         cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('brand_name', 'BAMNIYA STUDIO')")
         cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('brand_tagline', 'Bespoke Master Tailoring & Haute Couture')")
+        cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('theme_palette', 'Linen Warm Cream')")
         cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('admin_master_key', 'ADMIN176920')")
         cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('tailor_master_key', '176920')")
         cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('admin_recovery_phone', '')")
@@ -193,147 +193,219 @@ def set_setting(key, value):
         conn.cursor().execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
         conn.commit()
 
+# Dynamic Branding & Color Palettes (Light, elegant background guaranteed)
 BRAND_NAME = get_setting("brand_name", "BAMNIYA STUDIO")
 BRAND_TAGLINE = get_setting("brand_tagline", "Bespoke Master Tailoring & Haute Couture")
+CURRENT_THEME = get_setting("theme_palette", "Linen Warm Cream")
 
-st.markdown("""
+COLOR_PALETTES = {
+    "Linen Warm Cream": {
+        "bg": "#FAF7F2",
+        "text": "#111827",
+        "btn_bg": "#2B241F",
+        "btn_text": "#FFFFFF",
+        "btn_hover": "#423932",
+        "accent_banner": "#EFE7DA",
+        "accent_banner_text": "#1F1A17",
+        "border": "#D8CABE",
+        "card_bg": "#FFFFFF",
+        "brand_gold": "#8C6D4F",
+        "sidebar_bg": "#24201D"
+    },
+    "Ivory Royal Navy": {
+        "bg": "#F5F8FA",
+        "text": "#0F172A",
+        "btn_bg": "#0F2847",
+        "btn_text": "#FFFFFF",
+        "btn_hover": "#1E3E66",
+        "accent_banner": "#E2EBF5",
+        "accent_banner_text": "#0B1D33",
+        "border": "#CBD8E6",
+        "card_bg": "#FFFFFF",
+        "brand_gold": "#2A5B8C",
+        "sidebar_bg": "#0B192C"
+    },
+    "Soft Sage Atelier": {
+        "bg": "#F4F7F4",
+        "text": "#13231B",
+        "btn_bg": "#1C3829",
+        "btn_text": "#FFFFFF",
+        "btn_hover": "#2B523D",
+        "accent_banner": "#E2ECE5",
+        "accent_banner_text": "#13231B",
+        "border": "#C7D8CE",
+        "card_bg": "#FFFFFF",
+        "brand_gold": "#3D6E53",
+        "sidebar_bg": "#14251B"
+    },
+    "Nordic Cloud Grey": {
+        "bg": "#F8FAFC",
+        "text": "#0F172A",
+        "btn_bg": "#1E293B",
+        "btn_text": "#FFFFFF",
+        "btn_hover": "#334155",
+        "accent_banner": "#E6ECF2",
+        "accent_banner_text": "#0F172A",
+        "border": "#CBD5E1",
+        "card_bg": "#FFFFFF",
+        "brand_gold": "#475569",
+        "sidebar_bg": "#0F172A"
+    },
+    "Oatmeal & Rich Walnut": {
+        "bg": "#F7F5F0",
+        "text": "#211D19",
+        "btn_bg": "#4A3B32",
+        "btn_text": "#FFFFFF",
+        "btn_hover": "#634F43",
+        "accent_banner": "#EAE3D8",
+        "accent_banner_text": "#211D19",
+        "border": "#D5C8B8",
+        "card_bg": "#FFFFFF",
+        "brand_gold": "#7D6452",
+        "sidebar_bg": "#2B221C"
+    }
+}
+
+active_pal = COLOR_PALETTES.get(CURRENT_THEME, COLOR_PALETTES["Linen Warm Cream"])
+
+st.markdown(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
 
-    .stApp {
-        background-color: #FAF7F2 !important;
-        color: #111827 !important;
+    .stApp {{
+        background-color: {active_pal['bg']} !important;
+        color: {active_pal['text']} !important;
         font-family: 'Plus Jakarta Sans', sans-serif !important;
-    }
+    }}
 
-    p, span, label, h1, h2, h3, h4, h5, h6, [data-testid="stMarkdownContainer"] p {
-        color: #111827 !important;
+    p, span, label, h1, h2, h3, h4, h5, h6, [data-testid="stMarkdownContainer"] p {{
+        color: {active_pal['text']} !important;
         font-family: 'Plus Jakarta Sans', sans-serif !important;
-    }
+    }}
 
-    label[data-testid="stWidgetLabel"] p {
-        color: #111827 !important;
+    label[data-testid="stWidgetLabel"] p {{
+        color: {active_pal['text']} !important;
         font-weight: 800 !important;
         font-size: 1.05rem !important;
-    }
+    }}
 
-    div[data-baseweb="select"], div[data-baseweb="input"], div[data-baseweb="base-input"] {
-        background-color: #FFFFFF !important;
-        border: 1.5px solid #C8B9A6 !important;
+    div[data-baseweb="select"], div[data-baseweb="input"], div[data-baseweb="base-input"] {{
+        background-color: {active_pal['card_bg']} !important;
+        border: 1.5px solid {active_pal['border']} !important;
         border-radius: 10px !important;
-    }
-    div[data-baseweb="select"] *, div[data-baseweb="input"] * {
+    }}
+    div[data-baseweb="select"] *, div[data-baseweb="input"] * {{
         background-color: transparent !important;
-        color: #111827 !important;
+        color: {active_pal['text']} !important;
         font-weight: 700 !important;
-    }
+    }}
 
-    div[data-baseweb="popover"], div[data-baseweb="popover"] > div, ul[data-baseweb="menu"], div[data-baseweb="calendar"] {
+    div[data-baseweb="popover"], div[data-baseweb="popover"] > div, ul[data-baseweb="menu"], div[data-baseweb="calendar"] {{
         background-color: #FFFFFF !important;
-        border: 1.5px solid #C8B9A6 !important;
-    }
-    ul[data-baseweb="menu"] li {
+        border: 1.5px solid {active_pal['border']} !important;
+    }}
+    ul[data-baseweb="menu"] li {{
         background-color: #FFFFFF !important;
-        color: #111827 !important;
-    }
-    ul[data-baseweb="menu"] li:hover {
-        background-color: #EAE0D0 !important;
-        color: #000000 !important;
-    }
+        color: {active_pal['text']} !important;
+    }}
+    ul[data-baseweb="menu"] li:hover {{
+        background-color: {active_pal['accent_banner']} !important;
+        color: {active_pal['accent_banner_text']} !important;
+    }}
 
-    .stTextInput input, .stNumberInput input, .stTextArea textarea, .stDateInput input {
-        background-color: #FFFFFF !important;
-        color: #111827 !important;
+    .stTextInput input, .stNumberInput input, .stTextArea textarea, .stDateInput input {{
+        background-color: {active_pal['card_bg']} !important;
+        color: {active_pal['text']} !important;
         font-weight: 700 !important;
         border-radius: 10px !important;
-        border: 1.5px solid #C8B9A6 !important;
-    }
+        border: 1.5px solid {active_pal['border']} !important;
+    }}
 
-    .stButton>button {
-        background: #EAE0D0 !important;
-        color: #111827 !important;
-        border: 2px solid #C8B9A6 !important;
+    .stButton>button {{
+        background: {active_pal['btn_bg']} !important;
+        color: {active_pal['btn_text']} !important;
+        border: 1.5px solid {active_pal['btn_bg']} !important;
         border-radius: 14px !important;
         min-height: 3.5rem !important;
         font-size: 1.05rem !important;
         font-weight: 800 !important;
         margin-bottom: 0.3rem !important;
         transition: all 0.2s ease-in-out !important;
-    }
-    .stButton>button:hover {
-        background: #DFD3C0 !important;
-        border-color: #8C6D4F !important;
-        color: #000000 !important;
+    }}
+    .stButton>button:hover {{
+        background: {active_pal['btn_hover']} !important;
+        border-color: {active_pal['btn_hover']} !important;
+        color: #FFFFFF !important;
         transform: translateY(-2px) !important;
-    }
+    }}
 
-    .section-title-btn {
-        background: #EAE0D0;
-        color: #111827 !important;
-        border: 2px solid #C8B9A6;
+    .section-title-btn {{
+        background: {active_pal['accent_banner']};
+        color: {active_pal['accent_banner_text']} !important;
+        border: 2px solid {active_pal['border']};
         padding: 0.5rem 1.2rem;
         border-radius: 10px;
         font-size: 1.15rem;
         font-weight: 800;
         display: inline-block;
         margin: 0.8rem 0;
-    }
+    }}
 
-    div[data-testid="stMetric"] {
-        background: #FFFFFF !important;
-        border: 2px solid #E5DCCE !important;
+    div[data-testid="stMetric"] {{
+        background: {active_pal['card_bg']} !important;
+        border: 2px solid {active_pal['border']} !important;
         padding: 1rem !important;
         border-radius: 14px !important;
-    }
-    div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
-        color: #111827 !important;
+    }}
+    div[data-testid="stMetric"] div[data-testid="stMetricValue"] {{
+        color: {active_pal['text']} !important;
         font-weight: 800 !important;
-    }
+    }}
 
-    section[data-testid="stSidebar"] {
-        background-color: #24201D !important;
-        border-right: 2px solid #D6C7B2 !important;
-    }
-    section[data-testid="stSidebar"] * {
+    section[data-testid="stSidebar"] {{
+        background-color: {active_pal['sidebar_bg']} !important;
+        border-right: 2px solid {active_pal['border']} !important;
+    }}
+    section[data-testid="stSidebar"] * {{
         color: #FDFCFA !important;
-    }
-    section[data-testid="stSidebar"] .stButton>button {
-        background: #3A3430 !important;
-        color: #FDFCFA !important;
-        border: 1.5px solid #5A524C !important;
-        min-height: 3rem !important;
-    }
-    section[data-testid="stSidebar"] .stButton>button:hover {
-        background: #524741 !important;
-        border-color: #D6C7B2 !important;
+    }}
+    section[data-testid="stSidebar"] .stButton>button {{
+        background: rgba(255, 255, 255, 0.1) !important;
         color: #FFFFFF !important;
-    }
+        border: 1.5px solid rgba(255, 255, 255, 0.25) !important;
+        min-height: 3rem !important;
+    }}
+    section[data-testid="stSidebar"] .stButton>button:hover {{
+        background: rgba(255, 255, 255, 0.22) !important;
+        border-color: #FFFFFF !important;
+        color: #FFFFFF !important;
+    }}
 
-    .brand-title {
+    .brand-title {{
         font-family: 'Cinzel', serif !important;
         font-size: 2.8rem;
         font-weight: 800;
-        color: #111827 !important;
+        color: {active_pal['text']} !important;
         text-align: center;
         margin-bottom: 0.1rem;
-    }
-    .brand-tagline {
+    }}
+    .brand-tagline {{
         text-align: center;
-        color: #8C6D4F !important;
+        color: {active_pal['brand_gold']} !important;
         font-size: 0.95rem;
         letter-spacing: 2px;
         text-transform: uppercase;
         margin-bottom: 1.2rem;
         font-weight: 700;
-    }
+    }}
 
-    .order-card {
-        background: #FFFFFF;
-        border: 1.5px solid #D8CCBE;
+    .order-card {{
+        background: {active_pal['card_bg']};
+        border: 1.5px solid {active_pal['border']};
         border-radius: 12px;
         padding: 1.2rem;
         margin-bottom: 1rem;
-    }
+    }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -378,29 +450,24 @@ if not st.session_state.authenticated:
         if auth_tab == "Sign In":
             with st.form("signin_form"):
                 st.subheader("Studio Sign In")
-                u_name = st.text_input("Username ", type="password")
+                u_name = st.text_input("Username / Master Key", type="password")
                 p_word = st.text_input("Password", type="password")
                 btn_login = st.form_submit_button("Sign In to Studio Hub", use_container_width=True)
                 if btn_login:
                     entered_code = u_name.strip() or p_word.strip()
                     
-                    # 1. Admin Master Key Login
                     if entered_code == current_admin_key:
                         st.session_state.authenticated = True
                         st.session_state.is_admin = True
                         st.session_state.username = "Administrator"
                         st.session_state.page = "Dashboard"
                         st.rerun()
-                    
-                    # 2. Tailor Master Key Login
                     elif entered_code == current_tailor_key:
                         st.session_state.authenticated = True
                         st.session_state.is_admin = False
                         st.session_state.username = f"Master Tailor ({BRAND_NAME})"
                         st.session_state.page = "Dashboard"
                         st.rerun()
-                    
-                    # 3. Database user account login
                     elif u_name and p_word:
                         with get_db() as conn:
                             user = conn.cursor().execute(
@@ -421,7 +488,7 @@ if not st.session_state.authenticated:
         elif auth_tab == "Forgot Password / Reset":
             st.subheader("Reset Admin Master Password")
             if not saved_phone:
-                st.warning("⚠️ No recovery phone number has been configured yet in the Admin Panel.")
+                st.warning("No recovery phone number has been configured yet in the Admin Panel.")
             else:
                 with st.form("reset_password_form"):
                     verify_phone = st.text_input("Enter Registered Admin Phone Number")
@@ -436,7 +503,7 @@ if not st.session_state.authenticated:
                         if clean_input_phone and clean_input_phone == clean_saved_phone:
                             if new_admin_pwd and new_admin_pwd == confirm_pwd:
                                 set_setting("admin_master_key", new_admin_pwd.strip())
-                                st.success("Admin Master Password has been successfully reset! You can now Sign In.")
+                                st.success("Admin Master Password has been reset! You can now Sign In.")
                             else:
                                 st.error("Passwords do not match or cannot be empty.")
                         else:
@@ -500,7 +567,6 @@ if st.sidebar.button("7. Database", use_container_width=True):
     navigate("Client Records")
     st.rerun()
 
-# Only shown if logged in with Admin Master Key
 if st.session_state.is_admin:
     if st.sidebar.button("Admin Control Panel", use_container_width=True):
         navigate("Admin Settings")
@@ -770,7 +836,7 @@ elif st.session_state.page == "New Order":
                         "Two-Piece / Three-Piece Suit", "Blazer / Formal Coat",
                         "Shirt & Trousers", "Safari Suit"
                     ])
-                    fit_preference = st.selectbox("Fit Preference", ["Slim Fit", "Regular Fit", "Relaxed Fit", "Qasar fit", "Qali", "Barik Qali",])
+                    fit_preference = st.selectbox("Fit Preference", ["Slim Fit", "Regular Fit", "Relaxed Fit", "Traditional Loose"])
                 with o2:
                     total_amount = st.number_input("Total Garment Price (₹)", value=None, min_value=0.0, step=500.0, placeholder="Enter total price")
                     amount_paid = st.number_input("Initial Amount Received (₹)", value=None, min_value=0.0, step=500.0, placeholder="Enter advance paid")
@@ -899,7 +965,7 @@ elif st.session_state.page == "Print Slip":
                 "</style>",
                 "</head>",
                 "<body style='margin:0; padding:6px; background:#FFFFFF; font-family:Courier New, Courier, monospace; color:#000000; font-size:12px; line-height:1.3;'>",
-                "<button class='print-btn' onclick='window.print()' style='display:block; width:100%; max-width:138mm; margin:0 auto 10px auto; background:#111827; color:#FFFFFF; border:none; padding:10px; font-size:14px; font-weight:bold; cursor:pointer; border-radius:6px;'>🖨️ PRINT RECEIPT (A5) / PRESS ENTER</button>",
+                "<button class='print-btn' onclick='window.print()' style='display:block; width:100%; max-width:138mm; margin:0 auto 10px auto; background:#111827; color:#FFFFFF; border:none; padding:10px; font-size:14px; font-weight:bold; cursor:pointer; border-radius:6px;'>PRINT RECEIPT (A5) / PRESS ENTER</button>",
                 "<div style='width:100%; max-width:138mm; margin:0 auto; border:1.5px solid #000000; padding:10px 12px;'>",
                 "<div style='text-align:center;'>",
                 "<div style='font-size:16px; font-weight:bold; letter-spacing:1px; margin:0;'>" + BRAND_NAME + "</div>",
@@ -1013,7 +1079,7 @@ elif st.session_state.page == "Order Tracking":
                 <div class='order-card'>
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <h3 style="margin:0; font-family:'Cinzel', serif;">{order['order_number']} — {order['garment_type']}</h3>
-                        <span style="font-weight:800; font-size:1.1rem; color:#8C6D4F !important;">Target: {order['delivery_date']}</span>
+                        <span style="font-weight:800; font-size:1.1rem; color:{active_pal['brand_gold']} !important;">Target: {order['delivery_date']}</span>
                     </div>
                     <p style="margin: 0.3rem 0;"><b>Client:</b> {order['client_name']} ({order['phone']}) | <b>Current Stage:</b> {order['workflow_status']}</p>
                 </div>
@@ -1048,7 +1114,7 @@ elif st.session_state.page == "Order Tracking":
                         if st.button("Cancel", key=f"n_track_{order['order_number']}", use_container_width=True):
                             st.session_state.delete_target_order = None
                             st.rerun()
-                st.markdown("<hr style='margin:0.5rem 0 1rem 0; border:0.5px solid #E5DCCE;'>", unsafe_allow_html=True)
+                st.markdown(f"<hr style='margin:0.5rem 0 1rem 0; border:0.5px solid {active_pal['border']};'>", unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------
@@ -1134,7 +1200,7 @@ elif st.session_state.page == "Order Status":
                                 conn.commit()
                             st.success(f"Order {order['order_number']} marked Fully Paid!")
                             st.rerun()
-                    st.markdown("<hr style='margin:0.4rem 0 0.8rem 0; border:0.5px solid #E5DCCE;'>", unsafe_allow_html=True)
+                    st.markdown(f"<hr style='margin:0.4rem 0 0.8rem 0; border:0.5px solid {active_pal['border']};'>", unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------
@@ -1198,13 +1264,13 @@ elif st.session_state.page == "Client Records":
                             if st.button("Cancel", key=f"cn_{client['id']}", use_container_width=True):
                                 st.session_state.delete_target_client = None
                                 st.rerun()
-                    st.markdown("<hr style='margin:0.3rem 0 0.8rem 0; border:0.5px solid #E5DCCE;'>", unsafe_allow_html=True)
+                    st.markdown(f"<hr style='margin:0.3rem 0 0.8rem 0; border:0.5px solid {active_pal['border']};'>", unsafe_allow_html=True)
     else:
         st.info("No client records found in the database.")
 
 
 # ---------------------------------------------------------
-# 7. ADMIN PANEL (PASSWORD CHANGING, RECOVERY & EXPORTS)
+# 7. ADMIN PANEL (THEME & BACKGROUND PALETTE, SECURITY & EXPORTS)
 # ---------------------------------------------------------
 elif st.session_state.page == "Admin Settings":
     if not st.session_state.is_admin:
@@ -1216,8 +1282,36 @@ elif st.session_state.page == "Admin Settings":
         navigate("Dashboard")
         st.rerun()
 
-    # --- 1. ADMIN SECURITY & PASSWORD MANAGEMENT ---
-    st.markdown("### 🔐 Admin Security & Password Recovery Setup")
+    # --- 1. THEME & LIGHT BACKGROUND PALETTE SELECTOR ---
+    st.markdown("### Studio Visual Theme & Color Palette")
+    st.write("Select a color palette. The main background is kept light with high-contrast text and buttons for readability.")
+    
+    with st.form("theme_palette_form"):
+        palette_names = list(COLOR_PALETTES.keys())
+        chosen_theme = st.selectbox(
+            "Select Atelier Theme Palette",
+            palette_names,
+            index=palette_names.index(CURRENT_THEME) if CURRENT_THEME in palette_names else 0
+        )
+        
+        # Preview palette details
+        p_info = COLOR_PALETTES[chosen_theme]
+        c1, c2, c3, c4 = st.columns(4)
+        c1.markdown(f"<div style='background:{p_info['bg']}; padding:10px; border-radius:8px; border:1px solid {p_info['border']}; text-align:center; font-weight:bold; color:{p_info['text']};'>Background</div>", unsafe_allow_html=True)
+        c2.markdown(f"<div style='background:{p_info['accent_banner']}; padding:10px; border-radius:8px; border:1px solid {p_info['border']}; text-align:center; font-weight:bold; color:{p_info['accent_banner_text']};'>Banner Accent</div>", unsafe_allow_html=True)
+        c3.markdown(f"<div style='background:{p_info['btn_bg']}; padding:10px; border-radius:8px; text-align:center; font-weight:bold; color:{p_info['btn_text']};'>Button Style</div>", unsafe_allow_html=True)
+        c4.markdown(f"<div style='background:{p_info['sidebar_bg']}; padding:10px; border-radius:8px; text-align:center; font-weight:bold; color:#FFFFFF;'>Sidebar Base</div>", unsafe_allow_html=True)
+        
+        save_theme_btn = st.form_submit_button("Apply & Save Color Palette", use_container_width=True)
+        if save_theme_btn:
+            set_setting("theme_palette", chosen_theme)
+            st.success(f"Applied '{chosen_theme}' palette!")
+            st.rerun()
+
+    st.markdown("---")
+
+    # --- 2. ADMIN SECURITY & PASSWORD MANAGEMENT ---
+    st.markdown("### Admin Security & Password Recovery Setup")
     with st.form("admin_security_form"):
         s1, s2 = st.columns(2)
         with s1:
@@ -1252,7 +1346,7 @@ elif st.session_state.page == "Admin Settings":
 
     st.markdown("---")
 
-    # --- 2. BRAND CUSTOMIZATION ---
+    # --- 3. BRAND CUSTOMIZATION ---
     st.markdown("### Studio Branding & Identity Customizer")
     with st.form("brand_settings_form"):
         b1, b2 = st.columns(2)
@@ -1270,7 +1364,7 @@ elif st.session_state.page == "Admin Settings":
 
     st.markdown("---")
 
-    # --- 3. MS EXCEL BACKUP ---
+    # --- 4. MS EXCEL BACKUP ---
     st.markdown("### Microsoft Excel Backup & Data Export")
     st.write("Export your entire studio database (Clients, Measurements, Billing Ledgers) into an Excel workbook for local storage and reporting.")
 
@@ -1300,7 +1394,7 @@ elif st.session_state.page == "Admin Settings":
 
     st.markdown("---")
 
-    # --- 4. TALLY PRIME SALES XML EXPORT ---
+    # --- 5. TALLY PRIME SALES XML EXPORT ---
     st.markdown("### Tally Prime XML Integration (Direct Accounting Import)")
     st.write("Generate a Tally-compliant XML sales voucher file. You can import this file directly into **Tally Prime** via **Import > Transactions > XML**.")
     
