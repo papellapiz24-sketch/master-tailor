@@ -5,27 +5,20 @@ import streamlit as st
 import pandas as pd
 
 # ---------------------------------------------------------
-# PAGE SETUP & HARMONIZED 5-COLOR SARTORIAL PALETTE
+# PAGE SETUP & HARMONIZED SARTORIAL PALETTE
 # ---------------------------------------------------------
 st.set_page_config(
     page_title="Mohammad Hussain Atelier",
-    page_icon="",
+    page_icon="✂️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
-# 5-Color Palette:
-# 1. Canvas: #FAF7F2 (Warm Parchment)
-# 2. Card/Surface: #FFFFFF (Crisp White)
-# 3. Interactive/Buttons: #EAE0D0 (Sartorial Beige)
-# 4. Text/Contrast: #111827 (Deep Ink Charcoal / Black)
-# 5. Accent/Borders: #8C6D4F (Cognac Gold) & #C8B9A6 (Tailor Oat Border)
 
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
 
-    /* 1. Global Canvas Background */
+    /* 1. Global App Canvas */
     .stApp {
         background-color: #FAF7F2 !important;
         background-image: radial-gradient(#D6C7B2 0.75px, transparent 0.75px), radial-gradient(#D6C7B2 0.75px, #FAF7F2 0.75px) !important;
@@ -35,7 +28,7 @@ st.markdown("""
         font-family: 'Plus Jakarta Sans', sans-serif !important;
     }
 
-    /* 2. Global Universal Typography Color (Prevents Transparent / White-out Text) */
+    /* 2. Global Text Enforcement */
     p, span, label, h1, h2, h3, h4, h5, h6, [data-testid="stMarkdownContainer"] p {
         color: #111827 !important;
         font-family: 'Plus Jakarta Sans', sans-serif !important;
@@ -49,8 +42,8 @@ st.markdown("""
         margin-bottom: 4px !important;
     }
 
-    /* 4. Complete Fix for Dropdowns, Selectboxes & Menus */
-    div[data-baseweb="select"] {
+    /* 4. Complete Fix for Selectboxes, Dropdowns, and BaseWeb Popovers */
+    div[data-baseweb="select"], div[data-baseweb="select"] > div {
         background-color: #FFFFFF !important;
         border: 1.5px solid #C8B9A6 !important;
         border-radius: 10px !important;
@@ -59,23 +52,36 @@ st.markdown("""
         background-color: transparent !important;
         color: #111827 !important;
         font-weight: 700 !important;
+        font-size: 1rem !important;
     }
-    /* Dropdown popover list items */
-    ul[data-baseweb="menu"] {
+    /* Dropdown Options Container & Items */
+    div[data-baseweb="popover"], div[data-baseweb="popover"] > div, ul[data-baseweb="menu"] {
         background-color: #FFFFFF !important;
         border: 1.5px solid #C8B9A6 !important;
     }
-    ul[data-baseweb="menu"] li {
+    ul[data-baseweb="menu"] li, ul[data-baseweb="menu"] div {
         background-color: #FFFFFF !important;
         color: #111827 !important;
         font-weight: 600 !important;
     }
-    ul[data-baseweb="menu"] li:hover {
+    ul[data-baseweb="menu"] li:hover, ul[data-baseweb="menu"] li[aria-selected="true"] {
         background-color: #EAE0D0 !important;
-        color: #111827 !important;
+        color: #000000 !important;
     }
 
-    /* 5. Inputs, Number pickers & Textareas */
+    /* 5. Date Picker Calendar & Inputs */
+    div[data-baseweb="calendar"] {
+        background-color: #FFFFFF !important;
+        color: #111827 !important;
+    }
+    div[data-baseweb="calendar"] * {
+        color: #111827 !important;
+    }
+    div[data-baseweb="calendar"] button:hover {
+        background-color: #EAE0D0 !important;
+    }
+
+    /* 6. Text Inputs, Text Areas, Number Inputs */
     .stTextInput input, .stNumberInput input, .stTextArea textarea, .stDateInput input {
         background-color: #FFFFFF !important;
         color: #111827 !important;
@@ -89,16 +95,26 @@ st.markdown("""
         box-shadow: 0 0 0 2px rgba(140, 109, 79, 0.2) !important;
     }
 
-    /* 6. Form Surface Cards */
+    /* 7. Code Blocks & Fitting Logs */
+    code, pre {
+        background-color: #F3ECE1 !important;
+        color: #111827 !important;
+        border: 1px solid #C8B9A6 !important;
+        border-radius: 6px !important;
+        padding: 4px 8px !important;
+        font-weight: 600 !important;
+    }
+
+    /* 8. White Surface Cards */
     div[data-testid="stForm"] {
         background: #FFFFFF !important;
-        border: 2px solid #E5DCce !important;
+        border: 2px solid #E5DCCE !important;
         border-radius: 16px !important;
         padding: 2rem !important;
         box-shadow: 0 4px 16px rgba(0,0,0,0.03) !important;
     }
 
-    /* 7. Extra-Large Sartorial Beige Action Buttons */
+    /* 9. Large Beige Action Buttons */
     .stButton>button {
         background: #EAE0D0 !important;
         color: #111827 !important;
@@ -120,7 +136,7 @@ st.markdown("""
         box-shadow: 0 8px 18px rgba(0,0,0,0.08) !important;
     }
 
-    /* 8. Title Badges & Metrics */
+    /* 10. Title Badges & Metrics */
     .section-title-btn {
         background: #EAE0D0;
         color: #111827 !important;
@@ -153,13 +169,17 @@ st.markdown("""
         font-size: 2.2rem !important;
     }
 
-    /* 9. Sidebar */
+    /* 11. Sidebar */
     section[data-testid="stSidebar"] {
         background-color: #24201D !important;
         border-right: 2px solid #D6C7B2 !important;
     }
     section[data-testid="stSidebar"] * {
         color: #FDFCFA !important;
+    }
+    section[data-testid="stSidebar"] .stRadio label p {
+        color: #FDFCFA !important;
+        font-weight: 600 !important;
     }
     section[data-testid="stSidebar"] .stButton>button {
         background: #3A3430 !important;
@@ -172,7 +192,7 @@ st.markdown("""
         border-color: #D6C7B2 !important;
     }
 
-    /* 10. Brand Headers */
+    /* 12. Brand Headers */
     .brand-title {
         font-family: 'Cinzel', serif !important;
         font-size: 3.2rem;
@@ -274,7 +294,6 @@ def init_db():
         );
         """)
         
-        # Self-healing migration
         cursor.execute("PRAGMA table_info(orders);")
         existing_cols = [row[1] for row in cursor.fetchall()]
         
@@ -400,7 +419,7 @@ if st.sidebar.button("🚪 Logout", use_container_width=True):
     st.rerun()
 
 # ---------------------------------------------------------
-# 1. MAIN HUB (DEDICATED ACTION PANELS)
+# 1. MAIN HUB
 # ---------------------------------------------------------
 if st.session_state.current_page == "Dashboard":
     st.markdown("<div class='brand-title'>MOHAMMAD HUSSAIN</div>", unsafe_allow_html=True)
