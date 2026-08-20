@@ -433,6 +433,9 @@ elif st.session_state.page == "New Measurement":
         
         garment_options = [
             "All Garments / Master Measurement Set",
+            "Kurta Saya",
+            "kurta Saya with izar",
+            "pehran",
             "Kurta (Straight / A-Line / Short)",
             "Pajama (Traditional / Straight )",
             "Sherwani",
