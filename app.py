@@ -5,64 +5,183 @@ import streamlit as st
 import pandas as pd
 
 # ---------------------------------------------------------
-# PAGE SETUP & WARM BESPOKE BEIGE PALETTE
+# PAGE SETUP & HARMONIZED 5-COLOR SARTORIAL PALETTE
 # ---------------------------------------------------------
 st.set_page_config(
     page_title="Mohammad Hussain Atelier",
-    page_icon="✂️",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS: Linen background, solid Beige buttons, sharp black typography
+# 5-Color Palette:
+# 1. Canvas: #FAF7F2 (Warm Parchment)
+# 2. Card/Surface: #FFFFFF (Crisp White)
+# 3. Interactive/Buttons: #EAE0D0 (Sartorial Beige)
+# 4. Text/Contrast: #111827 (Deep Ink Charcoal / Black)
+# 5. Accent/Borders: #8C6D4F (Cognac Gold) & #C8B9A6 (Tailor Oat Border)
+
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
 
-    /* Global Background */
+    /* 1. Global Canvas Background */
     .stApp {
         background-color: #FAF7F2 !important;
         background-image: radial-gradient(#D6C7B2 0.75px, transparent 0.75px), radial-gradient(#D6C7B2 0.75px, #FAF7F2 0.75px) !important;
         background-size: 20px 20px !important;
         background-position: 0 0, 10px 10px !important;
-        color: #000000 !important;
+        color: #111827 !important;
         font-family: 'Plus Jakarta Sans', sans-serif !important;
     }
 
-    /* Force ALL Headings, Field Labels & Text to Sharp Black */
-    h1, h2, h3, h4, p, span, label, div, [data-testid="stMarkdownContainer"] p {
-        color: #000000 !important;
+    /* 2. Global Universal Typography Color (Prevents Transparent / White-out Text) */
+    p, span, label, h1, h2, h3, h4, h5, h6, [data-testid="stMarkdownContainer"] p {
+        color: #111827 !important;
         font-family: 'Plus Jakarta Sans', sans-serif !important;
     }
 
-    /* Make Form Input Field Labels Extra Visible & Bold */
+    /* 3. Form Input Field Labels */
     label[data-testid="stWidgetLabel"] p {
-        color: #000000 !important;
+        color: #111827 !important;
         font-weight: 800 !important;
-        font-size: 1.15rem !important;
+        font-size: 1.05rem !important;
         margin-bottom: 4px !important;
     }
 
-    /* Sidebar Styling */
+    /* 4. Complete Fix for Dropdowns, Selectboxes & Menus */
+    div[data-baseweb="select"] {
+        background-color: #FFFFFF !important;
+        border: 1.5px solid #C8B9A6 !important;
+        border-radius: 10px !important;
+    }
+    div[data-baseweb="select"] * {
+        background-color: transparent !important;
+        color: #111827 !important;
+        font-weight: 700 !important;
+    }
+    /* Dropdown popover list items */
+    ul[data-baseweb="menu"] {
+        background-color: #FFFFFF !important;
+        border: 1.5px solid #C8B9A6 !important;
+    }
+    ul[data-baseweb="menu"] li {
+        background-color: #FFFFFF !important;
+        color: #111827 !important;
+        font-weight: 600 !important;
+    }
+    ul[data-baseweb="menu"] li:hover {
+        background-color: #EAE0D0 !important;
+        color: #111827 !important;
+    }
+
+    /* 5. Inputs, Number pickers & Textareas */
+    .stTextInput input, .stNumberInput input, .stTextArea textarea, .stDateInput input {
+        background-color: #FFFFFF !important;
+        color: #111827 !important;
+        font-weight: 700 !important;
+        font-size: 1.05rem !important;
+        border-radius: 10px !important;
+        border: 1.5px solid #C8B9A6 !important;
+    }
+    .stTextInput input:focus, .stNumberInput input:focus, .stTextArea textarea:focus {
+        border-color: #8C6D4F !important;
+        box-shadow: 0 0 0 2px rgba(140, 109, 79, 0.2) !important;
+    }
+
+    /* 6. Form Surface Cards */
+    div[data-testid="stForm"] {
+        background: #FFFFFF !important;
+        border: 2px solid #E5DCce !important;
+        border-radius: 16px !important;
+        padding: 2rem !important;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.03) !important;
+    }
+
+    /* 7. Extra-Large Sartorial Beige Action Buttons */
+    .stButton>button {
+        background: #EAE0D0 !important;
+        color: #111827 !important;
+        border: 2px solid #C8B9A6 !important;
+        border-radius: 14px !important;
+        min-height: 4.8rem !important;
+        font-size: 1.15rem !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.5px !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.04) !important;
+        transition: all 0.2s ease-in-out !important;
+        margin-bottom: 0.6rem !important;
+    }
+    .stButton>button:hover {
+        background: #DFD3C0 !important;
+        border-color: #8C6D4F !important;
+        color: #000000 !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 18px rgba(0,0,0,0.08) !important;
+    }
+
+    /* 8. Title Badges & Metrics */
+    .section-title-btn {
+        background: #EAE0D0;
+        color: #111827 !important;
+        border: 2px solid #C8B9A6;
+        padding: 0.7rem 1.6rem;
+        border-radius: 12px;
+        font-size: 1.25rem;
+        font-weight: 800;
+        letter-spacing: 1px;
+        display: inline-block;
+        margin: 1.2rem 0 1rem 0;
+        box-shadow: 0 3px 8px rgba(0,0,0,0.04);
+    }
+
+    div[data-testid="stMetric"] {
+        background: #FFFFFF !important;
+        border: 2px solid #E5DCCE !important;
+        padding: 1.4rem !important;
+        border-radius: 14px !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.03) !important;
+    }
+    div[data-testid="stMetric"] label {
+        color: #6B5E51 !important;
+        font-weight: 700 !important;
+        font-size: 1rem !important;
+    }
+    div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
+        color: #111827 !important;
+        font-weight: 800 !important;
+        font-size: 2.2rem !important;
+    }
+
+    /* 9. Sidebar */
     section[data-testid="stSidebar"] {
-        background-color: #26221F !important;
-        border-right: 2px solid #E3D9CD !important;
+        background-color: #24201D !important;
+        border-right: 2px solid #D6C7B2 !important;
     }
     section[data-testid="stSidebar"] * {
         color: #FDFCFA !important;
     }
+    section[data-testid="stSidebar"] .stButton>button {
+        background: #3A3430 !important;
+        color: #FDFCFA !important;
+        border: 1.5px solid #5A524C !important;
+        min-height: 3.2rem !important;
+    }
+    section[data-testid="stSidebar"] .stButton>button:hover {
+        background: #4A423D !important;
+        border-color: #D6C7B2 !important;
+    }
 
-    /* Brand Header */
+    /* 10. Brand Headers */
     .brand-title {
         font-family: 'Cinzel', serif !important;
         font-size: 3.2rem;
         font-weight: 800;
-        color: #000000 !important;
+        color: #111827 !important;
         text-align: center;
         letter-spacing: 2px;
         margin-bottom: 0.1rem;
     }
-
     .brand-tagline {
         text-align: center;
         color: #8C6D4F !important;
@@ -71,60 +190,6 @@ st.markdown("""
         text-transform: uppercase;
         margin-bottom: 2rem;
         font-weight: 700;
-    }
-
-    /* Big Beige Action Buttons with Bold Black Text */
-    .stButton>button {
-        background: #F3ECE1 !important;
-        color: #000000 !important;
-        border: 2px solid #D6C7B2 !important;
-        border-radius: 14px !important;
-        min-height: 4.5rem !important;
-        font-size: 1.15rem !important;
-        font-weight: 800 !important;
-        letter-spacing: 0.5px !important;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.05) !important;
-        transition: all 0.2s ease-in-out !important;
-        margin-bottom: 0.6rem !important;
-    }
-
-    .stButton>button:hover {
-        background: #E8DDCD !important;
-        border-color: #8C6D4F !important;
-        color: #000000 !important;
-        transform: translateY(-2px) !important;
-    }
-
-    /* Section Title Badges */
-    .section-title-btn {
-        background: #E8DDCD;
-        color: #000000 !important;
-        border: 2px solid #D6C7B2;
-        padding: 0.7rem 1.5rem;
-        border-radius: 10px;
-        font-size: 1.3rem;
-        font-weight: 800;
-        letter-spacing: 1px;
-        display: inline-block;
-        margin: 1.2rem 0 1rem 0;
-    }
-
-    /* White Form Container Cards */
-    div[data-testid="stForm"] {
-        background: #FFFFFF !important;
-        border: 2px solid #E3D9CD !important;
-        border-radius: 14px !important;
-        padding: 2rem !important;
-    }
-
-    /* Form Input Boxes & Textareas */
-    .stTextInput input, .stNumberInput input, .stTextArea textarea, .stSelectbox div[data-baseweb="select"] {
-        background-color: #FAF7F2 !important;
-        color: #000000 !important;
-        font-weight: 700 !important;
-        font-size: 1.05rem !important;
-        border-radius: 10px !important;
-        border: 1.5px solid #D6C7B2 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -335,7 +400,7 @@ if st.sidebar.button("🚪 Logout", use_container_width=True):
     st.rerun()
 
 # ---------------------------------------------------------
-# 1. MAIN HUB (BIG DEDICATED BEIGE BUTTONS)
+# 1. MAIN HUB (DEDICATED ACTION PANELS)
 # ---------------------------------------------------------
 if st.session_state.current_page == "Dashboard":
     st.markdown("<div class='brand-title'>MOHAMMAD HUSSAIN</div>", unsafe_allow_html=True)
@@ -347,9 +412,9 @@ if st.session_state.current_page == "Dashboard":
         unpaid_count = conn.cursor().execute("SELECT COUNT(*) FROM orders WHERE payment_status IN ('Due', 'Advance Paid', 'Half Paid')").fetchone()[0]
 
     c1, c2, c3 = st.columns(3)
-    c1.metric("👥 Master Client Profiles", f"{total_clients}")
-    c2.metric("🧵 In-Production Garments", f"{active_orders}")
-    c3.metric("💳 Payments Due / Pending", f"{unpaid_count}")
+    c1.metric("👥 Client Profiles", f"{total_clients}")
+    c2.metric("🧵 In Production", f"{active_orders}")
+    c3.metric("💳 Payments Due", f"{unpaid_count}")
     
     st.markdown("<div class='section-title-btn'>⚡ Atelier Action Centre</div>", unsafe_allow_html=True)
     
@@ -408,7 +473,7 @@ elif st.session_state.current_page == "New Client":
                         VALUES (?, ?, ?, ?, ?, ?)
                         """, (client_code.strip(), full_name.strip(), phone.strip(), email.strip(), posture_notes, asymmetry_notes))
                         conn.commit()
-                    st.success(f"Client '{full_name}' recorded in Mohammad Hussain database!")
+                    st.success(f"Client '{full_name}' recorded successfully!")
                 except sqlite3.IntegrityError:
                     st.error("Client ID already exists. Please use a unique identifier.")
 
