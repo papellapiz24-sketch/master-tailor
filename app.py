@@ -523,7 +523,7 @@ elif st.session_state.page == "New Measurement":
                 crotch_depth = st.number_input("Crotch Depth", min_value=0.0, step=0.25)
 
             m_notes = st.text_area("Measurement Session & Fit Notes", placeholder="e.g., Client requested loose fit for Kurta, slim fit for Churidar...")
-            save_m = st.form_submit_button("Save Measurements", use_container_width=True)
+           save_m = st.form_submit_button("Save Measurements", use_container_width=True)
             if save_m:
                 with get_db() as conn:
                     conn.cursor().execute("""
@@ -532,20 +532,14 @@ elif st.session_state.page == "New Measurement":
                         neck, chest_full, chest_upper, waist_stomach, cross_shoulder, back_width,
                         front_chest_width, armhole, bicep, wrist, sleeve_length, nape_to_waist,
                         full_length_jacket, trouser_waist, seat_hip, thigh, knee, calf,
-                        bottom_opening, outseam, inseam, front_rise, crotch_depth,
-                        kurta_length, sherwani_length, churidar_length, dhoti_length, dhoti_waist,
-                        pajama_length, pajama_waist, pajama_bottom, nehru_jacket_length, bandhgala_length,
-                        pathani_length, angrakha_length, notes
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        bottom_opening, outseam, inseam, front_rise, crotch_depth, notes
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
                         selected_client_id, rev_label, selected_garment_type, unit, rec_date,
                         neck, chest_full, chest_upper, waist_stomach, cross_shoulder, back_width,
                         front_chest_width, armhole, bicep, wrist, sleeve_length, nape_to_waist,
                         full_length_jacket, trouser_waist, seat_hip, thigh, knee, calf,
-                        bottom_opening, outseam, inseam, front_rise, crotch_depth,
-                        kurta_length, sherwani_length, churidar_length, dhoti_length, dhoti_waist,
-                        pajama_length, pajama_waist, pajama_bottom, nehru_jacket_length, bandhgala_length,
-                        pathani_length, angrakha_length, m_notes
+                        bottom_opening, outseam, inseam, front_rise, crotch_depth, m_notes
                     ))
                     conn.commit()
                 st.success(f"Measurements saved for {selected_client_label} ({selected_garment_type}) on {rec_date}!")
