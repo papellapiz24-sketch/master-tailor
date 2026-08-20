@@ -193,7 +193,7 @@ def set_setting(key, value):
         conn.cursor().execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
         conn.commit()
 
-# Dynamic Branding & Color Palettes (Light, elegant background guaranteed)
+# Dynamic Branding & Color Palettes
 BRAND_NAME = get_setting("brand_name", "BAMNIYA STUDIO")
 BRAND_TAGLINE = get_setting("brand_tagline", "Bespoke Master Tailoring & Haute Couture")
 CURRENT_THEME = get_setting("theme_palette", "Linen Warm Cream")
@@ -201,68 +201,73 @@ CURRENT_THEME = get_setting("theme_palette", "Linen Warm Cream")
 COLOR_PALETTES = {
     "Linen Warm Cream": {
         "bg": "#FAF7F2",
-        "text": "#111827",
+        "text": "#1E1A16",
         "btn_bg": "#2B241F",
-        "btn_text": "#FFFFFF",
-        "btn_hover": "#423932",
-        "accent_banner": "#EFE7DA",
+        "btn_text": "#FDFCF7",
+        "btn_hover": "#473C34",
+        "btn_hover_text": "#FFFFFF",
+        "accent_banner": "#EDE3D4",
         "accent_banner_text": "#1F1A17",
         "border": "#D8CABE",
         "card_bg": "#FFFFFF",
-        "brand_gold": "#8C6D4F",
+        "brand_accent": "#8C6D4F",
         "sidebar_bg": "#24201D"
     },
     "Ivory Royal Navy": {
         "bg": "#F5F8FA",
-        "text": "#0F172A",
-        "btn_bg": "#0F2847",
-        "btn_text": "#FFFFFF",
-        "btn_hover": "#1E3E66",
-        "accent_banner": "#E2EBF5",
-        "accent_banner_text": "#0B1D33",
-        "border": "#CBD8E6",
+        "text": "#0B1526",
+        "btn_bg": "#0E294B",
+        "btn_text": "#E8F1FC",
+        "btn_hover": "#1B447A",
+        "btn_hover_text": "#FFFFFF",
+        "accent_banner": "#DCE8F5",
+        "accent_banner_text": "#0A1D36",
+        "border": "#B9D0E8",
         "card_bg": "#FFFFFF",
-        "brand_gold": "#2A5B8C",
-        "sidebar_bg": "#0B192C"
+        "brand_accent": "#1A528C",
+        "sidebar_bg": "#0B182B"
     },
     "Soft Sage Atelier": {
         "bg": "#F4F7F4",
-        "text": "#13231B",
-        "btn_bg": "#1C3829",
-        "btn_text": "#FFFFFF",
-        "btn_hover": "#2B523D",
-        "accent_banner": "#E2ECE5",
-        "accent_banner_text": "#13231B",
-        "border": "#C7D8CE",
+        "text": "#112419",
+        "btn_bg": "#1C3B2B",
+        "btn_text": "#EBF5EF",
+        "btn_hover": "#2C5942",
+        "btn_hover_text": "#FFFFFF",
+        "accent_banner": "#DCECE1",
+        "accent_banner_text": "#10261A",
+        "border": "#BED8C7",
         "card_bg": "#FFFFFF",
-        "brand_gold": "#3D6E53",
-        "sidebar_bg": "#14251B"
+        "brand_accent": "#2F6B4A",
+        "sidebar_bg": "#13271C"
     },
-    "Nordic Cloud Grey": {
+    "Nordic Cloud Slate": {
         "bg": "#F8FAFC",
         "text": "#0F172A",
         "btn_bg": "#1E293B",
-        "btn_text": "#FFFFFF",
+        "btn_text": "#F1F5F9",
         "btn_hover": "#334155",
-        "accent_banner": "#E6ECF2",
+        "btn_hover_text": "#FFFFFF",
+        "accent_banner": "#E2E8F0",
         "accent_banner_text": "#0F172A",
         "border": "#CBD5E1",
         "card_bg": "#FFFFFF",
-        "brand_gold": "#475569",
+        "brand_accent": "#475569",
         "sidebar_bg": "#0F172A"
     },
-    "Oatmeal & Rich Walnut": {
-        "bg": "#F7F5F0",
-        "text": "#211D19",
-        "btn_bg": "#4A3B32",
-        "btn_text": "#FFFFFF",
-        "btn_hover": "#634F43",
-        "accent_banner": "#EAE3D8",
-        "accent_banner_text": "#211D19",
-        "border": "#D5C8B8",
+    "Sandstone & Amber": {
+        "bg": "#FDFBF7",
+        "text": "#241A10",
+        "btn_bg": "#78350F",
+        "btn_text": "#FEF3C7",
+        "btn_hover": "#9A3412",
+        "btn_hover_text": "#FFFFFF",
+        "accent_banner": "#FEF3C7",
+        "accent_banner_text": "#78350F",
+        "border": "#E7D5BC",
         "card_bg": "#FFFFFF",
-        "brand_gold": "#7D6452",
-        "sidebar_bg": "#2B221C"
+        "brand_accent": "#B45309",
+        "sidebar_bg": "#29180C"
     }
 }
 
@@ -278,8 +283,12 @@ st.markdown(f"""
         font-family: 'Plus Jakarta Sans', sans-serif !important;
     }}
 
-    p, span, label, h1, h2, h3, h4, h5, h6, [data-testid="stMarkdownContainer"] p {{
-        color: {active_pal['text']} !important;
+    /* Main Area Typography (Strictly avoiding button overrides) */
+    .stApp > header, .main .block-container p, .main .block-container span, 
+    .main .block-container label, .main .block-container h1, .main .block-container h2, 
+    .main .block-container h3, .main .block-container h4, .main .block-container h5, 
+    .main .block-container h6 {{
+        color: {active_pal['text']};
         font-family: 'Plus Jakarta Sans', sans-serif !important;
     }}
 
@@ -321,9 +330,9 @@ st.markdown(f"""
         border: 1.5px solid {active_pal['border']} !important;
     }}
 
+    /* Global High-Contrast Balanced Button Engine */
     .stButton>button {{
-        background: {active_pal['btn_bg']} !important;
-        color: {active_pal['btn_text']} !important;
+        background-color: {active_pal['btn_bg']} !important;
         border: 1.5px solid {active_pal['btn_bg']} !important;
         border-radius: 14px !important;
         min-height: 3.5rem !important;
@@ -332,11 +341,21 @@ st.markdown(f"""
         margin-bottom: 0.3rem !important;
         transition: all 0.2s ease-in-out !important;
     }}
+    
+    .stButton>button * {{
+        color: {active_pal['btn_text']} !important;
+        fill: {active_pal['btn_text']} !important;
+    }}
+
     .stButton>button:hover {{
-        background: {active_pal['btn_hover']} !important;
+        background-color: {active_pal['btn_hover']} !important;
         border-color: {active_pal['btn_hover']} !important;
-        color: #FFFFFF !important;
         transform: translateY(-2px) !important;
+    }}
+
+    .stButton>button:hover * {{
+        color: {active_pal['btn_hover_text']} !important;
+        fill: {active_pal['btn_hover_text']} !important;
     }}
 
     .section-title-btn {{
@@ -370,15 +389,16 @@ st.markdown(f"""
         color: #FDFCFA !important;
     }}
     section[data-testid="stSidebar"] .stButton>button {{
-        background: rgba(255, 255, 255, 0.1) !important;
-        color: #FFFFFF !important;
+        background-color: rgba(255, 255, 255, 0.1) !important;
         border: 1.5px solid rgba(255, 255, 255, 0.25) !important;
         min-height: 3rem !important;
     }}
-    section[data-testid="stSidebar"] .stButton>button:hover {{
-        background: rgba(255, 255, 255, 0.22) !important;
-        border-color: #FFFFFF !important;
+    section[data-testid="stSidebar"] .stButton>button * {{
         color: #FFFFFF !important;
+    }}
+    section[data-testid="stSidebar"] .stButton>button:hover {{
+        background-color: rgba(255, 255, 255, 0.22) !important;
+        border-color: #FFFFFF !important;
     }}
 
     .brand-title {{
@@ -391,7 +411,7 @@ st.markdown(f"""
     }}
     .brand-tagline {{
         text-align: center;
-        color: {active_pal['brand_gold']} !important;
+        color: {active_pal['brand_accent']} !important;
         font-size: 0.95rem;
         letter-spacing: 2px;
         text-transform: uppercase;
@@ -1022,7 +1042,7 @@ elif st.session_state.page == "Print Slip":
                 "</tr>",
                 "<tr>",
                 "<td style='border:1px solid #000; padding:2px 4px;'>Wrist</td><td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>" + up_wrst + "</b></td>",
-                "<td style='border:1px solid #000; padding:2px 4px; background:#FAFAFA;'>-</td><td style='border:1px solid #000; padding:2px 4px; background:#FAFAFA; text-align:center;'>-</td>",
+                "<td style='border:1px solid #000; padding:2px 4px;'>-</td><td style='border:1px solid #000; padding:2px 4px; background:#FAFAFA; text-align:center;'>-</td>",
                 "</tr>",
                 "</table>",
                 
@@ -1079,7 +1099,7 @@ elif st.session_state.page == "Order Tracking":
                 <div class='order-card'>
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <h3 style="margin:0; font-family:'Cinzel', serif;">{order['order_number']} — {order['garment_type']}</h3>
-                        <span style="font-weight:800; font-size:1.1rem; color:{active_pal['brand_gold']} !important;">Target: {order['delivery_date']}</span>
+                        <span style="font-weight:800; font-size:1.1rem; color:{active_pal['brand_accent']} !important;">Target: {order['delivery_date']}</span>
                     </div>
                     <p style="margin: 0.3rem 0;"><b>Client:</b> {order['client_name']} ({order['phone']}) | <b>Current Stage:</b> {order['workflow_status']}</p>
                 </div>
@@ -1284,7 +1304,7 @@ elif st.session_state.page == "Admin Settings":
 
     # --- 1. THEME & LIGHT BACKGROUND PALETTE SELECTOR ---
     st.markdown("### Studio Visual Theme & Color Palette")
-    st.write("Select a color palette. The main background is kept light with high-contrast text and buttons for readability.")
+    st.write("Select an atelier palette. The background is always soft and legible, with matched high-contrast text and buttons.")
     
     with st.form("theme_palette_form"):
         palette_names = list(COLOR_PALETTES.keys())
@@ -1487,6 +1507,7 @@ elif st.session_state.page == "Admin Settings":
                 xml.append('              <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>')
                 xml.append(f'              <AMOUNT>{paid_val:.2f}</AMOUNT>')
                 xml.append('            </ALLLEDGERENTRIES.LIST>')
+                
                 xml.append('          </VOUCHER>')
                 xml.append('        </TALLYMESSAGE>')
 
