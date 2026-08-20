@@ -1,43 +1,97 @@
 import sqlite3
 import datetime
+import hashlib
 import streamlit as st
 import pandas as pd
 
 # ---------------------------------------------------------
-# PAGE SETUP & MODERN STYLING
+# PAGE SETUP & MODERN BESPOKE THEME (WARM PALETTE + ANIMATIONS)
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="Master Tailor OS",
+    page_title="Mohammad Hussain Atelier",
     page_icon="✂️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for modern bespoke card styling
+# Custom Warm-Toned Animated CSS
 st.markdown("""
 <style>
-    /* Card buttons styling */
-    .stButton>button {
-        border-radius: 12px;
-        height: 3.5rem;
-        font-weight: 600;
-        font-size: 1.05rem;
-        transition: all 0.2s ease-in-out;
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+    :root {
+        --primary-amber: #D97706;
+        --warm-terracotta: #C2410C;
+        --deep-espresso: #291B15;
+        --card-warm-bg: #FFFDF9;
+        --gold-accent: #B45309;
+        --border-soft: #FDE68A;
     }
-    .stButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+
+    @keyframes fadeInSlide {
+        0% { opacity: 0; transform: translateY(12px); }
+        100% { opacity: 1; transform: translateY(0); }
     }
-    /* Metric and section headers */
-    .dashboard-header {
+
+    .brand-title {
+        font-family: 'Cinzel', serif !important;
+        font-weight: 800;
+        font-size: 2.8rem;
+        background: linear-gradient(135deg, #B45309 0%, #D97706 50%, #9A3412 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
         text-align: center;
+        letter-spacing: 2px;
+        margin-bottom: 0.2rem;
+        animation: fadeInSlide 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    
+    .brand-tagline {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        text-align: center;
+        color: #78350F;
+        font-size: 1.05rem;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
         margin-bottom: 2rem;
+        font-weight: 600;
+    }
+
+    .stButton>button {
+        border-radius: 14px !important;
+        height: 3.8rem !important;
+        font-weight: 700 !important;
+        font-size: 1.05rem !important;
+        background: linear-gradient(145deg, #FFFFFF, #FEF3C7) !important;
+        color: #78350F !important;
+        border: 1.5px solid #FDE68A !important;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        animation: fadeInSlide 0.6s ease-out;
+    }
+    
+    .stButton>button:hover {
+        transform: translateY(-4px) scale(1.01) !important;
+        border-color: #D97706 !important;
+        background: linear-gradient(145deg, #FFFBEB, #FDE68A) !important;
+        box-shadow: 0 10px 22px rgba(180, 83, 9, 0.18) !important;
+    }
+
+    div[data-testid="stMetric"] {
+        background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+        border: 1px solid #FDE68A;
+        padding: 1.2rem;
+        border-radius: 16px;
+        box-shadow: 0 4px 12px rgba(217, 119, 6, 0.08);
+        transition: transform 0.25s ease;
+    }
+    div[data-testid="stMetric"]:hover {
+        transform: translateY(-2px);
     }
 </style>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# DATABASE SETUP
+# DATABASE ENGINE WITH AUTO-MIGRATION
 # ---------------------------------------------------------
 DB_FILE = "master_tailor.db"
 
@@ -46,11 +100,22 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
+def hash_pw(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
 def init_db():
     with get_db() as conn:
         cursor = conn.cursor()
         
-        # Clients Table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """)
+
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS clients (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -64,7 +129,6 @@ def init_db():
         );
         """)
         
-        # Versioned Client Measurements Table
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS measurements (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,27 +136,19 @@ def init_db():
             revision_label TEXT NOT NULL,
             unit TEXT CHECK(unit IN ('Inches', 'Centimeters')) NOT NULL DEFAULT 'Inches',
             date_recorded DATE NOT NULL,
-            
-            -- Upper Body
             neck REAL, chest_full REAL, chest_upper REAL, waist_stomach REAL,
             cross_shoulder REAL, back_width REAL, front_chest_width REAL,
             armhole REAL, bicep REAL, wrist REAL,
             sleeve_length REAL, nape_to_waist REAL, full_length_jacket REAL,
-            
-            -- Lower Body
             trouser_waist REAL, seat_hip REAL, thigh REAL, knee REAL,
             calf REAL, bottom_opening REAL, outseam REAL, inseam REAL,
             front_rise REAL, crotch_depth REAL,
-            
-            -- Indian Traditional Metrics
             kurta_length REAL, sherwani_length REAL, churidar_length REAL,
-            
             notes TEXT,
             FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE CASCADE
         );
         """)
         
-        # Dedicated Orders Table
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS orders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -102,32 +158,114 @@ def init_db():
             garment_type TEXT NOT NULL,
             fit_preference TEXT NOT NULL,
             fabric_details TEXT,
-            price REAL DEFAULT 0.0,
-            advance_paid REAL DEFAULT 0.0,
+            total_amount REAL DEFAULT 0.0,
+            amount_paid REAL DEFAULT 0.0,
+            payment_status TEXT DEFAULT 'Due',
             delivery_date DATE,
-            status TEXT CHECK(status IN ('Drafted', 'Fabric Cut', 'Basted Fitting', 'Alterations', 'Final Pressed', 'Delivered')) DEFAULT 'Drafted',
+            workflow_status TEXT DEFAULT 'Drafted',
             fitting_remarks TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (client_id) REFERENCES clients (id),
             FOREIGN KEY (measurement_id) REFERENCES measurements (id)
         );
         """)
+        
+        # Self-healing migration: Add any missing columns to existing tables
+        cursor.execute("PRAGMA table_info(orders);")
+        existing_cols = [row[1] for row in cursor.fetchall()]
+        
+        col_patches = {
+            "total_amount": "ALTER TABLE orders ADD COLUMN total_amount REAL DEFAULT 0.0;",
+            "amount_paid": "ALTER TABLE orders ADD COLUMN amount_paid REAL DEFAULT 0.0;",
+            "payment_status": "ALTER TABLE orders ADD COLUMN payment_status TEXT DEFAULT 'Due';",
+            "workflow_status": "ALTER TABLE orders ADD COLUMN workflow_status TEXT DEFAULT 'Drafted';"
+        }
+        for col_name, sql_stmt in col_patches.items():
+            if col_name not in existing_cols:
+                try:
+                    cursor.execute(sql_stmt)
+                except Exception:
+                    pass
+
         conn.commit()
 
 init_db()
 
 # ---------------------------------------------------------
-# SESSION STATE NAVIGATION
+# AUTHENTICATION STATE
 # ---------------------------------------------------------
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+if "username" not in st.session_state:
+    st.session_state.username = ""
 if "current_page" not in st.session_state:
     st.session_state.current_page = "Dashboard"
 
 def set_page(page_name):
     st.session_state.current_page = page_name
 
-# Sidebar Quick Nav
-st.sidebar.title("✂️ Master Tailor")
-st.sidebar.caption("Bespoke Client & Workshop Manager")
+# ---------------------------------------------------------
+# LOGIN & SIGN-UP
+# ---------------------------------------------------------
+if not st.session_state.authenticated:
+    st.markdown("<div class='brand-title'>MOHAMMAD HUSSAIN</div>", unsafe_allow_html=True)
+    st.markdown("<div class='brand-tagline'>Haute Couture & Master Bespoke Atelier</div>", unsafe_allow_html=True)
+    
+    col_center = st.columns([1, 1.8, 1])[1]
+    with col_center:
+        auth_tab = st.radio("Portal Access", ["Sign In", "Create Tailor Account"], horizontal=True)
+        
+        if auth_tab == "Sign In":
+            with st.form("signin_form"):
+                st.subheader("Atelier Sign In")
+                u_name = st.text_input("Username")
+                p_word = st.text_input("Password", type="password")
+                btn_login = st.form_submit_button("Sign In to Workshop", use_container_width=True)
+                
+                if btn_login:
+                    if not u_name or not p_word:
+                        st.error("Please enter both username and password.")
+                    else:
+                        with get_db() as conn:
+                            user = conn.cursor().execute(
+                                "SELECT * FROM users WHERE username = ? AND password_hash = ?", 
+                                (u_name.strip(), hash_pw(p_word))
+                            ).fetchone()
+                            
+                            if user:
+                                st.session_state.authenticated = True
+                                st.session_state.username = u_name
+                                st.rerun()
+                            else:
+                                st.error("Invalid username or password.")
+        else:
+            with st.form("signup_form"):
+                st.subheader("New Tailor Sign Up")
+                new_user = st.text_input("Choose Username*")
+                new_pass = st.text_input("Create Password*", type="password")
+                btn_signup = st.form_submit_button("Register Account", use_container_width=True)
+                
+                if btn_signup:
+                    if not new_user or not new_pass:
+                        st.error("Fields cannot be empty.")
+                    else:
+                        try:
+                            with get_db() as conn:
+                                conn.cursor().execute(
+                                    "INSERT INTO users (username, password_hash) VALUES (?, ?)",
+                                    (new_user.strip(), hash_pw(new_pass))
+                                )
+                                conn.commit()
+                            st.success("Account created successfully! Switch to 'Sign In' to login.")
+                        except sqlite3.IntegrityError:
+                            st.error("Username already taken.")
+    st.stop()
+
+# ---------------------------------------------------------
+# SIDEBAR
+# ---------------------------------------------------------
+st.sidebar.markdown("### ✂️ **Mohammad Hussain**")
+st.sidebar.caption(f"Master Tailor: **{st.session_state.username}**")
 
 nav_options = [
     "🏠 Main Hub",
@@ -138,21 +276,8 @@ nav_options = [
     "🔄 Update Orders & Fitting"
 ]
 
-selected_sidebar = st.sidebar.radio(
-    "Navigation", 
-    nav_options, 
-    index=[
-        "Dashboard", "New Client", "New Measurement", 
-        "Client Records", "New Order", "Update Orders"
-    ].index(
-        st.session_state.current_page if st.session_state.current_page in [
-            "Dashboard", "New Client", "New Measurement", 
-            "Client Records", "New Order", "Update Orders"
-        ] else "Dashboard"
-    )
-)
+selected_sidebar = st.sidebar.radio("Navigation Menu", nav_options)
 
-# Sync sidebar with state
 page_map = {
     "🏠 Main Hub": "Dashboard",
     "👤 Register Client": "New Client",
@@ -163,51 +288,54 @@ page_map = {
 }
 st.session_state.current_page = page_map[selected_sidebar]
 
+if st.sidebar.button("🚪 Logout", use_container_width=True):
+    st.session_state.authenticated = False
+    st.session_state.username = ""
+    st.rerun()
+
 # ---------------------------------------------------------
-# 1. MAIN INTERACTIVE DASHBOARD HUB
+# 1. MAIN HUB
 # ---------------------------------------------------------
 if st.session_state.current_page == "Dashboard":
-    st.markdown("<div class='dashboard-header'><h1>✂️ Master Tailor Workshop Hub</h1><p>Select an action below to manage your clients, measurements, and active orders</p></div>", unsafe_allow_html=True)
+    st.markdown("<div class='brand-title'>MOHAMMAD HUSSAIN</div>", unsafe_allow_html=True)
+    st.markdown("<div class='brand-tagline'>Master Tailoring & Client Workshop Hub</div>", unsafe_allow_html=True)
     
-    # Quick Status Metrics
     with get_db() as conn:
         total_clients = conn.cursor().execute("SELECT COUNT(*) FROM clients").fetchone()[0]
-        active_orders = conn.cursor().execute("SELECT COUNT(*) FROM orders WHERE status != 'Delivered'").fetchone()[0]
-        completed_orders = conn.cursor().execute("SELECT COUNT(*) FROM orders WHERE status = 'Delivered'").fetchone()[0]
+        active_orders = conn.cursor().execute("SELECT COUNT(*) FROM orders WHERE workflow_status != 'Delivered'").fetchone()[0]
+        unpaid_count = conn.cursor().execute("SELECT COUNT(*) FROM orders WHERE payment_status IN ('Due', 'Advance Paid', 'Half Paid')").fetchone()[0]
 
-    m1, m2, m3 = st.columns(3)
-    m1.metric("👥 Total Clients", total_clients)
-    m2.metric("🧵 In-Progress Garments", active_orders)
-    m3.metric("✨ Delivered Orders", completed_orders)
+    c1, c2, c3 = st.columns(3)
+    c1.metric("👥 Client Directory", f"{total_clients} Profiles")
+    c2.metric("🧵 In Production", f"{active_orders} Garments")
+    c3.metric("💳 Payments Pending", f"{unpaid_count} Accounts Due")
     
     st.markdown("---")
+    st.subheader("⚡ Workshop Actions")
     
-    # Interactive Grid Cards
-    st.subheader("⚡ Quick Actions")
     col1, col2 = st.columns(2)
-    
     with col1:
-        if st.button("👤  Register New Client\n\nAdd new client profile, posture, and asymmetries", use_container_width=True):
+        if st.button("👤  Register New Client\n\nRecord profile, contact, posture & shoulder asymmetry", use_container_width=True):
             set_page("New Client")
             st.rerun()
             
         st.write("")
-        if st.button("📏  Record Measurements\n\nTake complete body & garment measurements with date", use_container_width=True):
+        if st.button("📏  Record Measurements\n\nRecord dated body metrics across Western & Indian cuts", use_container_width=True):
             set_page("New Measurement")
             st.rerun()
             
         st.write("")
-        if st.button("🗂️  Client Database & History\n\nSearch clients, past revisions, and fitting logs", use_container_width=True):
+        if st.button("🗂️  Client Records & Revisions\n\nInspect client measurements, past orders & revision history", use_container_width=True):
             set_page("Client Records")
             st.rerun()
 
     with col2:
-        if st.button("➕  Create New Garment Order\n\nAssign garment type, fabric, deadline, and price", use_container_width=True):
+        if st.button("➕  Create Garment Order\n\nSet garment, fabrics, total cost, advance, and payment status", use_container_width=True):
             set_page("New Order")
             st.rerun()
             
         st.write("")
-        if st.button("🔄  Dedicated Order & Fitting Updater\n\nUpdate status, fitting drag notes, and delivery", use_container_width=True):
+        if st.button("🔄  Dedicated Order & Payment Updater\n\nTrack Due/Half/Full payments, fittings & delivery stage", use_container_width=True):
             set_page("Update Orders")
             st.rerun()
 
@@ -223,18 +351,18 @@ elif st.session_state.current_page == "New Client":
     with st.form("new_client_form", clear_on_submit=True):
         c1, c2 = st.columns(2)
         with c1:
-            client_code = st.text_input("Client ID / Phone Number as Code*", placeholder="e.g., CL-982601")
-            full_name = st.text_input("Client Full Name*")
+            client_code = st.text_input("Client ID / Phone Number*", placeholder="e.g., MH-2026-001")
+            full_name = st.text_input("Full Name*")
             phone = st.text_input("Contact Number*")
             email = st.text_input("Email (Optional)")
         with c2:
             posture_notes = st.text_area("Posture Observations", placeholder="e.g., Erect stance, forward sloping shoulders, swayback...")
-            asymmetry_notes = st.text_area("Physical Asymmetries", placeholder="e.g., Right shoulder 0.5 in lower, left arm 0.25 in longer...")
+            asymmetry_notes = st.text_area("Asymmetry Notes", placeholder="e.g., Right shoulder 0.5 in lower, right arm 0.25 in longer...")
         
         submitted = st.form_submit_button("Save Client Profile", use_container_width=True)
         if submitted:
             if not client_code or not full_name or not phone:
-                st.error("Please fill in the required fields (Client ID, Full Name, Contact Number).")
+                st.error("Please fill in Client ID, Full Name, and Contact Number.")
             else:
                 try:
                     with get_db() as conn:
@@ -243,9 +371,9 @@ elif st.session_state.current_page == "New Client":
                         VALUES (?, ?, ?, ?, ?, ?)
                         """, (client_code.strip(), full_name.strip(), phone.strip(), email.strip(), posture_notes, asymmetry_notes))
                         conn.commit()
-                    st.success(f"Client {full_name} saved successfully!")
+                    st.success(f"Client '{full_name}' recorded in Mohammad Hussain database!")
                 except sqlite3.IntegrityError:
-                    st.error("This Client ID already exists in your records. Please use a unique ID.")
+                    st.error("Client ID already exists. Please use a unique ID.")
 
 # ---------------------------------------------------------
 # 3. RECORD MEASUREMENTS
@@ -260,16 +388,16 @@ elif st.session_state.current_page == "New Measurement":
         clients = conn.cursor().execute("SELECT id, client_code, full_name FROM clients ORDER BY full_name").fetchall()
     
     if not clients:
-        st.warning("No clients found. Register a client first.")
+        st.warning("Register a client first before taking measurements.")
     else:
         client_dict = {f"{c['client_code']} — {c['full_name']}": c['id'] for c in clients}
-        selected_client_label = st.selectbox("Choose Client", list(client_dict.keys()))
+        selected_client_label = st.selectbox("Select Client", list(client_dict.keys()))
         selected_client_id = client_dict[selected_client_label]
         
         with st.form("measurement_form"):
             h1, h2, h3 = st.columns(3)
             with h1:
-                rev_label = st.text_input("Measurement Session Label*", value="Revision 01")
+                rev_label = st.text_input("Session / Revision Tag*", value="Revision 01")
             with h2:
                 rec_date = st.date_input("Date Taken", datetime.date.today())
             with h3:
@@ -287,12 +415,12 @@ elif st.session_state.current_page == "New Measurement":
                 back_width = st.number_input("Back Width", min_value=0.0, step=0.25)
             with u3:
                 front_chest_width = st.number_input("Front Chest Width", min_value=0.0, step=0.25)
-                armhole = st.number_input("Armhole Circumference", min_value=0.0, step=0.25)
+                armhole = st.number_input("Armhole", min_value=0.0, step=0.25)
                 bicep = st.number_input("Bicep", min_value=0.0, step=0.25)
             with u4:
                 wrist = st.number_input("Wrist", min_value=0.0, step=0.25)
                 sleeve_length = st.number_input("Sleeve Length", min_value=0.0, step=0.25)
-                full_length_jacket = st.number_input("Coat / Top Length", min_value=0.0, step=0.25)
+                full_length_jacket = st.number_input("Jacket Length", min_value=0.0, step=0.25)
                 nape_to_waist = st.number_input("Nape to Waist", min_value=0.0, step=0.25)
 
             st.markdown("### Lower Body Dimensions")
@@ -305,10 +433,10 @@ elif st.session_state.current_page == "New Measurement":
                 knee = st.number_input("Knee", min_value=0.0, step=0.25)
             with l3:
                 calf = st.number_input("Calf", min_value=0.0, step=0.25)
-                bottom_opening = st.number_input("Bottom Opening / Hem", min_value=0.0, step=0.25)
+                bottom_opening = st.number_input("Bottom Opening", min_value=0.0, step=0.25)
             with l4:
-                outseam = st.number_input("Outseam Length", min_value=0.0, step=0.25)
-                inseam = st.number_input("Inseam Length", min_value=0.0, step=0.25)
+                outseam = st.number_input("Outseam", min_value=0.0, step=0.25)
+                inseam = st.number_input("Inseam", min_value=0.0, step=0.25)
                 front_rise = st.number_input("Front Rise", min_value=0.0, step=0.25)
                 crotch_depth = st.number_input("Crotch Depth", min_value=0.0, step=0.25)
 
@@ -321,7 +449,7 @@ elif st.session_state.current_page == "New Measurement":
             with t3:
                 churidar_length = st.number_input("Churidar Total Length", min_value=0.0, step=0.25)
 
-            m_notes = st.text_area("Specific Fitting / Customer Preference Notes")
+            m_notes = st.text_area("Measurement Session Notes")
 
             save_m = st.form_submit_button("Save Measurements", use_container_width=True)
             if save_m:
@@ -347,10 +475,10 @@ elif st.session_state.current_page == "New Measurement":
                 st.success(f"Measurements saved for {selected_client_label} on {rec_date}!")
 
 # ---------------------------------------------------------
-# 4. VIEW CLIENT RECORDS & HISTORY
+# 4. VIEW CLIENT RECORDS
 # ---------------------------------------------------------
 elif st.session_state.current_page == "Client Records":
-    st.header("🗂️ Client Profiles & Measurement Archive")
+    st.header("🗂️ Client Database & Historical Records")
     if st.button("← Back to Hub"):
         set_page("Dashboard")
         st.rerun()
@@ -359,17 +487,17 @@ elif st.session_state.current_page == "Client Records":
         clients_df = pd.read_sql_query("SELECT id, client_code, full_name, phone, posture_notes, asymmetry_notes FROM clients ORDER BY full_name", conn)
         
     if not clients_df.empty:
-        search_query = st.text_input("🔍 Search Client by Name or Phone")
-        if search_query:
-            clients_df = clients_df[clients_df.apply(lambda row: search_query.lower() in row.astype(str).str.lower().values, axis=1)]
+        search = st.text_input("🔍 Search Client by Name or Phone Number")
+        if search:
+            clients_df = clients_df[clients_df.apply(lambda row: search.lower() in row.astype(str).str.lower().values, axis=1)]
             
         st.dataframe(clients_df, use_container_width=True)
         
         st.markdown("---")
-        st.subheader("Inspection: Historical Measurements")
+        st.subheader("Historical Measurement Log")
         client_options = {f"{r['client_code']} — {r['full_name']}": r['id'] for _, r in clients_df.iterrows()}
         if client_options:
-            inspect_id = st.selectbox("Select Client to inspect full records", list(client_options.keys()))
+            inspect_id = st.selectbox("Select Client", list(client_options.keys()))
             cid = client_options[inspect_id]
             
             with get_db() as conn:
@@ -383,7 +511,7 @@ elif st.session_state.current_page == "Client Records":
         st.info("No client records found.")
 
 # ---------------------------------------------------------
-# 5. CREATE NEW ORDER
+# 5. CREATE NEW GARMENT ORDER
 # ---------------------------------------------------------
 elif st.session_state.current_page == "New Order":
     st.header("➕ Create New Garment Order")
@@ -395,7 +523,7 @@ elif st.session_state.current_page == "New Order":
         clients = conn.cursor().execute("SELECT id, client_code, full_name FROM clients ORDER BY full_name").fetchall()
         
     if not clients:
-        st.warning("Register a client before creating orders.")
+        st.warning("Please register a client before creating orders.")
     else:
         client_dict = {f"{c['client_code']} — {c['full_name']}": c['id'] for c in clients}
         selected_client_label = st.selectbox("Client", list(client_dict.keys()))
@@ -408,44 +536,59 @@ elif st.session_state.current_page == "New Order":
             ).fetchall()
             
         if not revisions:
-            st.error("This client has no recorded measurements. Please take measurements first.")
+            st.error("No measurement sets found for this client. Please take measurements first.")
         else:
-            rev_dict = {f"{r['revision_label']} (Dated: {r['date_recorded']})": r['id'] for r in revisions}
+            rev_dict = {f"{r['revision_label']} ({r['date_recorded']})": r['id'] for r in revisions}
             
             with st.form("new_order_form"):
                 o1, o2 = st.columns(2)
                 with o1:
-                    order_no = st.text_input("Order ID*", value=f"ORD-{datetime.date.today().strftime('%Y%m%d')}-01")
-                    selected_rev = st.selectbox("Measurement Revision to Cut From*", list(rev_dict.keys()))
+                    order_no = st.text_input("Order Reference ID*", value=f"MH-{datetime.date.today().strftime('%Y%m%d')}-01")
+                    selected_rev = st.selectbox("Cutting Measurement Revision*", list(rev_dict.keys()))
                     garment_type = st.selectbox("Garment", [
-                        "Two-Piece Suit", "Three-Piece Suit", "Blazer / Sports Coat",
-                        "Dress Trousers", "Dress Shirt", "Kurta Pajama",
-                        "Nehru Jacket", "Bandhgala Suit", "Sherwani / Achkan", "Pathani Suit"
+                        "Two-Piece Suit", "Three-Piece Suit", "Blazer", "Dress Trousers",
+                        "Dress Shirt", "Kurta Pajama", "Nehru Jacket", "Bandhgala Suit",
+                        "Sherwani / Achkan", "Pathani Suit"
                     ])
                     fit_preference = st.selectbox("Fit Preference", ["Slim Fit", "Regular Fit", "Relaxed Fit", "Traditional Loose"])
                 with o2:
-                    delivery_date = st.date_input("Delivery Deadline", datetime.date.today() + datetime.timedelta(days=10))
-                    price = st.number_input("Total Garment Price", min_value=0.0, step=100.0)
-                    advance = st.number_input("Advance Paid", min_value=0.0, step=100.0)
-                    fabric_details = st.text_area("Fabric & Mill Details", placeholder="e.g., Italian Wool 280 GSM, Black Silk lining...")
+                    total_amount = st.number_input("Total Garment Price", min_value=0.0, step=500.0)
+                    amount_paid = st.number_input("Initial Amount Received", min_value=0.0, step=500.0)
                     
-                remarks = st.text_area("Specific Cutting or Design Instructions")
+                    auto_status = "Due"
+                    if amount_paid >= total_amount and total_amount > 0:
+                        auto_status = "Fully Paid"
+                    elif amount_paid == (total_amount / 2) and total_amount > 0:
+                        auto_status = "Half Paid"
+                    elif amount_paid > 0:
+                        auto_status = "Advance Paid"
+                        
+                    payment_status = st.selectbox("Payment Status*", ["Due", "Advance Paid", "Half Paid", "Fully Paid"], index=["Due", "Advance Paid", "Half Paid", "Fully Paid"].index(auto_status))
+                    delivery_date = st.date_input("Target Delivery Date", datetime.date.today() + datetime.timedelta(days=12))
+
+                fabric_details = st.text_area("Fabric Specifications & Mill Details", placeholder="e.g., Loro Piana 260 GSM Worsted Navy Wool...")
+                remarks = st.text_area("Specific Cutting / Fitting Requirements")
                 
-                place_order = st.form_submit_button("Submit Order", use_container_width=True)
+                place_order = st.form_submit_button("Submit Garment Order", use_container_width=True)
                 if place_order:
                     with get_db() as conn:
                         conn.cursor().execute("""
-                        INSERT INTO orders (order_number, client_id, measurement_id, garment_type, fit_preference, fabric_details, price, advance_paid, delivery_date, fitting_remarks)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """, (order_no, selected_client_id, rev_dict[selected_rev], garment_type, fit_preference, fabric_details, price, advance, delivery_date, remarks))
+                        INSERT INTO orders (
+                            order_number, client_id, measurement_id, garment_type, fit_preference, 
+                            fabric_details, total_amount, amount_paid, payment_status, delivery_date, fitting_remarks
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            order_no, selected_client_id, rev_dict[selected_rev], garment_type, fit_preference,
+                            fabric_details, total_amount, amount_paid, payment_status, delivery_date, remarks
+                        ))
                         conn.commit()
-                    st.success(f"Order {order_no} created successfully!")
+                    st.success(f"Order {order_no} created successfully under Mohammad Hussain Atelier!")
 
 # ---------------------------------------------------------
-# 6. DEDICATED ORDER UPDATING & FITTING WORKFLOW
+# 6. DEDICATED ORDER & PAYMENT WORKFLOW UPDATER
 # ---------------------------------------------------------
 elif st.session_state.current_page == "Update Orders":
-    st.header("🔄 Order Status & Fitting Workflow Updater")
+    st.header("🔄 Order Status & Payment Workflow Updater")
     if st.button("← Back to Hub"):
         set_page("Dashboard")
         st.rerun()
@@ -453,62 +596,85 @@ elif st.session_state.current_page == "Update Orders":
     with get_db() as conn:
         orders_df = pd.read_sql_query("""
         SELECT o.id, o.order_number, c.full_name as client_name, c.phone, o.garment_type, 
-               o.status, o.delivery_date, o.price, o.advance_paid, (o.price - o.advance_paid) as balance_due,
-               o.fabric_details, o.fitting_remarks
+               o.workflow_status, o.payment_status, o.total_amount, o.amount_paid,
+               (o.total_amount - o.amount_paid) as balance_due,
+               o.delivery_date, o.fabric_details, o.fitting_remarks
         FROM orders o
         JOIN clients c ON o.client_id = c.id
         ORDER BY o.delivery_date ASC
         """, conn)
         
     if orders_df.empty:
-        st.info("No active orders found in the database.")
+        st.info("No active garment orders found.")
     else:
-        st.subheader("All Garment Orders")
+        st.subheader("All Atelier Orders")
         st.dataframe(orders_df, use_container_width=True)
         
         st.markdown("---")
-        st.subheader("Update Order Status & Fitting Notes")
+        st.subheader("Update Order, Payment & Fitting Remarks")
         
         order_list = orders_df["order_number"].tolist()
-        selected_order_no = st.selectbox("Select Order to Update", order_list)
+        selected_order_no = st.selectbox("Select Order Reference", order_list)
         
-        # Get current order details
         current_order = orders_df[orders_df["order_number"] == selected_order_no].iloc[0]
         
-        with st.form("update_order_page_form"):
+        total_p = current_order['total_amount'] or 0.0
+        paid_p = current_order['amount_paid'] or 0.0
+        balance_p = total_p - paid_p
+        
+        st.info(f"💰 **Total Price:** ₹{total_p:,.2f} | **Paid so far:** ₹{paid_p:,.2f} | **Balance Due:** ₹{balance_p:,.2f}")
+        
+        with st.form("update_order_workflow_form"):
             u1, u2, u3 = st.columns(3)
             
             with u1:
-                status_options = ['Drafted', 'Fabric Cut', 'Basted Fitting', 'Alterations', 'Final Pressed', 'Delivered']
-                current_status_idx = status_options.index(current_order['status']) if current_order['status'] in status_options else 0
-                new_status = st.selectbox("Workflow Stage / Status", status_options, index=current_status_idx)
+                stages = ['Drafted', 'Fabric Cut', 'Basted Fitting', 'Alterations', 'Final Pressed', 'Delivered']
+                cur_stage_idx = stages.index(current_order['workflow_status']) if current_order['workflow_status'] in stages else 0
+                new_stage = st.selectbox("Garment Workflow Stage", stages, index=cur_stage_idx)
                 
             with u2:
-                new_delivery = st.date_input("Update Delivery Date", datetime.datetime.strptime(str(current_order['delivery_date']), '%Y-%m-%d').date() if current_order['delivery_date'] else datetime.date.today())
+                payment_statuses = ["Due", "Advance Paid", "Half Paid", "Fully Paid"]
+                cur_pay_idx = payment_statuses.index(current_order['payment_status']) if current_order['payment_status'] in payment_statuses else 0
+                new_pay_status = st.selectbox("Payment Status", payment_statuses, index=cur_pay_idx)
                 
             with u3:
-                additional_payment = st.number_input("Add Payment Received (Adds to advance)", min_value=0.0, step=100.0)
+                additional_received = st.number_input("Add Payment Received (₹)", min_value=0.0, step=500.0)
+                
+            col_date, col_dummy = st.columns(2)
+            with col_date:
+                try:
+                    default_date = datetime.datetime.strptime(str(current_order['delivery_date']), '%Y-%m-%d').date()
+                except Exception:
+                    default_date = datetime.date.today()
+                new_delivery = st.date_input("Update Delivery Target", default_date)
             
-            st.markdown(f"**Current Fitting Notes:** `{current_order['fitting_remarks'] or 'None'}`")
-            new_note = st.text_area("Append Fitting Observations / Drag Lines / Alterations Required", placeholder="e.g., First fitting: reduce neck point by 0.5 cm, rotate sleeve pitch backward.")
+            st.markdown(f"**Current Fitting Log:** `{current_order['fitting_remarks'] or 'No remarks recorded.'}`")
+            new_fitting_note = st.text_area("Append Fitting Notes / Adjustments", placeholder="e.g., First fitting: take in waist by 0.5 in, raise armhole 1/4 in.")
             
-            update_submit = st.form_submit_button("Save & Update Order", use_container_width=True)
-            if update_submit:
+            update_btn = st.form_submit_button("Save Updates", use_container_width=True)
+            if update_btn:
+                updated_paid = paid_p + additional_received
+                
+                if updated_paid >= total_p and total_p > 0:
+                    new_pay_status = "Fully Paid"
+                elif updated_paid == (total_p / 2) and total_p > 0:
+                    new_pay_status = "Half Paid"
+                    
+                appended_remarks = current_order['fitting_remarks'] or ""
+                if new_fitting_note.strip():
+                    appended_remarks = f"{appended_remarks} | [{datetime.date.today()}] {new_fitting_note.strip()}"
+                    
                 with get_db() as conn:
-                    # Update order record
-                    appended_remarks = current_order['fitting_remarks'] or ""
-                    if new_note.strip():
-                        appended_remarks = f"{appended_remarks} | [{datetime.date.today()}] {new_note.strip()}"
-                        
                     conn.cursor().execute("""
                     UPDATE orders 
-                    SET status = ?, 
-                        delivery_date = ?, 
-                        advance_paid = advance_paid + ?, 
+                    SET workflow_status = ?, 
+                        payment_status = ?,
+                        amount_paid = ?,
+                        delivery_date = ?,
                         fitting_remarks = ?
                     WHERE order_number = ?
-                    """, (new_status, new_delivery, additional_payment, appended_remarks, selected_order_no))
+                    """, (new_stage, new_pay_status, updated_paid, new_delivery, appended_remarks, selected_order_no))
                     conn.commit()
                     
-                st.success(f"Order {selected_order_no} updated to '{new_status}' successfully!")
+                st.success(f"Order {selected_order_no} updated successfully!")
                 st.rerun()
