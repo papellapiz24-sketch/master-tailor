@@ -523,7 +523,8 @@ elif st.session_state.page == "New Measurement":
                 crotch_depth = st.number_input("Crotch Depth", min_value=0.0, step=0.25)
 
             m_notes = st.text_area("Measurement Session & Fit Notes", placeholder="e.g., Client requested loose fit for Kurta, slim fit for Churidar...")
-           save_m = st.form_submit_button("Save Measurements", use_container_width=True)
+          
+        save_m = st.form_submit_button("Save Measurements", use_container_width=True)
             if save_m:
                 with get_db() as conn:
                     conn.cursor().execute("""
