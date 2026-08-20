@@ -328,41 +328,41 @@ if not st.session_state.authenticated:
 # ---------------------------------------------------------
 # LIST
 # ---------------------------------------------------------
-st.sidebar.markdown("## ✂️ **Bamniya Studio**")
+st.sidebar.markdown("##  **Bamniya Studio**")
 st.sidebar.caption(f"Master Tailor: **{st.session_state.username}**")
 st.sidebar.markdown("---")
-st.sidebar.markdown("### 📋 Studio Menu")
+st.sidebar.markdown("###  Studio Menu")
 
-if st.sidebar.button("🏠 Main Hub", use_container_width=True):
+if st.sidebar.button(" Main menu", use_container_width=True):
     navigate("Dashboard")
     st.rerun()
 
-if st.sidebar.button("👤 Register Client", use_container_width=True):
+if st.sidebar.button(" Register Client", use_container_width=True):
     navigate("New Client")
     st.rerun()
 
-if st.sidebar.button("📏 Record Measurements", use_container_width=True):
+if st.sidebar.button(" Record Measurements", use_container_width=True):
     navigate("New Measurement")
     st.rerun()
 
-if st.sidebar.button("➕ Create New Order", use_container_width=True):
+if st.sidebar.button("  New Order", use_container_width=True):
     navigate("New Order")
     st.rerun()
 
-if st.sidebar.button("📦 Order Tracking & Status", use_container_width=True):
+if st.sidebar.button(" Order Tracking & Status", use_container_width=True):
     navigate("Update Orders")
     st.rerun()
 
-if st.sidebar.button("🧾 Print Order Receipt Slip", use_container_width=True):
+if st.sidebar.button(" Print Order Receipt", use_container_width=True):
     navigate("Print Slip")
     st.rerun()
 
-if st.sidebar.button("🗂️ Client Database & Records", use_container_width=True):
+if st.sidebar.button(" Client Database", use_container_width=True):
     navigate("Client Records")
     st.rerun()
 
 st.sidebar.markdown("---")
-if st.sidebar.button("🚪 Logout", use_container_width=True):
+if st.sidebar.button(" Logout", use_container_width=True):
     st.session_state.authenticated = False
     st.session_state.username = ""
     st.session_state.page = "Dashboard"
@@ -381,31 +381,30 @@ if st.session_state.page == "Dashboard":
         unpaid_count = conn.cursor().execute("SELECT COUNT(*) FROM orders WHERE payment_status IN ('Due', 'Advance Paid', 'Half Paid')").fetchone()[0]
 
     c1, c2, c3 = st.columns(3)
-    c1.metric("👥 Client Profiles", f"{total_clients}")
-    c2.metric("🧵 In Production", f"{active_orders}")
-    c3.metric("💳 Payments Due", f"{unpaid_count}")
-    
-    st.markdown("<div class='section-title-btn'>⚡ Studio Action Centre</div>", unsafe_allow_html=True)
+    c1.metric(" Profiles", f"{total_clients}")
+    c2.metric(" In Production", f"{active_orders}")
+    c3.metric(" Payments Due", f"{unpaid_count}")
+   st.markdown("<div class='section-title-btn'>Studio Action Centre</div>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("👤  REGISTER NEW CLIENT\n\n1-click onboard: Register client & jump directly to measurements", key="btn_hub_client", use_container_width=True):
+        if st.button("Register New Client", key="btn_hub_client", use_container_width=True):
             navigate("New Client")
             st.rerun()
-        if st.button("📏  RECORD CLIENT MEASUREMENTS\n\nTake complete body dimensions across Upper Torso & Lower Body", key="btn_hub_measure", use_container_width=True):
+        if st.button("Record Client Measurements", key="btn_hub_measure", use_container_width=True):
             navigate("New Measurement")
             st.rerun()
-        if st.button("➕  CREATE NEW GARMENT ORDER\n\nSet garment, fabrics, price, advance & payment stage", key="btn_hub_new_order", use_container_width=True):
+        if st.button("Create New Garment Order", key="btn_hub_new_order", use_container_width=True):
             navigate("New Order")
             st.rerun()
 
     with col2:
-        if st.button("📦  ORDER TRACKING & QUICK UPDATER\n\nMinimalist Kanban tracker, stage buttons & instant delete", key="btn_hub_manage_orders", use_container_width=True):
+        if st.button("Order Tracking", key="btn_hub_manage_orders", use_container_width=True):
             navigate("Update Orders")
             st.rerun()
-        if st.button("🧾  PRINT ORDER RECEIPT SLIP\n\nGenerate printable POS receipt docket (Exact A5 Sheet)", key="btn_hub_print_slip", use_container_width=True):
+        if st.button("Print Order Receipt Slip", key="btn_hub_print_slip", use_container_width=True):
             navigate("Print Slip")
             st.rerun()
-        if st.button("🗂️  VIEW & MANAGE CLIENT DATABASE\n\nInspect client measurements, past orders & 🗑️ delete client profiles", key="btn_hub_records", use_container_width=True):
+        if st.button("Client Database", key="btn_hub_records", use_container_width=True):
             navigate("Client Records")
             st.rerun()
 
@@ -942,7 +941,7 @@ elif st.session_state.page == "Print Slip":
 # 7. CLIENT DATABASE
 # ---------------------------------------------------------
 elif st.session_state.page == "Client Records":
-    st.markdown("<div class='section-title-btn'>🗂️ Client Database & Historical Records</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title-btn'>Client Database</div>", unsafe_allow_html=True)
     if st.button("← Back to Hub", key="btn_back_records"):
         navigate("Dashboard")
         st.rerun()
@@ -951,12 +950,12 @@ elif st.session_state.page == "Client Records":
         clients_df = pd.read_sql_query("SELECT id, client_code, full_name, phone, posture_notes, asymmetry_notes FROM clients ORDER BY full_name", conn)
         
     if not clients_df.empty:
-        search = st.text_input("🔍 Search Client by Name or Phone Number")
+        search = st.text_input("Search Client by Name or Phone Number")
         if search:
             clients_df = clients_df[clients_df.apply(lambda row: search.lower() in row.astype(str).str.lower().values, axis=1)]
         st.dataframe(clients_df, use_container_width=True)
         
-        st.markdown("<div class='section-title-btn'>Manage Client & Inspection</div>", unsafe_allow_html=True)
+        st.markdown("<div class='section-title-btn'>Manage Client</div>", unsafe_allow_html=True)
         client_options = {f"{r['client_code']} — {r['full_name']}": r['id'] for _, r in clients_df.iterrows()}
         if client_options:
             c_sel, c_del_cli = st.columns([3, 1])
@@ -966,31 +965,23 @@ elif st.session_state.page == "Client Records":
             with c_del_cli:
                 st.write("")
                 st.write("")
-                if st.button(f"🗑️ Delete Client Profile", use_container_width=True):
+                if st.button("Delete Client Profile", use_container_width=True):
                     st.session_state.delete_target_client = cid
 
             if st.session_state.delete_target_client == cid:
-                st.error(f"⚠️ Are you sure you want to permanently delete **{inspect_label}** and all their measurements & orders?")
+                st.error(f"Are you sure you want to permanently delete {inspect_label} and all their records?")
                 cy_col, cn_col = st.columns(2)
                 with cy_col:
-                    if st.button("✅ Yes, Delete Entire Client History", use_container_width=True):
+                    if st.button("Yes, Delete Entire Client History", use_container_width=True):
                         with get_db() as conn:
                             conn.cursor().execute("DELETE FROM clients WHERE id = ?", (cid,))
                             conn.commit()
                         st.session_state.delete_target_client = None
-                        st.success("Client and all related records deleted.")
+                        st.success("Client deleted.")
                         st.rerun()
                 with cn_col:
-                    if st.button("❌ Cancel Deletion", use_container_width=True):
+                    if st.button("Cancel Deletion", use_container_width=True):
                         st.session_state.delete_target_client = None
                         st.rerun()
-
-            with get_db() as conn:
-                history_df = pd.read_sql_query("SELECT * FROM measurements WHERE client_id = ? ORDER BY date_recorded DESC", conn, params=(cid,))
-            if not history_df.empty:
-                st.markdown("### 📏 Measurement Revision History")
-                st.dataframe(history_df, use_container_width=True)
-            else:
-                st.info("No measurements recorded yet for this client.")
     else:
         st.info("No client records found.")
