@@ -486,27 +486,7 @@ elif st.session_state.page == "New Measurement":
                 rec_date = st.date_input("Date Taken", datetime.date.today())
             with h3:
                 unit = st.selectbox("Measurement Unit", ["Inches", "Centimeters"])
-            
-            # --- 1. INDIAN TRADITIONAL SPECIFICS ---
-            st.markdown("<div class='section-title-btn'>🪡 Indian Traditional Dimensions</div>", unsafe_allow_html=True)
-            t1, t2, t3, t4 = st.columns(4)
-            with t1:
-                kurta_length = st.number_input("Kurta Full Length", min_value=0.0, step=0.25)
-                pajama_length = st.number_input("Pajama Length", min_value=0.0, step=0.25)
-                dhoti_length = st.number_input("Dhoti Length", min_value=0.0, step=0.25)
-            with t2:
-                sherwani_length = st.number_input("Sherwani / Achkan Length", min_value=0.0, step=0.25)
-                pajama_waist = st.number_input("Pajama Waist", min_value=0.0, step=0.25)
-                dhoti_waist = st.number_input("Dhoti Waist", min_value=0.0, step=0.25)
-            with t3:
-                nehru_jacket_length = st.number_input("Nehru Jacket / Sadri Length", min_value=0.0, step=0.25)
-                pajama_bottom = st.number_input("Pajama / Churidar Opening (Mohri)", min_value=0.0, step=0.25)
-                churidar_length = st.number_input("Churidar Total Length (with Churi)", min_value=0.0, step=0.25)
-            with t4:
-                bandhgala_length = st.number_input("Bandhgala / Jodhpuri Length", min_value=0.0, step=0.25)
-                pathani_length = st.number_input("Pathani Shirt Length", min_value=0.0, step=0.25)
-                angrakha_length = st.number_input("Angrakha Length", min_value=0.0, step=0.25)
-
+                
             # --- 2. UPPER BODY DIMENSIONS ---
             st.markdown("<div class='section-title-btn'>👕 Upper Body & Torso Dimensions</div>", unsafe_allow_html=True)
             u1, u2, u3, u4 = st.columns(4)
