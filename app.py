@@ -5,7 +5,7 @@ import streamlit as st
 import pandas as pd
 
 # ---------------------------------------------------------
-# PAGE SETUP & HARMONIZED SARTORIAL PALETTE
+# PAGE SETUP & STYLING
 # ---------------------------------------------------------
 st.set_page_config(
     page_title="Mohammad Hussain Atelier",
@@ -18,158 +18,104 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
 
-    /* 1. Global App Canvas */
     .stApp {
         background-color: #FAF7F2 !important;
-        background-image: radial-gradient(#D6C7B2 0.75px, transparent 0.75px), radial-gradient(#D6C7B2 0.75px, #FAF7F2 0.75px) !important;
-        background-size: 20px 20px !important;
-        background-position: 0 0, 10px 10px !important;
         color: #111827 !important;
         font-family: 'Plus Jakarta Sans', sans-serif !important;
     }
 
-    /* 2. Global Text Enforcement */
+    /* Universal Text Color */
     p, span, label, h1, h2, h3, h4, h5, h6, [data-testid="stMarkdownContainer"] p {
         color: #111827 !important;
         font-family: 'Plus Jakarta Sans', sans-serif !important;
     }
 
-    /* 3. Form Input Field Labels */
     label[data-testid="stWidgetLabel"] p {
         color: #111827 !important;
         font-weight: 800 !important;
         font-size: 1.05rem !important;
-        margin-bottom: 4px !important;
     }
 
-    /* 4. Complete Fix for Selectboxes, Dropdowns, and BaseWeb Popovers */
-    div[data-baseweb="select"], div[data-baseweb="select"] > div {
+    /* Fix BaseWeb Inputs & Dropdowns */
+    div[data-baseweb="select"], div[data-baseweb="input"], div[data-baseweb="base-input"] {
         background-color: #FFFFFF !important;
         border: 1.5px solid #C8B9A6 !important;
         border-radius: 10px !important;
     }
-    div[data-baseweb="select"] * {
+    div[data-baseweb="select"] *, div[data-baseweb="input"] * {
         background-color: transparent !important;
         color: #111827 !important;
         font-weight: 700 !important;
-        font-size: 1rem !important;
     }
-    /* Dropdown Options Container & Items */
-    div[data-baseweb="popover"], div[data-baseweb="popover"] > div, ul[data-baseweb="menu"] {
+
+    /* Popover Menus & Calendars */
+    div[data-baseweb="popover"], div[data-baseweb="popover"] > div, ul[data-baseweb="menu"], div[data-baseweb="calendar"] {
         background-color: #FFFFFF !important;
         border: 1.5px solid #C8B9A6 !important;
     }
-    ul[data-baseweb="menu"] li, ul[data-baseweb="menu"] div {
+    ul[data-baseweb="menu"] li {
         background-color: #FFFFFF !important;
         color: #111827 !important;
-        font-weight: 600 !important;
     }
-    ul[data-baseweb="menu"] li:hover, ul[data-baseweb="menu"] li[aria-selected="true"] {
+    ul[data-baseweb="menu"] li:hover {
         background-color: #EAE0D0 !important;
         color: #000000 !important;
-    }
-
-    /* 5. Date Picker Calendar & Inputs */
-    div[data-baseweb="calendar"] {
-        background-color: #FFFFFF !important;
-        color: #111827 !important;
     }
     div[data-baseweb="calendar"] * {
         color: #111827 !important;
     }
-    div[data-baseweb="calendar"] button:hover {
-        background-color: #EAE0D0 !important;
-    }
 
-    /* 6. Text Inputs, Text Areas, Number Inputs */
+    /* Inputs and Textareas */
     .stTextInput input, .stNumberInput input, .stTextArea textarea, .stDateInput input {
         background-color: #FFFFFF !important;
         color: #111827 !important;
         font-weight: 700 !important;
-        font-size: 1.05rem !important;
         border-radius: 10px !important;
         border: 1.5px solid #C8B9A6 !important;
     }
-    .stTextInput input:focus, .stNumberInput input:focus, .stTextArea textarea:focus {
-        border-color: #8C6D4F !important;
-        box-shadow: 0 0 0 2px rgba(140, 109, 79, 0.2) !important;
-    }
 
-    /* 7. Code Blocks & Fitting Logs */
-    code, pre {
-        background-color: #F3ECE1 !important;
-        color: #111827 !important;
-        border: 1px solid #C8B9A6 !important;
-        border-radius: 6px !important;
-        padding: 4px 8px !important;
-        font-weight: 600 !important;
-    }
-
-    /* 8. White Surface Cards */
-    div[data-testid="stForm"] {
-        background: #FFFFFF !important;
-        border: 2px solid #E5DCCE !important;
-        border-radius: 16px !important;
-        padding: 2rem !important;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.03) !important;
-    }
-
-    /* 9. Large Beige Action Buttons */
+    /* Buttons */
     .stButton>button {
         background: #EAE0D0 !important;
         color: #111827 !important;
         border: 2px solid #C8B9A6 !important;
         border-radius: 14px !important;
-        min-height: 4.8rem !important;
-        font-size: 1.15rem !important;
+        min-height: 4rem !important;
+        font-size: 1.1rem !important;
         font-weight: 800 !important;
-        letter-spacing: 0.5px !important;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.04) !important;
-        transition: all 0.2s ease-in-out !important;
-        margin-bottom: 0.6rem !important;
+        margin-bottom: 0.5rem !important;
     }
     .stButton>button:hover {
         background: #DFD3C0 !important;
         border-color: #8C6D4F !important;
         color: #000000 !important;
-        transform: translateY(-2px) !important;
-        box-shadow: 0 8px 18px rgba(0,0,0,0.08) !important;
     }
 
-    /* 10. Title Badges & Metrics */
+    /* Section Title Badges */
     .section-title-btn {
         background: #EAE0D0;
         color: #111827 !important;
         border: 2px solid #C8B9A6;
-        padding: 0.7rem 1.6rem;
-        border-radius: 12px;
-        font-size: 1.25rem;
+        padding: 0.6rem 1.4rem;
+        border-radius: 10px;
+        font-size: 1.2rem;
         font-weight: 800;
-        letter-spacing: 1px;
         display: inline-block;
-        margin: 1.2rem 0 1rem 0;
-        box-shadow: 0 3px 8px rgba(0,0,0,0.04);
+        margin: 1rem 0;
     }
 
     div[data-testid="stMetric"] {
         background: #FFFFFF !important;
         border: 2px solid #E5DCCE !important;
-        padding: 1.4rem !important;
+        padding: 1.2rem !important;
         border-radius: 14px !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.03) !important;
-    }
-    div[data-testid="stMetric"] label {
-        color: #6B5E51 !important;
-        font-weight: 700 !important;
-        font-size: 1rem !important;
     }
     div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
         color: #111827 !important;
         font-weight: 800 !important;
-        font-size: 2.2rem !important;
     }
 
-    /* 11. Sidebar */
+    /* Sidebar */
     section[data-testid="stSidebar"] {
         background-color: #24201D !important;
         border-right: 2px solid #D6C7B2 !important;
@@ -177,38 +123,22 @@ st.markdown("""
     section[data-testid="stSidebar"] * {
         color: #FDFCFA !important;
     }
-    section[data-testid="stSidebar"] .stRadio label p {
-        color: #FDFCFA !important;
-        font-weight: 600 !important;
-    }
-    section[data-testid="stSidebar"] .stButton>button {
-        background: #3A3430 !important;
-        color: #FDFCFA !important;
-        border: 1.5px solid #5A524C !important;
-        min-height: 3.2rem !important;
-    }
-    section[data-testid="stSidebar"] .stButton>button:hover {
-        background: #4A423D !important;
-        border-color: #D6C7B2 !important;
-    }
 
-    /* 12. Brand Headers */
     .brand-title {
         font-family: 'Cinzel', serif !important;
-        font-size: 3.2rem;
+        font-size: 3rem;
         font-weight: 800;
         color: #111827 !important;
         text-align: center;
-        letter-spacing: 2px;
         margin-bottom: 0.1rem;
     }
     .brand-tagline {
         text-align: center;
         color: #8C6D4F !important;
-        font-size: 1.05rem;
-        letter-spacing: 3px;
+        font-size: 1rem;
+        letter-spacing: 2px;
         text-transform: uppercase;
-        margin-bottom: 2rem;
+        margin-bottom: 1.5rem;
         font-weight: 700;
     }
 </style>
@@ -230,7 +160,6 @@ def hash_pw(password):
 def init_db():
     with get_db() as conn:
         cursor = conn.cursor()
-        
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -239,7 +168,6 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """)
-
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS clients (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -252,7 +180,6 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """)
-        
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS measurements (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -272,7 +199,6 @@ def init_db():
             FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE CASCADE
         );
         """)
-        
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS orders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -293,29 +219,12 @@ def init_db():
             FOREIGN KEY (measurement_id) REFERENCES measurements (id)
         );
         """)
-        
-        cursor.execute("PRAGMA table_info(orders);")
-        existing_cols = [row[1] for row in cursor.fetchall()]
-        
-        col_patches = {
-            "total_amount": "ALTER TABLE orders ADD COLUMN total_amount REAL DEFAULT 0.0;",
-            "amount_paid": "ALTER TABLE orders ADD COLUMN amount_paid REAL DEFAULT 0.0;",
-            "payment_status": "ALTER TABLE orders ADD COLUMN payment_status TEXT DEFAULT 'Due';",
-            "workflow_status": "ALTER TABLE orders ADD COLUMN workflow_status TEXT DEFAULT 'Drafted';"
-        }
-        for col_name, sql_stmt in col_patches.items():
-            if col_name not in existing_cols:
-                try:
-                    cursor.execute(sql_stmt)
-                except Exception:
-                    pass
-
         conn.commit()
 
 init_db()
 
 # ---------------------------------------------------------
-# AUTHENTICATION STATE
+# AUTHENTICATION
 # ---------------------------------------------------------
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
@@ -327,9 +236,6 @@ if "current_page" not in st.session_state:
 def set_page(page_name):
     st.session_state.current_page = page_name
 
-# ---------------------------------------------------------
-# SIGN IN & SIGN UP (MOHAMMAD HUSSAIN)
-# ---------------------------------------------------------
 if not st.session_state.authenticated:
     st.markdown("<div class='brand-title'>MOHAMMAD HUSSAIN</div>", unsafe_allow_html=True)
     st.markdown("<div class='brand-tagline'>Bespoke Master Tailoring Atelier</div>", unsafe_allow_html=True)
@@ -337,24 +243,19 @@ if not st.session_state.authenticated:
     col_center = st.columns([1, 1.8, 1])[1]
     with col_center:
         auth_tab = st.radio("Atelier Portal Access", ["Sign In", "Create Tailor Account"], horizontal=True)
-        
         if auth_tab == "Sign In":
             with st.form("signin_form"):
                 st.subheader("Master Tailor Sign In")
                 u_name = st.text_input("Username")
                 p_word = st.text_input("Password", type="password")
                 btn_login = st.form_submit_button("Sign In to Workshop", use_container_width=True)
-                
                 if btn_login:
-                    if not u_name or not p_word:
-                        st.error("Please enter both username and password.")
-                    else:
+                    if u_name and p_word:
                         with get_db() as conn:
                             user = conn.cursor().execute(
                                 "SELECT * FROM users WHERE username = ? AND password_hash = ?", 
                                 (u_name.strip(), hash_pw(p_word))
                             ).fetchone()
-                            
                             if user:
                                 st.session_state.authenticated = True
                                 st.session_state.username = u_name
@@ -367,25 +268,21 @@ if not st.session_state.authenticated:
                 new_user = st.text_input("Choose Username*")
                 new_pass = st.text_input("Create Password*", type="password")
                 btn_signup = st.form_submit_button("Register Account", use_container_width=True)
-                
-                if btn_signup:
-                    if not new_user or not new_pass:
-                        st.error("Fields cannot be empty.")
-                    else:
-                        try:
-                            with get_db() as conn:
-                                conn.cursor().execute(
-                                    "INSERT INTO users (username, password_hash) VALUES (?, ?)",
-                                    (new_user.strip(), hash_pw(new_pass))
-                                )
-                                conn.commit()
-                            st.success("Account created! Switch to 'Sign In' above to login.")
-                        except sqlite3.IntegrityError:
-                            st.error("Username already registered.")
+                if btn_signup and new_user and new_pass:
+                    try:
+                        with get_db() as conn:
+                            conn.cursor().execute(
+                                "INSERT INTO users (username, password_hash) VALUES (?, ?)",
+                                (new_user.strip(), hash_pw(new_pass))
+                            )
+                            conn.commit()
+                        st.success("Account created! You can now sign in.")
+                    except sqlite3.IntegrityError:
+                        st.error("Username already registered.")
     st.stop()
 
 # ---------------------------------------------------------
-# SIDEBAR NAVIGATION
+# SIDEBAR
 # ---------------------------------------------------------
 st.sidebar.markdown("## ✂️ **Mohammad Hussain**")
 st.sidebar.caption(f"Master Tailor: **{st.session_state.username}**")
@@ -397,9 +294,8 @@ nav_options = [
     "📏 Record Measurements",
     "🗂️ View Client Records",
     "➕ Create New Order",
-    "🔄 Update Orders & Fitting"
+    "🔄 Update & Manage Orders"
 ]
-
 selected_sidebar = st.sidebar.radio("Atelier Menu", nav_options)
 
 page_map = {
@@ -408,7 +304,7 @@ page_map = {
     "📏 Record Measurements": "New Measurement",
     "🗂️ View Client Records": "Client Records",
     "➕ Create New Order": "New Order",
-    "🔄 Update Orders & Fitting": "Update Orders"
+    "🔄 Update & Manage Orders": "Update Orders"
 }
 st.session_state.current_page = page_map[selected_sidebar]
 
@@ -436,17 +332,14 @@ if st.session_state.current_page == "Dashboard":
     c3.metric("💳 Payments Due", f"{unpaid_count}")
     
     st.markdown("<div class='section-title-btn'>⚡ Atelier Action Centre</div>", unsafe_allow_html=True)
-    
     col1, col2 = st.columns(2)
     with col1:
         if st.button("👤  REGISTER NEW CLIENT\n\nAdd client profile, posture observations & shoulder asymmetries", use_container_width=True):
             set_page("New Client")
             st.rerun()
-            
         if st.button("📏  RECORD CLIENT MEASUREMENTS\n\nTake complete body dimensions across Western & Indian garments", use_container_width=True):
             set_page("New Measurement")
             st.rerun()
-            
         if st.button("🗂️  VIEW CLIENT DATABASE & HISTORY\n\nInspect client measurements, past orders & revision history", use_container_width=True):
             set_page("Client Records")
             st.rerun()
@@ -455,8 +348,7 @@ if st.session_state.current_page == "Dashboard":
         if st.button("➕  CREATE NEW GARMENT ORDER\n\nSet garment, fabrics, price, advance & payment stage", use_container_width=True):
             set_page("New Order")
             st.rerun()
-            
-        if st.button("🔄  ORDER STATUS & PAYMENT UPDATER\n\nTrack Due/Half/Full payments, fittings & delivery stage", use_container_width=True):
+        if st.button("🔄  ORDER STATUS & EDIT / DELETE\n\nTrack payments, fittings, full edits and order deletion", use_container_width=True):
             set_page("Update Orders")
             st.rerun()
 
@@ -465,7 +357,7 @@ if st.session_state.current_page == "Dashboard":
 # ---------------------------------------------------------
 elif st.session_state.current_page == "New Client":
     st.markdown("<div class='section-title-btn'>👤 Register New Client Profile</div>", unsafe_allow_html=True)
-    if st.button("← Back to Hub", use_container_width=False):
+    if st.button("← Back to Hub"):
         set_page("Dashboard")
         st.rerun()
         
@@ -477,31 +369,28 @@ elif st.session_state.current_page == "New Client":
             phone = st.text_input("Contact Number*")
             email = st.text_input("Email (Optional)")
         with c2:
-            posture_notes = st.text_area("Posture Observations", placeholder="e.g., Erect stance, forward sloping shoulders, swayback...")
-            asymmetry_notes = st.text_area("Asymmetry Notes", placeholder="e.g., Right shoulder 0.5 in lower, right arm 0.25 in longer...")
+            posture_notes = st.text_area("Posture Observations", placeholder="e.g., Erect stance, forward sloping shoulders...")
+            asymmetry_notes = st.text_area("Asymmetry Notes", placeholder="e.g., Right shoulder 0.5 in lower...")
         
         submitted = st.form_submit_button("Save Client Profile", use_container_width=True)
-        if submitted:
-            if not client_code or not full_name or not phone:
-                st.error("Please fill in Client ID, Full Name, and Contact Number.")
-            else:
-                try:
-                    with get_db() as conn:
-                        conn.cursor().execute("""
-                        INSERT INTO clients (client_code, full_name, phone, email, posture_notes, asymmetry_notes)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                        """, (client_code.strip(), full_name.strip(), phone.strip(), email.strip(), posture_notes, asymmetry_notes))
-                        conn.commit()
-                    st.success(f"Client '{full_name}' recorded successfully!")
-                except sqlite3.IntegrityError:
-                    st.error("Client ID already exists. Please use a unique identifier.")
+        if submitted and client_code and full_name and phone:
+            try:
+                with get_db() as conn:
+                    conn.cursor().execute("""
+                    INSERT INTO clients (client_code, full_name, phone, email, posture_notes, asymmetry_notes)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """, (client_code.strip(), full_name.strip(), phone.strip(), email.strip(), posture_notes, asymmetry_notes))
+                    conn.commit()
+                st.success(f"Client '{full_name}' recorded successfully!")
+            except sqlite3.IntegrityError:
+                st.error("Client ID already exists.")
 
 # ---------------------------------------------------------
 # 3. RECORD MEASUREMENTS
 # ---------------------------------------------------------
 elif st.session_state.current_page == "New Measurement":
     st.markdown("<div class='section-title-btn'>📏 Record Dated Client Measurements</div>", unsafe_allow_html=True)
-    if st.button("← Back to Hub", use_container_width=False):
+    if st.button("← Back to Hub"):
         set_page("Dashboard")
         st.rerun()
         
@@ -571,7 +460,6 @@ elif st.session_state.current_page == "New Measurement":
                 churidar_length = st.number_input("Churidar Total Length", min_value=0.0, step=0.25)
 
             m_notes = st.text_area("Measurement Session Notes")
-
             save_m = st.form_submit_button("Save Measurements", use_container_width=True)
             if save_m:
                 with get_db() as conn:
@@ -600,7 +488,7 @@ elif st.session_state.current_page == "New Measurement":
 # ---------------------------------------------------------
 elif st.session_state.current_page == "Client Records":
     st.markdown("<div class='section-title-btn'>🗂️ Client Database & Historical Records</div>", unsafe_allow_html=True)
-    if st.button("← Back to Hub", use_container_width=False):
+    if st.button("← Back to Hub"):
         set_page("Dashboard")
         st.rerun()
         
@@ -611,7 +499,6 @@ elif st.session_state.current_page == "Client Records":
         search = st.text_input("🔍 Search Client by Name or Phone Number")
         if search:
             clients_df = clients_df[clients_df.apply(lambda row: search.lower() in row.astype(str).str.lower().values, axis=1)]
-            
         st.dataframe(clients_df, use_container_width=True)
         
         st.markdown("<div class='section-title-btn'>Historical Measurement Log</div>", unsafe_allow_html=True)
@@ -619,10 +506,8 @@ elif st.session_state.current_page == "Client Records":
         if client_options:
             inspect_id = st.selectbox("Select Client", list(client_options.keys()))
             cid = client_options[inspect_id]
-            
             with get_db() as conn:
                 history_df = pd.read_sql_query("SELECT * FROM measurements WHERE client_id = ? ORDER BY date_recorded DESC", conn, params=(cid,))
-            
             if not history_df.empty:
                 st.dataframe(history_df, use_container_width=True)
             else:
@@ -635,7 +520,7 @@ elif st.session_state.current_page == "Client Records":
 # ---------------------------------------------------------
 elif st.session_state.current_page == "New Order":
     st.markdown("<div class='section-title-btn'>➕ Create New Garment Order</div>", unsafe_allow_html=True)
-    if st.button("← Back to Hub", use_container_width=False):
+    if st.button("← Back to Hub"):
         set_page("Dashboard")
         st.rerun()
         
@@ -659,7 +544,6 @@ elif st.session_state.current_page == "New Order":
             st.error("No measurement sets found for this client. Please take measurements first.")
         else:
             rev_dict = {f"{r['revision_label']} ({r['date_recorded']})": r['id'] for r in revisions}
-            
             with st.form("new_order_form"):
                 o1, o2 = st.columns(2)
                 with o1:
@@ -686,7 +570,7 @@ elif st.session_state.current_page == "New Order":
                     payment_status = st.selectbox("Payment Status*", ["Due", "Advance Paid", "Half Paid", "Fully Paid"], index=["Due", "Advance Paid", "Half Paid", "Fully Paid"].index(auto_status))
                     delivery_date = st.date_input("Target Delivery Date", datetime.date.today() + datetime.timedelta(days=12))
 
-                fabric_details = st.text_area("Fabric Specifications & Mill Details", placeholder="e.g., Loro Piana 260 GSM Worsted Navy Wool...")
+                fabric_details = st.text_area("Fabric Specifications & Mill Details", placeholder="e.g., 280 GSM Wool...")
                 remarks = st.text_area("Specific Cutting / Fitting Requirements")
                 
                 place_order = st.form_submit_button("Submit Garment Order", use_container_width=True)
@@ -702,21 +586,21 @@ elif st.session_state.current_page == "New Order":
                             fabric_details, total_amount, amount_paid, payment_status, delivery_date, remarks
                         ))
                         conn.commit()
-                    st.success(f"Order {order_no} created successfully under Mohammad Hussain Atelier!")
+                    st.success(f"Order {order_no} created successfully!")
 
 # ---------------------------------------------------------
-# 6. DEDICATED ORDER & PAYMENT WORKFLOW UPDATER
+# 6. ORDER STATUS, FULL EDIT & DELETION ENGINE
 # ---------------------------------------------------------
 elif st.session_state.current_page == "Update Orders":
-    st.markdown("<div class='section-title-btn'>🔄 Order Status & Payment Workflow Updater</div>", unsafe_allow_html=True)
-    if st.button("← Back to Hub", use_container_width=False):
+    st.markdown("<div class='section-title-btn'>🔄 Order Status, Editor & Deletion Hub</div>", unsafe_allow_html=True)
+    if st.button("← Back to Hub"):
         set_page("Dashboard")
         st.rerun()
         
     with get_db() as conn:
         orders_df = pd.read_sql_query("""
         SELECT o.id, o.order_number, c.full_name as client_name, c.phone, o.garment_type, 
-               o.workflow_status, o.payment_status, o.total_amount, o.amount_paid,
+               o.fit_preference, o.workflow_status, o.payment_status, o.total_amount, o.amount_paid,
                (o.total_amount - o.amount_paid) as balance_due,
                o.delivery_date, o.fabric_details, o.fitting_remarks
         FROM orders o
@@ -729,70 +613,82 @@ elif st.session_state.current_page == "Update Orders":
     else:
         st.dataframe(orders_df, use_container_width=True)
         
-        st.markdown("<div class='section-title-btn'>Update Order, Payment & Fitting Remarks</div>", unsafe_allow_html=True)
-        
+        st.markdown("<div class='section-title-btn'>Select Order to Edit or Delete</div>", unsafe_allow_html=True)
         order_list = orders_df["order_number"].tolist()
         selected_order_no = st.selectbox("Select Order Reference", order_list)
-        
         current_order = orders_df[orders_df["order_number"] == selected_order_no].iloc[0]
         
-        total_p = current_order['total_amount'] or 0.0
-        paid_p = current_order['amount_paid'] or 0.0
+        # Display Current Summary
+        total_p = float(current_order['total_amount'] or 0.0)
+        paid_p = float(current_order['amount_paid'] or 0.0)
         balance_p = total_p - paid_p
         
-        st.info(f"💰 **Total Price:** ₹{total_p:,.2f} | **Paid so far:** ₹{paid_p:,.2f} | **Balance Due:** ₹{balance_p:,.2f}")
-        
-        with st.form("update_order_workflow_form"):
-            u1, u2, u3 = st.columns(3)
-            
-            with u1:
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Total Order Price", f"₹{total_p:,.2f}")
+        m2.metric("Total Paid", f"₹{paid_p:,.2f}")
+        m3.metric("Balance Remaining", f"₹{balance_p:,.2f}")
+
+        # Complete Order Editor Form
+        with st.form("edit_full_order_form"):
+            st.markdown("### ✏️ Edit Order Fields")
+            e1, e2 = st.columns(2)
+            with e1:
                 stages = ['Drafted', 'Fabric Cut', 'Basted Fitting', 'Alterations', 'Final Pressed', 'Delivered']
                 cur_stage_idx = stages.index(current_order['workflow_status']) if current_order['workflow_status'] in stages else 0
-                new_stage = st.selectbox("Garment Workflow Stage", stages, index=cur_stage_idx)
-                
-            with u2:
+                edit_stage = st.selectbox("Workflow Stage", stages, index=cur_stage_idx)
+
                 payment_statuses = ["Due", "Advance Paid", "Half Paid", "Fully Paid"]
                 cur_pay_idx = payment_statuses.index(current_order['payment_status']) if current_order['payment_status'] in payment_statuses else 0
-                new_pay_status = st.selectbox("Payment Status", payment_statuses, index=cur_pay_idx)
-                
-            with u3:
-                additional_received = st.number_input("Add Payment Received (₹)", min_value=0.0, step=500.0)
-                
-            col_date, col_dummy = st.columns(2)
-            with col_date:
+                edit_pay_status = st.selectbox("Payment Status", payment_statuses, index=cur_pay_idx)
+
+                edit_total = st.number_input("Update Total Price (₹)", value=total_p, step=500.0)
+                edit_paid = st.number_input("Update Total Amount Paid (₹)", value=paid_p, step=500.0)
+
+            with e2:
                 try:
                     default_date = datetime.datetime.strptime(str(current_order['delivery_date']), '%Y-%m-%d').date()
                 except Exception:
                     default_date = datetime.date.today()
-                new_delivery = st.date_input("Update Delivery Target", default_date)
-            
-            st.markdown(f"**Current Fitting Log:** `{current_order['fitting_remarks'] or 'No remarks recorded.'}`")
-            new_fitting_note = st.text_area("Append Fitting Notes / Adjustments", placeholder="e.g., First fitting: take in waist by 0.5 in, raise armhole 1/4 in.")
-            
-            update_btn = st.form_submit_button("Save Updates", use_container_width=True)
-            if update_btn:
-                updated_paid = paid_p + additional_received
+                edit_delivery = st.date_input("Delivery Target", default_date)
                 
-                if updated_paid >= total_p and total_p > 0:
-                    new_pay_status = "Fully Paid"
-                elif updated_paid == (total_p / 2) and total_p > 0:
-                    new_pay_status = "Half Paid"
-                    
-                appended_remarks = current_order['fitting_remarks'] or ""
-                if new_fitting_note.strip():
-                    appended_remarks = f"{appended_remarks} | [{datetime.date.today()}] {new_fitting_note.strip()}"
-                    
+                edit_fabric = st.text_area("Fabric Specifications", value=str(current_order['fabric_details'] or ""))
+                edit_fitting_log = st.text_area("Fitting Remarks & Observations", value=str(current_order['fitting_remarks'] or ""))
+
+            save_changes = st.form_submit_button("💾 Save All Order Changes", use_container_width=True)
+            if save_changes:
+                # Auto-calculate payment status if updated
+                if edit_paid >= edit_total and edit_total > 0:
+                    edit_pay_status = "Fully Paid"
+                elif edit_paid == (edit_total / 2) and edit_total > 0:
+                    edit_pay_status = "Half Paid"
+
                 with get_db() as conn:
                     conn.cursor().execute("""
                     UPDATE orders 
                     SET workflow_status = ?, 
                         payment_status = ?,
+                        total_amount = ?,
                         amount_paid = ?,
                         delivery_date = ?,
+                        fabric_details = ?,
                         fitting_remarks = ?
                     WHERE order_number = ?
-                    """, (new_stage, new_pay_status, updated_paid, new_delivery, appended_remarks, selected_order_no))
+                    """, (edit_stage, edit_pay_status, edit_total, edit_paid, edit_delivery, edit_fabric, edit_fitting_log, selected_order_no))
                     conn.commit()
-                    
                 st.success(f"Order {selected_order_no} updated successfully!")
                 st.rerun()
+
+        # Dedicated Deletion Section
+        st.markdown("---")
+        with st.expander("🗑️ Delete This Order", expanded=False):
+            st.error(f"Danger Zone: Deleting order `{selected_order_no}` is permanent and cannot be undone.")
+            confirm_delete = st.checkbox(f"Yes, permanently delete order {selected_order_no}")
+            if st.button("Permanently Delete Order", type="secondary", use_container_width=True):
+                if confirm_delete:
+                    with get_db() as conn:
+                        conn.cursor().execute("DELETE FROM orders WHERE order_number = ?", (selected_order_no,))
+                        conn.commit()
+                    st.success(f"Order {selected_order_no} has been deleted.")
+                    st.rerun()
+                else:
+                    st.warning("Please check the confirmation box first.")
