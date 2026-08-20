@@ -510,33 +510,45 @@ elif st.session_state.page == "New Measurement":
             with h3:
                 unit = st.selectbox("Measurement Unit", ["Inches", "Centimeters"])
             
-            # --- 1. UPPER BODY ---
-            st.markdown("<div class='section-title-btn'>Upper Body Dimensions</div>", unsafe_allow_html=True)
-            u1, u2, u3 = st.columns(3)
-            with u1:
-                full_length_jacket = st.number_input("Length", value=None, min_value=0.0, step=0.25, placeholder="0.00")
-                neck = st.number_input("Neck", value=None, min_value=0.0, step=0.25, placeholder="0.00")
-                cross_shoulder = st.number_input("Shoulder", value=None, min_value=0.0, step=0.25, placeholder="0.00")
-            with u2:
-                chest_full = st.number_input("Chest", value=None, min_value=0.0, step=0.25, placeholder="0.00")
-                waist_stomach = st.number_input("Stomach", value=None, min_value=0.0, step=0.25, placeholder="0.00")
-                seat_hip = st.number_input("Hips", value=None, min_value=0.0, step=0.25, placeholder="0.00")
-            with u3:
-                armhole = st.number_input("Armhole", value=None, min_value=0.0, step=0.25, placeholder="0.00")
-                sleeve_length = st.number_input("Sleeve", value=None, min_value=0.0, step=0.25, placeholder="0.00")
-                wrist = st.number_input("Wrist", value=None, min_value=0.0, step=0.25, placeholder="0.00")
+          # --- ENTER KEY AUTO-JUMP SCRIPT ---
+            st.components.v1.html("""
+            <script>
+            window.parent.document.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    const active = window.parent.document.activeElement;
+                    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
+                        const inputs = Array.from(window.parent.document.querySelectorAll('input[type="number"], input[type="text"], textarea'));
+                        const index = inputs.indexOf(active);
+                        if (index > -1 && index < inputs.length - 1) {
+                            e.preventDefault();
+                            inputs[index + 1].focus();
+                        }
+                    }
+                }
+            });
+            </script>
+            """, height=0, width=0)
 
-            # --- 2. LOWER SIDE ---
+            # --- 1. UPPER BODY (VERTICAL) ---
+            st.markdown("<div class='section-title-btn'>Upper Body Dimensions</div>", unsafe_allow_html=True)
+            full_length_jacket = st.number_input("Length", value=None, min_value=0.0, step=0.25, placeholder="0.00")
+            neck = st.number_input("Neck", value=None, min_value=0.0, step=0.25, placeholder="0.00")
+            cross_shoulder = st.number_input("Shoulder", value=None, min_value=0.0, step=0.25, placeholder="0.00")
+            chest_full = st.number_input("Chest", value=None, min_value=0.0, step=0.25, placeholder="0.00")
+            waist_stomach = st.number_input("Stomach", value=None, min_value=0.0, step=0.25, placeholder="0.00")
+            seat_hip = st.number_input("Hips", value=None, min_value=0.0, step=0.25, placeholder="0.00")
+            armhole = st.number_input("Armhole", value=None, min_value=0.0, step=0.25, placeholder="0.00")
+            sleeve_length = st.number_input("Sleeve", value=None, min_value=0.0, step=0.25, placeholder="0.00")
+            wrist = st.number_input("Wrist", value=None, min_value=0.0, step=0.25, placeholder="0.00")
+
+            # --- 2. LOWER SIDE (VERTICAL) ---
             st.markdown("<div class='section-title-btn'>Lower Side Dimensions</div>", unsafe_allow_html=True)
-            l1, l2 = st.columns(2)
-            with l1:
-                trouser_waist = st.number_input("Waist", value=None, min_value=0.0, step=0.25, placeholder="0.00")
-                front_rise = st.number_input("Front Rise", value=None, min_value=0.0, step=0.25, placeholder="0.00")
-                crotch_depth = st.number_input("Crotch", value=None, min_value=0.0, step=0.25, placeholder="0.00")
-            with l2:
-                lower_seat = st.number_input("Seat", value=None, min_value=0.0, step=0.25, placeholder="0.00")
-                thigh = st.number_input("Thigh", value=None, min_value=0.0, step=0.25, placeholder="0.00")
-                bottom_opening = st.number_input("Bottom Opening", value=None, min_value=0.0, step=0.25, placeholder="0.00")
+            trouser_waist = st.number_input("Waist", value=None, min_value=0.0, step=0.25, placeholder="0.00")
+            front_rise = st.number_input("Front Rise", value=None, min_value=0.0, step=0.25, placeholder="0.00")
+            crotch_depth = st.number_input("Crotch", value=None, min_value=0.0, step=0.25, placeholder="0.00")
+            lower_seat = st.number_input("Seat", value=None, min_value=0.0, step=0.25, placeholder="0.00")
+            thigh = st.number_input("Thigh", value=None, min_value=0.0, step=0.25, placeholder="0.00")
+            bottom_opening = st.number_input("Bottom Opening", value=None, min_value=0.0, step=0.25, placeholder="0.00")
 
             m_notes = st.text_area("Measurement Session & Fit Notes", placeholder="e.g., Slim tapering requested...")
             save_m = st.form_submit_button("💾 Save Measurements to Client File", use_container_width=True)
@@ -557,7 +569,6 @@ elif st.session_state.page == "New Measurement":
                     ))
                     conn.commit()
                 st.success(f"Measurements saved for {selected_client_label}!")
-
 # ---------------------------------------------------------
 # 4. NEW ORDER (BLANK INITIAL PRICING INPUTS)
 # ---------------------------------------------------------
