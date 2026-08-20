@@ -3,6 +3,7 @@ import datetime
 import hashlib
 import streamlit as st
 import pandas as pd
+import streamlit.components.v1 as components
 
 # ---------------------------------------------------------
 # PAGE SETUP & ATELIER STYLING
@@ -149,7 +150,6 @@ st.markdown("""
         font-weight: 700;
     }
 
-    /* Minimal Tracking Cards */
     .order-card {
         background: #FFFFFF;
         border: 1.5px solid #D8CCBE;
@@ -158,15 +158,59 @@ st.markdown("""
         margin-bottom: 1rem;
     }
 
-    /* Printable Slip Card */
-    .slip-container {
+    /* -------------------------------------------------- */
+    /* A5 RECEIPT PRINTING STYLES                         */
+    /* -------------------------------------------------- */
+    .a5-slip-wrapper {
         background-color: #FFFFFF;
         border: 2px solid #111827;
-        padding: 2.5rem;
-        border-radius: 12px;
-        color: #111827 !important;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-        margin: 1.5rem 0;
+        padding: 20px;
+        border-radius: 8px;
+        color: #000000 !important;
+        margin: 1rem auto;
+        max-width: 148mm;
+    }
+
+    @media print {
+        @page {
+            size: A5 portrait;
+            margin: 8mm;
+        }
+        body, html, .stApp {
+            background-color: #FFFFFF !important;
+            color: #000000 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        section[data-testid="stSidebar"],
+        header[data-testid="stHeader"],
+        div[data-testid="stToolbar"],
+        footer,
+        button,
+        .stButton,
+        .section-title-btn,
+        .stSelectbox,
+        [data-testid="stElementContainer"]:has(.stSelectbox),
+        [data-testid="stElementContainer"]:has(.stButton),
+        [data-testid="stElementContainer"]:has(iframe) {
+            display: none !important;
+            visibility: hidden !important;
+        }
+        .a5-slip-wrapper {
+            border: 1.5px solid #000000 !important;
+            box-shadow: none !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            padding: 12px !important;
+            margin: 0 !important;
+            display: block !important;
+            visibility: visible !important;
+            page-break-inside: avoid;
+        }
+        * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -179,6 +223,7 @@ DB_FILE = "master_tailor.db"
 def get_db():
     conn = sqlite3.connect(DB_FILE, check_same_thread=False)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON;")
     return conn
 
 def hash_pw(password):
@@ -243,12 +288,11 @@ def init_db():
             workflow_status TEXT DEFAULT 'Drafted',
             fitting_remarks TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (client_id) REFERENCES clients (id),
-            FOREIGN KEY (measurement_id) REFERENCES measurements (id)
+            FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE CASCADE,
+            FOREIGN KEY (measurement_id) REFERENCES measurements (id) ON DELETE CASCADE
         );
         """)
         
-        # Self-migration for payment_mode column
         cursor.execute("PRAGMA table_info(orders);")
         existing_cols = [r[1] for r in cursor.fetchall()]
         if "payment_mode" not in existing_cols:
@@ -273,6 +317,8 @@ if "preselected_client_id" not in st.session_state:
     st.session_state.preselected_client_id = None
 if "delete_target_order" not in st.session_state:
     st.session_state.delete_target_order = None
+if "delete_target_client" not in st.session_state:
+    st.session_state.delete_target_client = None
 
 def navigate(page_name):
     st.session_state.page = page_name
@@ -363,7 +409,7 @@ if st.sidebar.button("📦 Order Tracking & Status", use_container_width=True):
     navigate("Update Orders")
     st.rerun()
 
-if st.sidebar.button("🖨️ Print Order Docket", use_container_width=True):
+if st.sidebar.button("🖨️ Print Order Docket (A5)", use_container_width=True):
     navigate("Print Slip")
     st.rerun()
 
@@ -412,15 +458,15 @@ if st.session_state.page == "Dashboard":
         if st.button("📦  ORDER TRACKING & QUICK UPDATER\n\nMinimalist Kanban tracker, stage buttons & instant delete", key="btn_hub_manage_orders", use_container_width=True):
             navigate("Update Orders")
             st.rerun()
-        if st.button("🖨️  PRINT ORDER SLIP / DOCKET\n\nGenerate printable boutique receipt with specs & measurements", key="btn_hub_print_slip", use_container_width=True):
+        if st.button("🖨️  PRINT A5 ORDER SLIP / DOCKET\n\nGenerate printable A5 size boutique receipt with specs & measurements", key="btn_hub_print_slip", use_container_width=True):
             navigate("Print Slip")
             st.rerun()
-        if st.button("🗂️  VIEW CLIENT DATABASE & HISTORY\n\nInspect client measurements, past orders & revision history", key="btn_hub_records", use_container_width=True):
+        if st.button("🗂️  VIEW & MANAGE CLIENT DATABASE\n\nInspect client measurements, past orders & 🗑️ delete client profiles", key="btn_hub_records", use_container_width=True):
             navigate("Client Records")
             st.rerun()
 
 # ---------------------------------------------------------
-# 2. REGISTER NEW CLIENT (WITH 1-CLICK PROCEED TO MEASURE)
+# 2. REGISTER NEW CLIENT
 # ---------------------------------------------------------
 elif st.session_state.page == "New Client":
     st.markdown("<div class='section-title-btn'>👤 Register New Client Profile</div>", unsafe_allow_html=True)
@@ -514,7 +560,6 @@ elif st.session_state.page == "New Measurement":
             with h3:
                 unit = st.selectbox("Measurement Unit", ["Inches", "Centimeters"])
             
-            # 1. UPPER BODY & TORSO
             st.markdown("<div class='section-title-btn'>👕 Upper Body & Torso Dimensions</div>", unsafe_allow_html=True)
             u1, u2, u3, u4 = st.columns(4)
             with u1:
@@ -535,7 +580,6 @@ elif st.session_state.page == "New Measurement":
                 full_length_jacket = st.number_input("Coat / Shirt / Kurta Full Length", min_value=0.0, step=0.25)
                 nape_to_waist = st.number_input("Nape to Waist", min_value=0.0, step=0.25)
 
-            # 2. LOWER BODY & LEGS
             st.markdown("<div class='section-title-btn'>👖 Lower Body & Leg Dimensions</div>", unsafe_allow_html=True)
             l1, l2, l3, l4 = st.columns(4)
             with l1:
@@ -674,7 +718,6 @@ elif st.session_state.page == "Update Orders":
     if orders_df.empty:
         st.info("No active garment orders in production.")
     else:
-        # Search & Filter
         filter_q = st.text_input("🔍 Filter Orders by Client Name, Phone or Order #")
         filtered_orders = orders_df
         if filter_q:
@@ -694,7 +737,6 @@ elif st.session_state.page == "Update Orders":
                 </div>
                 """, unsafe_allow_html=True)
                 
-                # Minimalist Inline Workflow & Quick Pay Controls
                 c_stage, c_pay, c_del = st.columns([2, 1.5, 1])
                 with c_stage:
                     cur_idx = stages.index(order['workflow_status']) if order['workflow_status'] in stages else 0
@@ -721,7 +763,6 @@ elif st.session_state.page == "Update Orders":
                     if st.button(f"🗑️ Delete", key=f"del_{order['order_number']}", use_container_width=True):
                         st.session_state.delete_target_order = order['order_number']
                 
-                # Deletion confirmation dialog
                 if st.session_state.delete_target_order == order['order_number']:
                     st.warning(f"Confirm deleting {order['order_number']} permanently?")
                     y_col, n_col = st.columns(2)
@@ -739,10 +780,10 @@ elif st.session_state.page == "Update Orders":
                 st.markdown("<hr style='margin:0.5rem 0 1rem 0; border:0.5px solid #E5DCCE;'>", unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 6. PRINTABLE BOUTIQUE ORDER DOCKET / SLIP
+# 6. A5 PRINTABLE BOUTIQUE ORDER DOCKET & RECEIPT
 # ---------------------------------------------------------
 elif st.session_state.page == "Print Slip":
-    st.markdown("<div class='section-title-btn'>🖨️ Generate & Print Boutique Order Docket</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title-btn'>🖨️ Printable A5 Boutique Order Docket</div>", unsafe_allow_html=True)
     if st.button("← Back to Hub", key="btn_back_slip"):
         navigate("Dashboard")
         st.rerun()
@@ -777,54 +818,72 @@ elif st.session_state.page == "Print Slip":
             paid_amt = float(slip_data['amount_paid'] or 0.0)
             bal_amt = total_amt - paid_amt
             
-            # High-Contrast Printable Docket
+            c_print_btn, _ = st.columns([1, 3])
+            with c_print_btn:
+                # Direct trigger to open browser print dialog configured for A5
+                components.html("""
+                <button onclick="window.parent.print()" style="
+                    background-color: #111827;
+                    color: #FAF7F2;
+                    border: none;
+                    padding: 10px 20px;
+                    border-radius: 8px;
+                    font-size: 15px;
+                    font-weight: bold;
+                    cursor: pointer;
+                    width: 100%;
+                ">🖨️ Print / Save A5 PDF</button>
+                """, height=48)
+            
+            # Pure HTML & CSS A5 Slip Layout
             st.markdown(f"""
-            <div class='slip-container'>
-                <div style="text-align: center; border-bottom: 2px solid #111827; padding-bottom: 1rem; margin-bottom: 1.5rem;">
-                    <h1 style="font-family:'Cinzel', serif; margin:0; font-size:2.4rem; letter-spacing:2px;">BAMNIYA STUDIO</h1>
-                    <p style="margin:0; font-size:0.95rem; text-transform:uppercase; letter-spacing:1.5px; font-weight:700; color:#8C6D4F !important;">
+            <div class='a5-slip-wrapper'>
+                <div style="text-align: center; border-bottom: 2px solid #000000; padding-bottom: 6px; margin-bottom: 10px;">
+                    <h2 style="font-family:'Cinzel', serif; margin:0; font-size:1.6rem; letter-spacing:1.5px; color:#000000 !important;">BAMNIYA STUDIO</h2>
+                    <p style="margin:0; font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; font-weight:700; color:#555555 !important;">
                         Bespoke Master Tailoring Atelier & Couture
                     </p>
                 </div>
 
-                <table style="width:100%; font-size:1.05rem; margin-bottom:1.5rem; line-height: 1.8;">
+                <table style="width:100%; font-size:0.85rem; margin-bottom:10px; line-height: 1.5; color:#000000;">
                     <tr>
                         <td><b>Order Docket:</b> {slip_data['order_number']}</td>
-                        <td><b>Booking Date:</b> {slip_data['created_at'][:10]}</td>
+                        <td style="text-align:right;"><b>Booking Date:</b> {slip_data['created_at'][:10]}</td>
                     </tr>
                     <tr>
-                        <td><b>Client Name:</b> {slip_data['client_name']}</td>
-                        <td><b>Client ID:</b> {slip_data['client_code']}</td>
+                        <td><b>Client:</b> {slip_data['client_name']} ({slip_data['client_code']})</td>
+                        <td style="text-align:right;"><b>Phone:</b> {slip_data['phone']}</td>
                     </tr>
                     <tr>
-                        <td><b>Contact Number:</b> {slip_data['phone']}</td>
-                        <td><b>Target Delivery Date:</b> {slip_data['delivery_date']}</td>
+                        <td><b>Garment:</b> {slip_data['garment_type']}</td>
+                        <td style="text-align:right;"><b>Fit:</b> {slip_data['fit_preference']}</td>
                     </tr>
                     <tr>
-                        <td><b>Garment Type:</b> {slip_data['garment_type']}</td>
-                        <td><b>Fit Preference:</b> {slip_data['fit_preference']}</td>
+                        <td colspan="2"><b>Target Delivery (Completion):</b> {slip_data['delivery_date']}</td>
                     </tr>
                 </table>
 
-                <div style="background:#FAF7F2; border:1px solid #C8B9A6; border-radius:8px; padding:1rem; margin-bottom:1.5rem;">
-                    <h3 style="margin-top:0; font-family:'Cinzel', serif; font-size:1.2rem;">Cutting Measurements ({slip_data['unit']})</h3>
-                    <table style="width:100%; font-size:0.95rem; border-collapse: collapse;">
+                <div style="border:1px solid #000000; border-radius:4px; padding:8px; margin-bottom:10px; background-color:#FAFAFA;">
+                    <p style="margin:0 0 6px 0; font-family:'Cinzel', serif; font-size:0.9rem; font-weight:bold; border-bottom:1px solid #DDDDDD; padding-bottom:3px; color:#000000 !important;">
+                        Cutting Measurements ({slip_data['unit']})
+                    </p>
+                    <table style="width:100%; font-size:0.8rem; border-collapse: collapse; line-height:1.4; color:#000000;">
                         <tr>
                             <td><b>Neck:</b> {slip_data['neck'] or '-'}</td>
-                            <td><b>Full Chest:</b> {slip_data['chest_full'] or '-'}</td>
+                            <td><b>Chest (Full):</b> {slip_data['chest_full'] or '-'}</td>
                             <td><b>Upper Chest:</b> {slip_data['chest_upper'] or '-'}</td>
-                            <td><b>Stomach/Waist:</b> {slip_data['waist_stomach'] or '-'}</td>
+                            <td><b>Stomach:</b> {slip_data['waist_stomach'] or '-'}</td>
                         </tr>
                         <tr>
-                            <td><b>Shoulder Width:</b> {slip_data['cross_shoulder'] or '-'}</td>
+                            <td><b>Shoulder:</b> {slip_data['cross_shoulder'] or '-'}</td>
                             <td><b>Armhole:</b> {slip_data['armhole'] or '-'}</td>
                             <td><b>Bicep:</b> {slip_data['bicep'] or '-'}</td>
-                            <td><b>Sleeve Length:</b> {slip_data['sleeve_length'] or '-'}</td>
+                            <td><b>Sleeve Lgth:</b> {slip_data['sleeve_length'] or '-'}</td>
                         </tr>
                         <tr>
                             <td><b>Jacket/Shirt Lgth:</b> {slip_data['full_length_jacket'] or '-'}</td>
                             <td><b>Trouser Waist:</b> {slip_data['trouser_waist'] or '-'}</td>
-                            <td><b>Seat/Hip:</b> {slip_data['seat_hip'] or '-'}</td>
+                            <td><b>Seat / Hip:</b> {slip_data['seat_hip'] or '-'}</td>
                             <td><b>Thigh:</b> {slip_data['thigh'] or '-'}</td>
                         </tr>
                         <tr>
@@ -836,7 +895,7 @@ elif st.session_state.page == "Print Slip":
                     </table>
                 </div>
 
-                <div style="display:flex; justify-content:space-between; border-top: 2px solid #111827; padding-top: 1.2rem; font-size:1.1rem;">
+                <div style="display:flex; justify-content:space-between; border-top: 1.5px solid #000000; padding-top: 8px; font-size:0.85rem; color:#000000;">
                     <div>
                         <p style="margin:0;"><b>Payment Mode:</b> {slip_data['payment_mode'] or 'Cash'}</p>
                         <p style="margin:0;"><b>Payment Stage:</b> {slip_data['payment_status']}</p>
@@ -844,21 +903,19 @@ elif st.session_state.page == "Print Slip":
                     <div style="text-align:right;">
                         <p style="margin:0;"><b>Total Amount:</b> ₹{total_amt:,.2f}</p>
                         <p style="margin:0;"><b>Amount Paid:</b> ₹{paid_amt:,.2f}</p>
-                        <p style="margin:0; font-size:1.2rem; font-weight:800;"><b>Balance Due:</b> ₹{bal_amt:,.2f}</p>
+                        <p style="margin:0; font-size:0.95rem; font-weight:800;"><b>Balance Due:</b> ₹{bal_amt:,.2f}</p>
                     </div>
                 </div>
 
-                <div style="margin-top: 2rem; display:flex; justify-content:space-between; font-size:0.9rem; border-top:1px dashed #C8B9A6; padding-top:1rem;">
+                <div style="margin-top: 20px; display:flex; justify-content:space-between; font-size:0.75rem; border-top:1px dashed #666666; padding-top:6px; color:#000000;">
                     <span>Client Signature: __________________</span>
                     <span>Master Tailor: __________________</span>
                 </div>
             </div>
             """, unsafe_allow_html=True)
-            
-            st.caption("💡 Press **Ctrl + P** (or **Cmd + P** on Mac) to print this docket or save it as a PDF receipt.")
 
 # ---------------------------------------------------------
-# 7. CLIENT DATABASE & HISTORICAL RECORDS
+# 7. CLIENT DATABASE & 1-CLICK CLIENT DELETION
 # ---------------------------------------------------------
 elif st.session_state.page == "Client Records":
     st.markdown("<div class='section-title-btn'>🗂️ Client Database & Historical Records</div>", unsafe_allow_html=True)
@@ -875,14 +932,40 @@ elif st.session_state.page == "Client Records":
             clients_df = clients_df[clients_df.apply(lambda row: search.lower() in row.astype(str).str.lower().values, axis=1)]
         st.dataframe(clients_df, use_container_width=True)
         
-        st.markdown("<div class='section-title-btn'>Historical Measurement Log</div>", unsafe_allow_html=True)
+        st.markdown("<div class='section-title-btn'>Manage Client & Inspection</div>", unsafe_allow_html=True)
         client_options = {f"{r['client_code']} — {r['full_name']}": r['id'] for _, r in clients_df.iterrows()}
         if client_options:
-            inspect_id = st.selectbox("Select Client", list(client_options.keys()))
-            cid = client_options[inspect_id]
+            c_sel, c_del_cli = st.columns([3, 1])
+            with c_sel:
+                inspect_label = st.selectbox("Select Client", list(client_options.keys()))
+                cid = client_options[inspect_label]
+            with c_del_cli:
+                st.write("")
+                st.write("")
+                if st.button(f"🗑️ Delete Client Profile", use_container_width=True):
+                    st.session_state.delete_target_client = cid
+
+            # Second Confirmation Dialog for Client Deletion
+            if st.session_state.delete_target_client == cid:
+                st.error(f"⚠️ Are you sure you want to permanently delete **{inspect_label}** and all their measurements & orders?")
+                cy_col, cn_col = st.columns(2)
+                with cy_col:
+                    if st.button("✅ Yes, Delete Entire Client History", use_container_width=True):
+                        with get_db() as conn:
+                            conn.cursor().execute("DELETE FROM clients WHERE id = ?", (cid,))
+                            conn.commit()
+                        st.session_state.delete_target_client = None
+                        st.success("Client and all related records deleted.")
+                        st.rerun()
+                with cn_col:
+                    if st.button("❌ Cancel Deletion", use_container_width=True):
+                        st.session_state.delete_target_client = None
+                        st.rerun()
+
             with get_db() as conn:
                 history_df = pd.read_sql_query("SELECT * FROM measurements WHERE client_id = ? ORDER BY date_recorded DESC", conn, params=(cid,))
             if not history_df.empty:
+                st.markdown("### 📏 Measurement Revision History")
                 st.dataframe(history_df, use_container_width=True)
             else:
                 st.info("No measurements recorded yet for this client.")
