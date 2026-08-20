@@ -250,8 +250,10 @@ def navigate(page_name):
     st.session_state.page = page_name
 
 # ---------------------------------------------------------
-# AUTHENTICATION
+# SIGN IN & SIGN UP (WITH MASTER KEY BYPASS)
 # ---------------------------------------------------------
+MASTER_KEY = "176920"
+
 if not st.session_state.authenticated:
     st.markdown("<div class='brand-title'>MOHAMMAD HUSSAIN</div>", unsafe_allow_html=True)
     st.markdown("<div class='brand-tagline'>Bespoke Master Tailoring Atelier</div>", unsafe_allow_html=True)
@@ -259,14 +261,24 @@ if not st.session_state.authenticated:
     col_center = st.columns([1, 1.8, 1])[1]
     with col_center:
         auth_tab = st.radio("Atelier Portal Access", ["Sign In", "Create Tailor Account"], horizontal=True)
+        
         if auth_tab == "Sign In":
             with st.form("signin_form"):
                 st.subheader("Master Tailor Sign In")
-                u_name = st.text_input("Username")
-                p_word = st.text_input("Password", type="password")
+                u_name = st.text_input("Username or Master Key")
+                p_word = st.text_input("Password (Leave blank if using Master Key)", type="password")
                 btn_login = st.form_submit_button("Sign In to Workshop", use_container_width=True)
+                
                 if btn_login:
-                    if u_name and p_word:
+                    # 1. Master Key Bypass (checks username or password box)
+                    if u_name.strip() == MASTER_KEY or p_word.strip() == MASTER_KEY:
+                        st.session_state.authenticated = True
+                        st.session_state.username = "Master Tailor (Mohammad Hussain)"
+                        st.session_state.page = "Dashboard"
+                        st.rerun()
+                    
+                    # 2. Standard Database Authentication
+                    elif u_name and p_word:
                         with get_db() as conn:
                             user = conn.cursor().execute(
                                 "SELECT * FROM users WHERE username = ? AND password_hash = ?", 
@@ -274,11 +286,13 @@ if not st.session_state.authenticated:
                             ).fetchone()
                             if user:
                                 st.session_state.authenticated = True
-                                st.session_state.username = u_name
+                                st.session_state.username = u_name.strip()
                                 st.session_state.page = "Dashboard"
                                 st.rerun()
                             else:
-                                st.error("Invalid credentials.")
+                                st.error("Invalid credentials or Master Key.")
+                    else:
+                        st.error("Please enter credentials or the Master Key.")
         else:
             with st.form("signup_form"):
                 st.subheader("New Tailor Registration")
@@ -297,7 +311,6 @@ if not st.session_state.authenticated:
                     except sqlite3.IntegrityError:
                         st.error("Username already registered.")
     st.stop()
-
 # ---------------------------------------------------------
 # SIDEBAR (STANDARD CLICKABLE BUTTONS)
 # ---------------------------------------------------------
