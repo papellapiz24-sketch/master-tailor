@@ -14,6 +14,59 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Global Enter-Key Navigation Script across all input boxes & forms
+st.components.v1.html("""
+<script>
+(function() {
+    function setupEnterNavigation() {
+        const doc = window.parent.document;
+        if (!doc) return;
+        
+        doc.removeEventListener('keydown', handleGlobalKeyDown, true);
+        doc.addEventListener('keydown', handleGlobalKeyDown, true);
+    }
+
+    function handleGlobalKeyDown(e) {
+        if (e.key !== 'Enter') return;
+        
+        const active = window.parent.document.activeElement;
+        if (!active) return;
+        
+        const isInput = active.tagName === 'INPUT' && !['submit', 'button', 'checkbox', 'radio'].includes(active.type);
+        const isTextArea = active.tagName === 'TEXTAREA';
+        
+        if (isInput || isTextArea) {
+            // Allow shift+enter inside textareas for new lines
+            if (isTextArea && e.shiftKey) return;
+            
+            const selector = 'input:not([type="hidden"]):not([disabled]):not([type="submit"]):not([type="button"]), textarea:not([disabled])';
+            const allElements = Array.from(window.parent.document.querySelectorAll(selector));
+            
+            const visibleInputs = allElements.filter(el => {
+                const rect = el.getBoundingClientRect();
+                return rect.width > 0 && rect.height > 0 && window.getComputedStyle(el).visibility !== 'hidden';
+            });
+            
+            const currentIndex = visibleInputs.indexOf(active);
+            if (currentIndex > -1 && currentIndex < visibleInputs.length - 1) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const nextInput = visibleInputs[currentIndex + 1];
+                nextInput.focus();
+                if (nextInput.select) {
+                    nextInput.select();
+                }
+            }
+        }
+    }
+
+    setTimeout(setupEnterNavigation, 300);
+    setInterval(setupEnterNavigation, 1500);
+})();
+</script>
+""", height=0, width=0)
+
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
@@ -199,7 +252,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS measurements (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             client_id INTEGER NOT NULL,
-            revision_label TEXT NOT NULL,
+            revision_label TEXT DEFAULT 'Standard',
             garment_category TEXT DEFAULT 'All Garments / Master Set',
             unit TEXT CHECK(unit IN ('Inches', 'Centimeters')) NOT NULL DEFAULT 'Inches',
             date_recorded DATE NOT NULL,
@@ -504,30 +557,10 @@ elif st.session_state.page == "New Measurement":
         selected_garment_type = st.selectbox("Choose Garment Type to Measure", garment_options)
         
         with st.form("measurement_form"):
-            st.components.v1.html("""
-            <script>
-            window.parent.document.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter') {
-                    const active = window.parent.document.activeElement;
-                    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
-                        const inputs = Array.from(window.parent.document.querySelectorAll('input[type="number"], input[type="text"], textarea'));
-                        const index = inputs.indexOf(active);
-                        if (index > -1 && index < inputs.length - 1) {
-                            e.preventDefault();
-                            inputs[index + 1].focus();
-                        }
-                    }
-                }
-            });
-            </script>
-            """, height=0, width=0)
-
-            h1, h2, h3 = st.columns(3)
+            h1, h2 = st.columns(2)
             with h1:
-                rev_label = st.text_input("Session / Revision Tag*", value=f"{selected_garment_type} - Rev 01")
-            with h2:
                 rec_date = st.date_input("Date Taken", datetime.date.today())
-            with h3:
+            with h2:
                 unit = st.selectbox("Measurement Unit", ["Inches", "Centimeters"])
             
             st.markdown("<div class='section-title-btn'>Upper Body Dimensions</div>", unsafe_allow_html=True)
@@ -560,7 +593,7 @@ elif st.session_state.page == "New Measurement":
                         front_rise, crotch_depth, thigh, bottom_opening, notes
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
-                        selected_client_id, rev_label, selected_garment_type, unit, rec_date,
+                        selected_client_id, "Standard", selected_garment_type, unit, rec_date,
                         full_length_jacket, neck, cross_shoulder, chest_full, waist_stomach,
                         seat_hip, armhole, sleeve_length, wrist, trouser_waist,
                         front_rise, crotch_depth, thigh, bottom_opening, m_notes
@@ -595,20 +628,21 @@ elif st.session_state.page == "New Order":
                     default_idx = idx
                     break
 
-        selected_client_label = st.selectbox("Search  (Type Name or Phone)", list(client_options.keys()), index=default_idx)
+        selected_client_label = st.selectbox("Search & Select Client (Type Name or Phone)", list(client_options.keys()), index=default_idx)
         selected_client_id = client_options[selected_client_label]
         st.session_state.active_client_id = selected_client_id
         
+        # Automatically grab the latest measurement record
         with get_db() as conn:
-            revisions = conn.cursor().execute(
-                "SELECT id, revision_label, garment_category, date_recorded FROM measurements WHERE client_id = ? ORDER BY id DESC", 
+            latest_m = conn.cursor().execute(
+                "SELECT id, date_recorded FROM measurements WHERE client_id = ? ORDER BY id DESC LIMIT 1", 
                 (selected_client_id,)
-            ).fetchall()
+            ).fetchone()
 
         st.markdown("### Client Action Options")
         col_act_m, col_act_b = st.columns(2)
         with col_act_m:
-            if st.button("Update / Adjust Measurements ", use_container_width=True):
+            if st.button("Update / Adjust Measurements First", use_container_width=True):
                 navigate("New Measurement")
                 st.rerun()
         with col_act_b:
@@ -616,18 +650,17 @@ elif st.session_state.page == "New Order":
             
         st.markdown("---")
             
-        if not revisions:
-            st.error("No measurement sets found for this client. Please record measurements first before billing.")
+        if not latest_m:
+            st.error("No measurements found for this client. Please record measurements first before billing.")
             if st.button("Record Measurements Now →", use_container_width=True):
                 navigate("New Measurement")
                 st.rerun()
         else:
-            rev_dict = {f"{r['revision_label']} [{r['garment_category'] or 'Master'}] ({r['date_recorded']})": r['id'] for r in revisions}
+            measurement_id = latest_m['id']
             with st.form("new_order_form"):
                 o1, o2 = st.columns(2)
                 with o1:
                     order_no = st.text_input("Order Reference ID*", value=f"BS-{datetime.date.today().strftime('%Y%m%d')}-01")
-                    selected_rev = st.selectbox("Cutting Measurement Revision*", list(rev_dict.keys()))
                     garment_type = st.selectbox("Garment to Stitch", [
                         "Kurta saya", "Kurta saya with izar", "Pehran", "Only kurta",
                         "Kurta Short)", "Pajama", "Shirt", "Trousers", "Sherwani",
@@ -667,7 +700,7 @@ elif st.session_state.page == "New Order":
                             fabric_details, total_amount, amount_paid, payment_mode, payment_status, delivery_date, fitting_remarks
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """, (
-                            order_no, selected_client_id, rev_dict[selected_rev], garment_type, fit_preference,
+                            order_no, selected_client_id, measurement_id, garment_type, fit_preference,
                             fabric_details, calc_total, calc_paid, payment_mode, payment_status, delivery_date, remarks
                         ))
                         conn.commit()
@@ -881,10 +914,10 @@ elif st.session_state.page == "Order Tracking":
 
 
 # ---------------------------------------------------------
-# 5B.  FINANCIAL SALES REPORT
+# 5B. ORDER STATUS & FINANCIAL SALES REPORT
 # ---------------------------------------------------------
-elif st.session_state.page == "sales":
-    st.markdown("<div class='section-title-btn'> Financial Sales Report</div>", unsafe_allow_html=True)
+elif st.session_state.page == "Order Status":
+    st.markdown("<div class='section-title-btn'>Order Status & Financial Sales Report</div>", unsafe_allow_html=True)
     if st.button("← Back to Main Hub", key="btn_back_status"):
         navigate("Dashboard")
         st.rerun()
