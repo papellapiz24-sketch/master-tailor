@@ -510,42 +510,33 @@ elif st.session_state.page == "New Measurement":
             with h3:
                 unit = st.selectbox("Measurement Unit", ["Inches", "Centimeters"])
             
-            st.markdown("<div class='section-title-btn'>Upper Body & Torso Dimensions</div>", unsafe_allow_html=True)
-            u1, u2, u3, u4 = st.columns(4)
+            # --- 1. UPPER BODY ---
+            st.markdown("<div class='section-title-btn'>Upper Body Dimensions</div>", unsafe_allow_html=True)
+            u1, u2, u3 = st.columns(3)
             with u1:
-                neck = st.number_input("Neck / Collar", value=None, min_value=0.0, step=0.25, placeholder="0.00")
-                chest_full = st.number_input("Chest (Full / Bust)", value=None, min_value=0.0, step=0.25, placeholder="0.00")
-                chest_upper = st.number_input("Upper Chest", value=None, min_value=0.0, step=0.25, placeholder="0.00")
+                full_length_jacket = st.number_input("Length", value=None, min_value=0.0, step=0.25, placeholder="0.00")
+                neck = st.number_input("Neck", value=None, min_value=0.0, step=0.25, placeholder="0.00")
+                cross_shoulder = st.number_input("Shoulder", value=None, min_value=0.0, step=0.25, placeholder="0.00")
             with u2:
-                waist_stomach = st.number_input("Stomach / Waist", value=None, min_value=0.0, step=0.25, placeholder="0.00")
-                cross_shoulder = st.number_input("Shoulder Width", value=None, min_value=0.0, step=0.25, placeholder="0.00")
-                back_width = st.number_input("Back Width", value=None, min_value=0.0, step=0.25, placeholder="0.00")
+                chest_full = st.number_input("Chest", value=None, min_value=0.0, step=0.25, placeholder="0.00")
+                waist_stomach = st.number_input("Stomach", value=None, min_value=0.0, step=0.25, placeholder="0.00")
+                seat_hip = st.number_input("Hips", value=None, min_value=0.0, step=0.25, placeholder="0.00")
             with u3:
-                front_chest_width = st.number_input("Front Chest Width", value=None, min_value=0.0, step=0.25, placeholder="0.00")
                 armhole = st.number_input("Armhole", value=None, min_value=0.0, step=0.25, placeholder="0.00")
-                bicep = st.number_input("Bicep / Muscle", value=None, min_value=0.0, step=0.25, placeholder="0.00")
-            with u4:
-                wrist = st.number_input("Wrist / Cuff", value=None, min_value=0.0, step=0.25, placeholder="0.00")
-                sleeve_length = st.number_input("Sleeve Length", value=None, min_value=0.0, step=0.25, placeholder="0.00")
-                full_length_jacket = st.number_input("Coat / Shirt / Kurta Full Length", value=None, min_value=0.0, step=0.25, placeholder="0.00")
-                nape_to_waist = st.number_input("Nape to Waist", value=None, min_value=0.0, step=0.25, placeholder="0.00")
+                sleeve_length = st.number_input("Sleeve", value=None, min_value=0.0, step=0.25, placeholder="0.00")
+                wrist = st.number_input("Wrist", value=None, min_value=0.0, step=0.25, placeholder="0.00")
 
-            st.markdown("<div class='section-title-btn'>Lower Body & Leg Dimensions</div>", unsafe_allow_html=True)
-            l1, l2, l3, l4 = st.columns(4)
+            # --- 2. LOWER SIDE ---
+            st.markdown("<div class='section-title-btn'>Lower Side Dimensions</div>", unsafe_allow_html=True)
+            l1, l2 = st.columns(2)
             with l1:
-                trouser_waist = st.number_input("Trouser / Pajama Waist", value=None, min_value=0.0, step=0.25, placeholder="0.00")
-                seat_hip = st.number_input("Seat / Hip", value=None, min_value=0.0, step=0.25, placeholder="0.00")
-            with l2:
-                thigh = st.number_input("Thigh", value=None, min_value=0.0, step=0.25, placeholder="0.00")
-                knee = st.number_input("Knee", value=None, min_value=0.0, step=0.25, placeholder="0.00")
-            with l3:
-                calf = st.number_input("Calf", value=None, min_value=0.0, step=0.25, placeholder="0.00")
-                bottom_opening = st.number_input("Bottom Opening", value=None, min_value=0.0, step=0.25, placeholder="0.00")
-            with l4:
-                outseam = st.number_input("Full Length / Outseam", value=None, min_value=0.0, step=0.25, placeholder="0.00")
-                inseam = st.number_input("Inseam", value=None, min_value=0.0, step=0.25, placeholder="0.00")
+                trouser_waist = st.number_input("Waist", value=None, min_value=0.0, step=0.25, placeholder="0.00")
                 front_rise = st.number_input("Front Rise", value=None, min_value=0.0, step=0.25, placeholder="0.00")
-                crotch_depth = st.number_input("Crotch Depth", value=None, min_value=0.0, step=0.25, placeholder="0.00")
+                crotch_depth = st.number_input("Crotch", value=None, min_value=0.0, step=0.25, placeholder="0.00")
+            with l2:
+                lower_seat = st.number_input("Seat", value=None, min_value=0.0, step=0.25, placeholder="0.00")
+                thigh = st.number_input("Thigh", value=None, min_value=0.0, step=0.25, placeholder="0.00")
+                bottom_opening = st.number_input("Bottom Opening", value=None, min_value=0.0, step=0.25, placeholder="0.00")
 
             m_notes = st.text_area("Measurement Session & Fit Notes", placeholder="e.g., Slim tapering requested...")
             save_m = st.form_submit_button("💾 Save Measurements to Client File", use_container_width=True)
@@ -554,17 +545,15 @@ elif st.session_state.page == "New Measurement":
                     conn.cursor().execute("""
                     INSERT INTO measurements (
                         client_id, revision_label, garment_category, unit, date_recorded,
-                        neck, chest_full, chest_upper, waist_stomach, cross_shoulder, back_width,
-                        front_chest_width, armhole, bicep, wrist, sleeve_length, nape_to_waist,
-                        full_length_jacket, trouser_waist, seat_hip, thigh, knee, calf,
-                        bottom_opening, outseam, inseam, front_rise, crotch_depth, notes
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        full_length_jacket, neck, cross_shoulder, chest_full, waist_stomach,
+                        seat_hip, armhole, sleeve_length, wrist, trouser_waist,
+                        front_rise, crotch_depth, thigh, bottom_opening, notes
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
                         selected_client_id, rev_label, selected_garment_type, unit, rec_date,
-                        neck, chest_full, chest_upper, waist_stomach, cross_shoulder, back_width,
-                        front_chest_width, armhole, bicep, wrist, sleeve_length, nape_to_waist,
-                        full_length_jacket, trouser_waist, seat_hip, thigh, knee, calf,
-                        bottom_opening, outseam, inseam, front_rise, crotch_depth, m_notes
+                        full_length_jacket, neck, cross_shoulder, chest_full, waist_stomach,
+                        seat_hip or lower_seat, armhole, sleeve_length, wrist, trouser_waist,
+                        front_rise, crotch_depth, thigh, bottom_opening, m_notes
                     ))
                     conn.commit()
                 st.success(f"Measurements saved for {selected_client_label}!")
