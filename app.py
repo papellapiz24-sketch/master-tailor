@@ -482,7 +482,7 @@ elif st.session_state.page == "New Client":
     with st.form("new_client_form"):
         c1, c2 = st.columns(2)
         with c1:
-            client_code = st.text_input("Client ID / Phone Number*", placeholder="e.g., BS-2026-001")
+            client_code = st.text_input("Client ID *", placeholder="e.g., BS-2026-001")
             full_name = st.text_input("Full Name*")
             phone = st.text_input("Contact Number*")
             email = st.text_input("Email (Optional)")
@@ -541,20 +541,26 @@ elif st.session_state.page == "New Measurement":
         selected_client_id = client_dict[selected_client_label]
         
         garment_options = [
-            "All Garments / Master Measurement Set",
-            "Kurta (Straight / A-Line / Short)",
-            "Pajama (Traditional / Straight)",
+            "Kurta saya",
+            "Kurta saya with izar",
+            "Pehran",
+            "Only kurta",
+            "Kurta Short)",
+            "Pajama",
+            "Shirt",
+            "Trousers",
             "Sherwani",
-            "Nehru Jacket / Waistcoat",
+            "Nehru Jacket",
+            "Waistcoat",
             "Jodhpuri Suit",
             "Pathani Suit",
             "Two-Piece / Three-Piece Suit",
             "Blazer / Formal Coat",
-            "Dress Shirt & Trousers",
+            "Shirt & Trousers",
             "Safari Suit"
         ]
         
-        selected_garment_type = st.selectbox("🎯 Choose Garment Type to Measure", garment_options)
+        selected_garment_type = st.selectbox(" Choose Garment Type to Measure", garment_options)
         
         with st.form("measurement_form"):
             h1, h2, h3 = st.columns(3)
@@ -565,7 +571,7 @@ elif st.session_state.page == "New Measurement":
             with h3:
                 unit = st.selectbox("Measurement Unit", ["Inches", "Centimeters"])
             
-            st.markdown("<div class='section-title-btn'>👕 Upper Body & Torso Dimensions</div>", unsafe_allow_html=True)
+            st.markdown("<div class='section-title-btn'> Upper Body & Torso Dimensions</div>", unsafe_allow_html=True)
             u1, u2, u3, u4 = st.columns(4)
             with u1:
                 neck = st.number_input("Neck / Collar", min_value=0.0, step=0.25)
@@ -585,7 +591,7 @@ elif st.session_state.page == "New Measurement":
                 full_length_jacket = st.number_input("Coat / Shirt / Kurta Full Length", min_value=0.0, step=0.25)
                 nape_to_waist = st.number_input("Nape to Waist", min_value=0.0, step=0.25)
 
-            st.markdown("<div class='section-title-btn'>👖 Lower Body & Leg Dimensions</div>", unsafe_allow_html=True)
+            st.markdown("<div class='section-title-btn'> Lower Body & Leg Dimensions</div>", unsafe_allow_html=True)
             l1, l2, l3, l4 = st.columns(4)
             with l1:
                 trouser_waist = st.number_input("Trouser / Pajama Waist", min_value=0.0, step=0.25)
