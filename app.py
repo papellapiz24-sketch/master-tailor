@@ -728,11 +728,11 @@ elif st.session_state.page == "Print Slip":
             unit = str(slip_data['unit'])
 
             pure_receipt_html = f"""<!DOCTYPE html>
-receipt_template = """<!DOCTYPE html>
+receipt_layout = """<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
-<title>Receipt_{ord_id}</title>
+<title>Receipt__{ORD_ID}</title>
 <style>
   @page { size: A5 portrait; margin: 5mm; }
   * { box-sizing: border-box; font-family: 'Courier New', Courier, monospace; color: #000000; }
@@ -763,43 +763,43 @@ receipt_template = """<!DOCTYPE html>
   <button class="print-btn" onclick="window.print()">🖨️ CLICK HERE TO PRINT RECEIPT (A5)</button>
   <div class="ticket">
     <div class="center">
-      <div class="title">{store_name}</div>
+      <div class="title">__STORE_NAME__</div>
       <div class="sub">Bespoke Master Tailoring Atelier</div>
       <div class="bold" style="font-size: 11px;">SALES & MEASUREMENT RECEIPT</div>
     </div>
     <hr class="dash">
     <table>
-      <tr><td><b>CLIENT:</b> {c_name}</td><td class="right"><b>DATE:</b> {book_date}</td></tr>
-      <tr><td><b>ID:</b> {c_id}</td><td class="right"><b>ORDER #:</b> {ord_id}</td></tr>
-      <tr><td colspan="2"><b>PHONE:</b> {c_phone}</td></tr>
-      <tr><td colspan="2"><b>GARMENT:</b> {garment} ({fit})</td></tr>
-      <tr><td colspan="2"><b>COMPLETION DATE:</b> {del_date}</td></tr>
+      <tr><td><b>CLIENT:</b> __CLIENT_NAME__</td><td class="right"><b>DATE:</b> __BOOK_DATE__</td></tr>
+      <tr><td><b>ID:</b> __CLIENT_ID__</td><td class="right"><b>ORDER #:</b> __ORD_ID__</td></tr>
+      <tr><td colspan="2"><b>PHONE:</b> __CLIENT_PHONE__</td></tr>
+      <tr><td colspan="2"><b>GARMENT:</b> __GARMENT__ (__FIT__)</td></tr>
+      <tr><td colspan="2"><b>COMPLETION DATE:</b> __DEL_DATE__</td></tr>
     </table>
     <hr class="dash">
-    <div class="bold" style="font-size: 11px;">[ MEASUREMENTS ({unit}) ]</div>
+    <div class="bold" style="font-size: 11px;">[ MEASUREMENTS (__UNIT__) ]</div>
     <table class="grid-table">
       <tr style="background:#EEEEEE;">
         <th>PART</th><th>SPEC</th><th>PART</th><th>SPEC</th>
       </tr>
-      <tr><td>Length</td><td><b>{m_len}</b></td><td>Waist</td><td><b>{m_waist}</b></td></tr>
-      <tr><td>Neck</td><td><b>{m_neck}</b></td><td>Front Rise</td><td><b>{m_frise}</b></td></tr>
-      <tr><td>Shoulder</td><td><b>{m_shld}</b></td><td>Crotch</td><td><b>{m_crotch}</b></td></tr>
-      <tr><td>Chest</td><td><b>{m_chest}</b></td><td>Seat/Hips</td><td><b>{m_hip}</b></td></tr>
-      <tr><td>Stomach</td><td><b>{m_stom}</b></td><td>Thigh</td><td><b>{m_thigh}</b></td></tr>
-      <tr><td>Armhole</td><td><b>{m_armh}</b></td><td>Bottom Opening</td><td><b>{m_bot}</b></td></tr>
-      <tr><td>Sleeve</td><td><b>{m_slv}</b></td><td>Wrist</td><td><b>{m_wrst}</b></td></tr>
+      <tr><td>Length</td><td><b>__M_LEN__</b></td><td>Waist</td><td><b>__M_WAIST__</b></td></tr>
+      <tr><td>Neck</td><td><b>__M_NECK__</b></td><td>Front Rise</td><td><b>__M_FRISE__</b></td></tr>
+      <tr><td>Shoulder</td><td><b>__M_SHLD__</b></td><td>Crotch</td><td><b>__M_CROTCH__</b></td></tr>
+      <tr><td>Chest</td><td><b>__M_CHEST__</b></td><td>Seat/Hips</td><td><b>__M_HIP__</b></td></tr>
+      <tr><td>Stomach</td><td><b>__M_STOM__</b></td><td>Thigh</td><td><b>__M_THIGH__</b></td></tr>
+      <tr><td>Armhole</td><td><b>__M_ARMH__</b></td><td>Bottom Opening</td><td><b>__M_BOT__</b></td></tr>
+      <tr><td>Sleeve</td><td><b>__M_SLV__</b></td><td>Wrist</td><td><b>__M_WRST__</b></td></tr>
     </table>
     <hr class="dash">
     <table>
-      <tr><td><b>TOTAL AMOUNT:</b></td><td class="right bold">Rs. {total_amt:,.2f}</td></tr>
-      <tr><td><b>AMOUNT PAID:</b></td><td class="right">Rs. {paid_amt:,.2f}</td></tr>
-      <tr><td class="bold">BALANCE DUE:</td><td class="right bold" style="font-size:13px;">Rs. {bal_amt:,.2f}</td></tr>
-      <tr><td><b>PAYMENT MODE:</b></td><td class="right">{pay_mode}</td></tr>
-      <tr><td><b>PAYMENT STAGE:</b></td><td class="right bold">{pay_stat}</td></tr>
+      <tr><td><b>TOTAL AMOUNT:</b></td><td class="right bold">Rs. __TOTAL_AMT__</td></tr>
+      <tr><td><b>AMOUNT PAID:</b></td><td class="right">Rs. __PAID_AMT__</td></tr>
+      <tr><td class="bold">BALANCE DUE:</td><td class="right bold" style="font-size:13px;">Rs. __BAL_AMT__</td></tr>
+      <tr><td><b>PAYMENT MODE:</b></td><td class="right">__PAY_MODE__</td></tr>
+      <tr><td><b>PAYMENT STAGE:</b></td><td class="right bold">__PAY_STAT__</td></tr>
     </table>
     <hr class="dash">
     <div class="center" style="font-size: 10px;">
-      THANK YOU FOR CHOOSING {store_name}<br>
+      THANK YOU FOR CHOOSING __STORE_NAME__<br>
       Exact Fit & Master Craftsmanship Guaranteed
     </div>
     <br>
@@ -813,36 +813,37 @@ receipt_template = """<!DOCTYPE html>
 </body>
 </html>"""
 
-            pure_receipt_html = receipt_template.format(
-                store_name=store_name,
-                c_name=c_name,
-                c_id=c_id,
-                c_phone=c_phone,
-                ord_id=ord_id,
-                book_date=book_date,
-                del_date=del_date,
-                garment=garment,
-                fit=fit,
-                unit=unit,
-                m_len=slip_data['full_length_jacket'] or '-',
-                m_neck=slip_data['neck'] or '-',
-                m_shld=slip_data['cross_shoulder'] or '-',
-                m_chest=slip_data['chest_full'] or '-',
-                m_stom=slip_data['waist_stomach'] or '-',
-                m_armh=slip_data['armhole'] or '-',
-                m_slv=slip_data['sleeve_length'] or '-',
-                m_waist=slip_data['trouser_waist'] or '-',
-                m_frise=slip_data['front_rise'] or '-',
-                m_crotch=slip_data['crotch_depth'] or '-',
-                m_hip=slip_data['seat_hip'] or '-',
-                m_thigh=slip_data['thigh'] or '-',
-                m_bot=slip_data['bottom_opening'] or '-',
-                m_wrst=slip_data['wrist'] or '-',
-                total_amt=total_amt,
-                paid_amt=paid_amt,
-                bal_amt=bal_amt,
-                pay_mode=pay_mode,
-                pay_stat=pay_stat
+            pure_receipt_html = (
+                receipt_layout
+                .replace("__STORE_NAME__", str(store_name))
+                .replace("__CLIENT_NAME__", str(c_name))
+                .replace("__CLIENT_ID__", str(c_id))
+                .replace("__CLIENT_PHONE__", str(c_phone))
+                .replace("__ORD_ID__", str(ord_id))
+                .replace("__BOOK_DATE__", str(book_date))
+                .replace("__DEL_DATE__", str(del_date))
+                .replace("__GARMENT__", str(garment))
+                .replace("__FIT__", str(fit))
+                .replace("__UNIT__", str(unit))
+                .replace("__M_LEN__", str(slip_data['full_length_jacket'] or '-'))
+                .replace("__M_NECK__", str(slip_data['neck'] or '-'))
+                .replace("__M_SHLD__", str(slip_data['cross_shoulder'] or '-'))
+                .replace("__M_CHEST__", str(slip_data['chest_full'] or '-'))
+                .replace("__M_STOM__", str(slip_data['waist_stomach'] or '-'))
+                .replace("__M_ARMH__", str(slip_data['armhole'] or '-'))
+                .replace("__M_SLV__", str(slip_data['sleeve_length'] or '-'))
+                .replace("__M_WAIST__", str(slip_data['trouser_waist'] or '-'))
+                .replace("__M_FRISE__", str(slip_data['front_rise'] or '-'))
+                .replace("__M_CROTCH__", str(slip_data['crotch_depth'] or '-'))
+                .replace("__M_HIP__", str(slip_data['seat_hip'] or '-'))
+                .replace("__M_THIGH__", str(slip_data['thigh'] or '-'))
+                .replace("__M_BOT__", str(slip_data['bottom_opening'] or '-'))
+                .replace("__M_WRST__", str(slip_data['wrist'] or '-'))
+                .replace("__TOTAL_AMT__", f"{total_amt:,.2f}")
+                .replace("__PAID_AMT__", f"{paid_amt:,.2f}")
+                .replace("__BAL_AMT__", f"{bal_amt:,.2f}")
+                .replace("__PAY_MODE__", str(pay_mode))
+                .replace("__PAY_STAT__", str(pay_stat))
             )
 
             st.components.v1.html(pure_receipt_html, height=650, scrolling=True)
