@@ -5,7 +5,7 @@ import streamlit as st
 import pandas as pd
 
 # ---------------------------------------------------------
-# PAGE SETUP & DYNAMIC THEME ENGINE
+# PAGE SETUP & WARM BESPOKE BEIGE PALETTE
 # ---------------------------------------------------------
 st.set_page_config(
     page_title="Mohammad Hussain Atelier",
@@ -14,212 +14,126 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 1. Preset Sartorial Color Themes
-COLOR_THEMES = {
-    "Warm Cognac & Amber": {
-        "primary": "#D97706",
-        "secondary": "#9A3412",
-        "accent": "#B45309",
-        "card_bg": "#FFFDF8",
-        "border": "#FDE68A",
-        "text_dark": "#451A03",
-        "btn_grad_1": "#FFFBEB",
-        "btn_grad_2": "#FDE68A",
-        "bg_base": "#FDFBF7",
-        "sidebar_bg": "#2A1810"
-    },
-    "Royal Navy & Gold (Savile Row)": {
-        "primary": "#1E3A8A",
-        "secondary": "#1E293B",
-        "accent": "#D97706",
-        "card_bg": "#F8FAFC",
-        "border": "#CBD5E1",
-        "text_dark": "#0F172A",
-        "btn_grad_1": "#FFFFFF",
-        "btn_grad_2": "#E2E8F0",
-        "bg_base": "#F1F5F9",
-        "sidebar_bg": "#0F172A"
-    },
-    "Emerald & Brass (Heritage)": {
-        "primary": "#047857",
-        "secondary": "#064E3B",
-        "accent": "#B45309",
-        "card_bg": "#F4FDF8",
-        "border": "#A7F3D0",
-        "text_dark": "#022C22",
-        "btn_grad_1": "#ECFDF5",
-        "btn_grad_2": "#A7F3D0",
-        "bg_base": "#F0FDF4",
-        "sidebar_bg": "#062E24"
-    },
-    "Charcoal & Crimson (Minimalist)": {
-        "primary": "#DC2626",
-        "secondary": "#18181B",
-        "accent": "#991B1B",
-        "card_bg": "#FAFAFA",
-        "border": "#E4E4E7",
-        "text_dark": "#09090B",
-        "btn_grad_1": "#FFFFFF",
-        "btn_grad_2": "#F4F4F5",
-        "bg_base": "#F4F4F5",
-        "sidebar_bg": "#18181B"
-    },
-    "Regal Plum & Velvet Gold": {
-        "primary": "#7E22CE",
-        "secondary": "#3B0764",
-        "accent": "#D97706",
-        "card_bg": "#FAF5FF",
-        "border": "#E9D5FF",
-        "text_dark": "#2E1065",
-        "btn_grad_1": "#FAF5FF",
-        "btn_grad_2": "#F3E8FF",
-        "bg_base": "#F5F3FF",
-        "sidebar_bg": "#24063C"
-    }
-}
-
-FONT_STYLES = {
-    "Victorian Script": {
-        "title": "'Playfair Display SC', 'Cinzel Decorative', serif",
-        "body": "'Cormorant Garamond', 'Georgia', serif",
-        "title_weight": "800",
-        "letter_spacing": "1.5px"
-    },
-    "Art Deco (1920s Geometry)": {
-        "title": "'Poiret One', 'Marcellus', serif",
-        "body": "'Josefin Sans', sans-serif",
-        "title_weight": "800",
-        "letter_spacing": "4px"
-    },
-    "Art Nouveau (Organic Curves)": {
-        "title": "'Italiana', 'Cinzel', serif",
-        "body": "'Bellefair', serif",
-        "title_weight": "700",
-        "letter_spacing": "2px"
-    },
-    "Modern Bespoke (Savile Row)": {
-        "title": "'Cinzel', serif",
-        "body": "'Plus Jakarta Sans', sans-serif",
-        "title_weight": "700",
-        "letter_spacing": "2px"
-    }
-}
-
-if "selected_theme" not in st.session_state:
-    st.session_state.selected_theme = "Warm Cognac & Amber"
-if "selected_font" not in st.session_state:
-    st.session_state.selected_font = "Art Deco (1920s Geometry)"
-
-theme = COLOR_THEMES[st.session_state.selected_theme]
-font = FONT_STYLES[st.session_state.selected_font]
-
-# Inject Dynamic CSS for Extra-Large Buttons & Rich Textures
-st.markdown(f"""
+# Custom CSS: Linen background, solid Beige buttons, sharp black typography
+st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Bellefair&family=Cinzel:wght@500;700;800&family=Cinzel+Decorative:wght@700&family=Cormorant+Garamond:wght@400;600;700&family=Italiana&family=Josefin+Sans:wght@400;600&family=Marcellus&family=Playfair+Display+SC:wght@700;800&family=Plus+Jakarta+Sans:wght@400;600;700&family=Poiret+One&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
 
-    /* Global App Texture */
-    .stApp {{
-        background-color: {theme['bg_base']};
-        background-image: radial-gradient({theme['primary']} 0.65px, transparent 0.65px), radial-gradient({theme['primary']} 0.65px, {theme['bg_base']} 0.65px);
-        background-size: 24px 24px;
-        background-position: 0 0, 12px 12px;
-        color: {theme['text_dark']};
-        font-family: {font['body']} !important;
-    }}
+    /* Global App Background with Subtle Linen Weave */
+    .stApp {
+        background-color: #FAF7F2 !important;
+        background-image: radial-gradient(#D6C7B2 0.75px, transparent 0.75px), radial-gradient(#D6C7B2 0.75px, #FAF7F2 0.75px) !important;
+        background-size: 20px 20px !important;
+        background-position: 0 0, 10px 10px !important;
+        color: #1A1A1A !important;
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
+    }
 
-    /* Sidebar Background Theme */
-    section[data-testid="stSidebar"] {{
-        background-color: {theme['sidebar_bg']} !important;
-        border-right: 2px solid {theme['border']} !important;
-    }}
-    section[data-testid="stSidebar"] * {{
-        color: #FDFBF7 !important;
-        font-family: {font['body']} !important;
-    }}
+    /* Sidebar Background */
+    section[data-testid="stSidebar"] {
+        background-color: #26221F !important;
+        border-right: 2px solid #E3D9CD !important;
+    }
+    section[data-testid="stSidebar"] * {
+        color: #FDFCFA !important;
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
+    }
 
-    /* Large Bespoke Brand Title */
-    .brand-title {{
-        font-family: {font['title']} !important;
-        font-size: 3.4rem;
-        letter-spacing: {font['letter_spacing']};
-        font-weight: {font['title_weight']};
-        background: linear-gradient(135deg, {theme['secondary']} 0%, {theme['primary']} 50%, {theme['accent']} 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+    /* Brand Header */
+    .brand-title {
+        font-family: 'Cinzel', serif !important;
+        font-size: 3.2rem;
+        font-weight: 800;
+        color: #1A1A1A;
         text-align: center;
-        margin-bottom: 0.2rem;
-    }}
+        letter-spacing: 2px;
+        margin-bottom: 0.1rem;
+    }
 
-    .brand-tagline {{
+    .brand-tagline {
         text-align: center;
-        color: {theme['secondary']};
-        font-size: 1.15rem;
-        letter-spacing: 4px;
+        color: #8C6D4F;
+        font-size: 1.05rem;
+        letter-spacing: 3px;
         text-transform: uppercase;
-        margin-bottom: 1.5rem;
+        margin-bottom: 2rem;
         font-weight: 700;
-    }}
+    }
 
-    /* EXTRA LARGE BUTTONS */
-    .stButton>button {{
-        border-radius: 16px !important;
+    /* EXTRA LARGE BEIGE BUTTONS WITH BOLD BLACK TEXT */
+    .stButton>button {
+        background: #F3ECE1 !important;
+        color: #000000 !important;
+        border: 2px solid #D6C7B2 !important;
+        border-radius: 14px !important;
         min-height: 4.8rem !important;
+        font-size: 1.15rem !important;
         font-weight: 800 !important;
-        font-size: 1.25rem !important;
-        background: linear-gradient(145deg, {theme['btn_grad_1']}, {theme['btn_grad_2']}) !important;
-        color: {theme['text_dark']} !important;
-        border: 2px solid {theme['border']} !important;
-        box-shadow: 0 6px 18px rgba(0,0,0,0.06) !important;
-        transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
-        margin-bottom: 0.6rem;
-    }}
-    
-    .stButton>button:hover {{
-        transform: translateY(-4px) scale(1.015) !important;
-        border-color: {theme['primary']} !important;
-        box-shadow: 0 14px 28px rgba(0,0,0,0.14) !important;
-    }}
+        letter-spacing: 0.5px !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.04) !important;
+        transition: all 0.2s ease-in-out !important;
+        margin-bottom: 0.6rem !important;
+    }
 
-    /* Section Title Button/Badge */
-    .section-title-btn {{
-        background: linear-gradient(135deg, {theme['primary']}, {theme['secondary']});
-        color: #FFFFFF !important;
-        padding: 0.8rem 1.6rem;
-        border-radius: 12px;
-        font-size: 1.4rem;
-        font-family: {font['title']} !important;
-        font-weight: 700;
-        letter-spacing: 1.5px;
+    .stButton>button:hover {
+        background: #E8DDCD !important;
+        border-color: #8C6D4F !important;
+        color: #000000 !important;
+        transform: translateY(-3px) scale(1.01) !important;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+    }
+
+    /* Section Title Badges */
+    .section-title-btn {
+        background: #E8DDCD;
+        color: #000000 !important;
+        border: 1.5px solid #D6C7B2;
+        padding: 0.7rem 1.5rem;
+        border-radius: 10px;
+        font-size: 1.25rem;
+        font-weight: 800;
+        letter-spacing: 1px;
         display: inline-block;
         margin: 1.2rem 0 1rem 0;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    }}
+        box-shadow: 0 3px 8px rgba(0,0,0,0.05);
+    }
 
-    /* Big Metric Boxes */
-    div[data-testid="stMetric"] {{
-        background: {theme['card_bg']} !important;
-        border: 2px solid {theme['border']} !important;
-        padding: 1.6rem !important;
-        border-radius: 18px !important;
-        box-shadow: 0 6px 18px rgba(0,0,0,0.06) !important;
-    }}
-    div[data-testid="stMetric"] label {{
-        font-size: 1.15rem !important;
+    /* Metric Boxes */
+    div[data-testid="stMetric"] {
+        background: #FFFFFF !important;
+        border: 2px solid #E3D9CD !important;
+        padding: 1.4rem !important;
+        border-radius: 14px !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.03) !important;
+    }
+    div[data-testid="stMetric"] label {
+        color: #594D42 !important;
         font-weight: 700 !important;
-    }}
-    div[data-testid="stMetric"] div[data-testid="stMetricValue"] {{
-        font-size: 2.2rem !important;
+        font-size: 1.05rem !important;
+    }
+    div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
+        color: #000000 !important;
         font-weight: 800 !important;
-        color: {theme['primary']} !important;
-    }}
+        font-size: 2rem !important;
+    }
 
-    /* Large Inputs */
-    .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] {{
-        font-size: 1.15rem !important;
-        min-height: 3rem !important;
+    /* Form Container */
+    div[data-testid="stForm"] {
+        background: #FFFFFF;
+        border: 2px solid #E3D9CD;
+        border-radius: 14px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 14px rgba(0,0,0,0.03);
+    }
+
+    /* Form Inputs */
+    .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] {
+        background-color: #FAF7F2 !important;
+        color: #000000 !important;
+        font-weight: 600 !important;
         border-radius: 10px !important;
-    }}
+        border: 1.5px solid #D6C7B2 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -303,6 +217,7 @@ def init_db():
         );
         """)
         
+        # Self-healing migration
         cursor.execute("PRAGMA table_info(orders);")
         existing_cols = [row[1] for row in cursor.fetchall()]
         
@@ -337,26 +252,26 @@ def set_page(page_name):
     st.session_state.current_page = page_name
 
 # ---------------------------------------------------------
-# LOGIN & SIGN-UP
+# SIGN IN & SIGN UP (MOHAMMAD HUSSAIN)
 # ---------------------------------------------------------
 if not st.session_state.authenticated:
     st.markdown("<div class='brand-title'>MOHAMMAD HUSSAIN</div>", unsafe_allow_html=True)
-    st.markdown("<div class='brand-tagline'>Haute Couture & Master Bespoke Atelier</div>", unsafe_allow_html=True)
+    st.markdown("<div class='brand-tagline'>Bespoke Master Tailoring Atelier</div>", unsafe_allow_html=True)
     
-    col_center = st.columns([1, 2, 1])[1]
+    col_center = st.columns([1, 1.8, 1])[1]
     with col_center:
-        auth_tab = st.radio("Workshop Portal Access", ["Sign In", "Create Tailor Account"], horizontal=True)
+        auth_tab = st.radio("Atelier Portal Access", ["Sign In", "Create Tailor Account"], horizontal=True)
         
         if auth_tab == "Sign In":
             with st.form("signin_form"):
-                st.subheader("Atelier Sign In")
+                st.subheader("Master Tailor Sign In")
                 u_name = st.text_input("Username")
                 p_word = st.text_input("Password", type="password")
                 btn_login = st.form_submit_button("Sign In to Workshop", use_container_width=True)
                 
                 if btn_login:
                     if not u_name or not p_word:
-                        st.error("Please provide both username and password.")
+                        st.error("Please enter both username and password.")
                     else:
                         with get_db() as conn:
                             user = conn.cursor().execute(
@@ -369,17 +284,17 @@ if not st.session_state.authenticated:
                                 st.session_state.username = u_name
                                 st.rerun()
                             else:
-                                st.error("Invalid credentials. Please verify username/password.")
+                                st.error("Invalid credentials.")
         else:
             with st.form("signup_form"):
-                st.subheader("New Master Tailor Registration")
+                st.subheader("New Tailor Registration")
                 new_user = st.text_input("Choose Username*")
                 new_pass = st.text_input("Create Password*", type="password")
                 btn_signup = st.form_submit_button("Register Account", use_container_width=True)
                 
                 if btn_signup:
                     if not new_user or not new_pass:
-                        st.error("Username and password cannot be blank.")
+                        st.error("Fields cannot be empty.")
                     else:
                         try:
                             with get_db() as conn:
@@ -388,34 +303,10 @@ if not st.session_state.authenticated:
                                     (new_user.strip(), hash_pw(new_pass))
                                 )
                                 conn.commit()
-                            st.success("Account created! Switch to 'Sign In' to enter the atelier.")
+                            st.success("Account created! Switch to 'Sign In' above to login.")
                         except sqlite3.IntegrityError:
                             st.error("Username already registered.")
     st.stop()
-
-# ---------------------------------------------------------
-# THREE-DOT (⋮) STYLING MENU (TOP BAR)
-# ---------------------------------------------------------
-top_col1, top_col2 = st.columns([5, 1])
-with top_col2:
-    with st.expander("⋮  Theme Engine", expanded=False):
-        theme_choice = st.selectbox(
-            "Color Palette",
-            list(COLOR_THEMES.keys()),
-            index=list(COLOR_THEMES.keys()).index(st.session_state.selected_theme)
-        )
-        if theme_choice != st.session_state.selected_theme:
-            st.session_state.selected_theme = theme_choice
-            st.rerun()
-
-        font_choice = st.selectbox(
-            "Typography Style",
-            list(FONT_STYLES.keys()),
-            index=list(FONT_STYLES.keys()).index(st.session_state.selected_font)
-        )
-        if font_choice != st.session_state.selected_font:
-            st.session_state.selected_font = font_choice
-            st.rerun()
 
 # ---------------------------------------------------------
 # SIDEBAR NAVIGATION
@@ -433,7 +324,7 @@ nav_options = [
     "🔄 Update Orders & Fitting"
 ]
 
-selected_sidebar = st.sidebar.radio("Navigation Menu", nav_options)
+selected_sidebar = st.sidebar.radio("Atelier Menu", nav_options)
 
 page_map = {
     "🏠 Main Hub": "Dashboard",
@@ -452,11 +343,11 @@ if st.sidebar.button("🚪 Logout", use_container_width=True):
     st.rerun()
 
 # ---------------------------------------------------------
-# 1. MAIN HUB
+# 1. MAIN HUB (BIG DEDICATED BEIGE BUTTONS)
 # ---------------------------------------------------------
 if st.session_state.current_page == "Dashboard":
     st.markdown("<div class='brand-title'>MOHAMMAD HUSSAIN</div>", unsafe_allow_html=True)
-    st.markdown("<div class='brand-tagline'>Master Tailoring & Bespoke Workshop Hub</div>", unsafe_allow_html=True)
+    st.markdown("<div class='brand-tagline'>Master Tailoring & Client Workshop Hub</div>", unsafe_allow_html=True)
     
     with get_db() as conn:
         total_clients = conn.cursor().execute("SELECT COUNT(*) FROM clients").fetchone()[0]
@@ -466,9 +357,9 @@ if st.session_state.current_page == "Dashboard":
     c1, c2, c3 = st.columns(3)
     c1.metric("👥 Master Client Profiles", f"{total_clients}")
     c2.metric("🧵 In-Production Garments", f"{active_orders}")
-    c3.metric("💳 Payment Accounts Due", f"{unpaid_count}")
+    c3.metric("💳 Payments Due / Pending", f"{unpaid_count}")
     
-    st.markdown("<div class='section-title-btn'>⚡ Workshop Action Centre</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title-btn'>⚡ Atelier Action Centre</div>", unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
     with col1:
@@ -705,8 +596,8 @@ elif st.session_state.current_page == "New Order":
                     ])
                     fit_preference = st.selectbox("Fit Preference", ["Slim Fit", "Regular Fit", "Relaxed Fit", "Traditional Loose"])
                 with o2:
-                    total_amount = st.number_input("Total Garment Price", min_value=0.0, step=500.0)
-                    amount_paid = st.number_input("Initial Amount Received", min_value=0.0, step=500.0)
+                    total_amount = st.number_input("Total Garment Price (₹)", min_value=0.0, step=500.0)
+                    amount_paid = st.number_input("Initial Amount Received (₹)", min_value=0.0, step=500.0)
                     
                     auto_status = "Due"
                     if amount_paid >= total_amount and total_amount > 0:
