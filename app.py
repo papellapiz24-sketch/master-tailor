@@ -80,7 +80,7 @@ st.components.v1.html("""
 """, height=0, width=0)
 
 # ---------------------------------------------------------
-# DATABASE ENGINE & SETTINGS TABLE
+# DATABASE ENGINE & DYNAMIC SETTINGS TABLE
 # ---------------------------------------------------------
 DB_FILE = "master_tailor.db"
 
@@ -102,8 +102,12 @@ def init_db():
             value TEXT NOT NULL
         );
         """)
+        # Initialize default studio and credential configurations if missing
         cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('brand_name', 'BAMNIYA STUDIO')")
         cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('brand_tagline', 'Bespoke Master Tailoring & Haute Couture')")
+        cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('admin_master_key', 'ADMIN176920')")
+        cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('tailor_master_key', '176920')")
+        cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('admin_recovery_phone', '')")
         cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('tally_ledger', 'Tailoring Sales')")
         cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('tally_cash_ledger', 'Cash')")
         cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('tally_bank_ledger', 'Bank Account')")
@@ -338,6 +342,8 @@ st.markdown("""
 # ---------------------------------------------------------
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
+if "is_admin" not in st.session_state:
+    st.session_state.is_admin = False
 if "username" not in st.session_state:
     st.session_state.username = ""
 if "page" not in st.session_state:
@@ -350,13 +356,9 @@ if "delete_target_order" not in st.session_state:
     st.session_state.delete_target_order = None
 if "delete_target_client" not in st.session_state:
     st.session_state.delete_target_client = None
-if "admin_unlocked" not in st.session_state:
-    st.session_state.admin_unlocked = False
 
 def navigate(page_name):
     st.session_state.page = page_name
-
-MASTER_KEY = "176920"
 
 # ---------------------------------------------------------
 # AUTHENTICATION
@@ -367,20 +369,38 @@ if not st.session_state.authenticated:
     
     col_center = st.columns([1, 1.8, 1])[1]
     with col_center:
-        auth_tab = st.radio("Portal Access", ["Sign In", "Create Tailor Account"], horizontal=True)
+        auth_tab = st.radio("Portal Access", ["Sign In", "Forgot Password / Reset", "Create Tailor Account"], horizontal=True)
+        
+        current_admin_key = get_setting("admin_master_key", "ADMIN176920")
+        current_tailor_key = get_setting("tailor_master_key", "176920")
+        saved_phone = get_setting("admin_recovery_phone", "")
+
         if auth_tab == "Sign In":
             with st.form("signin_form"):
-                st.subheader("Master Tailor Sign In")
-                u_name = st.text_input("Username", type="password")
+                st.subheader("Studio Sign In")
+                u_name = st.text_input("Username / Master Key", type="password")
                 p_word = st.text_input("Password", type="password")
                 btn_login = st.form_submit_button("Sign In to Studio Hub", use_container_width=True)
                 if btn_login:
-                    if u_name.strip() == MASTER_KEY or p_word.strip() == MASTER_KEY:
+                    entered_code = u_name.strip() or p_word.strip()
+                    
+                    # 1. Admin Master Key Login
+                    if entered_code == current_admin_key:
                         st.session_state.authenticated = True
-                        st.session_state.username = f"Admin ({BRAND_NAME})"
-                        st.session_state.admin_unlocked = True
+                        st.session_state.is_admin = True
+                        st.session_state.username = "Administrator"
                         st.session_state.page = "Dashboard"
                         st.rerun()
+                    
+                    # 2. Tailor Master Key Login
+                    elif entered_code == current_tailor_key:
+                        st.session_state.authenticated = True
+                        st.session_state.is_admin = False
+                        st.session_state.username = f"Master Tailor ({BRAND_NAME})"
+                        st.session_state.page = "Dashboard"
+                        st.rerun()
+                    
+                    # 3. Database user account login
                     elif u_name and p_word:
                         with get_db() as conn:
                             user = conn.cursor().execute(
@@ -389,6 +409,7 @@ if not st.session_state.authenticated:
                             ).fetchone()
                             if user:
                                 st.session_state.authenticated = True
+                                st.session_state.is_admin = False
                                 st.session_state.username = u_name.strip()
                                 st.session_state.page = "Dashboard"
                                 st.rerun()
@@ -396,6 +417,30 @@ if not st.session_state.authenticated:
                                 st.error("Invalid credentials.")
                     else:
                         st.error("Please enter credentials")
+                        
+        elif auth_tab == "Forgot Password / Reset":
+            st.subheader("Reset Admin Master Password")
+            if not saved_phone:
+                st.warning("⚠️ No recovery phone number has been configured yet in the Admin Panel.")
+            else:
+                with st.form("reset_password_form"):
+                    verify_phone = st.text_input("Enter Registered Admin Phone Number")
+                    new_admin_pwd = st.text_input("Enter New Admin Master Password", type="password")
+                    confirm_pwd = st.text_input("Confirm New Admin Master Password", type="password")
+                    btn_reset = st.form_submit_button("Reset Password", use_container_width=True)
+                    
+                    if btn_reset:
+                        clean_input_phone = "".join(filter(str.isdigit, verify_phone))
+                        clean_saved_phone = "".join(filter(str.isdigit, saved_phone))
+                        
+                        if clean_input_phone and clean_input_phone == clean_saved_phone:
+                            if new_admin_pwd and new_admin_pwd == confirm_pwd:
+                                set_setting("admin_master_key", new_admin_pwd.strip())
+                                st.success("Admin Master Password has been successfully reset! You can now Sign In.")
+                            else:
+                                st.error("Passwords do not match or cannot be empty.")
+                        else:
+                            st.error("Phone number verification failed. Please enter the exact registered number.")
         else:
             with st.form("signup_form"):
                 st.subheader("New Tailor Registration")
@@ -455,17 +500,19 @@ if st.sidebar.button("7. Database", use_container_width=True):
     navigate("Client Records")
     st.rerun()
 
-if st.sidebar.button("⚙️ Admin, Excel & Tally", use_container_width=True):
-    navigate("Admin Settings")
-    st.rerun()
+# Only shown if logged in with Admin Master Key
+if st.session_state.is_admin:
+    if st.sidebar.button("Admin Control Panel", use_container_width=True):
+        navigate("Admin Settings")
+        st.rerun()
 
 st.sidebar.markdown("---")
 if st.sidebar.button("Logout", use_container_width=True):
     st.session_state.authenticated = False
+    st.session_state.is_admin = False
     st.session_state.username = ""
     st.session_state.active_client_id = None
     st.session_state.active_order_no = None
-    st.session_state.admin_unlocked = False
     st.session_state.page = "Dashboard"
     st.rerun()
 
@@ -1157,44 +1204,56 @@ elif st.session_state.page == "Client Records":
 
 
 # ---------------------------------------------------------
-# 7. ADMIN, BRAND CUSTOMIZATION, EXCEL & TALLY PRIME EXPORT
+# 7. ADMIN PANEL (PASSWORD CHANGING, RECOVERY & EXPORTS)
 # ---------------------------------------------------------
 elif st.session_state.page == "Admin Settings":
-    st.markdown("<div class='section-title-btn'>⚙️ Admin Control, Brand Editor, Excel & Tally Connect</div>", unsafe_allow_html=True)
+    if not st.session_state.is_admin:
+        st.error("Unauthorized. Please log in using the Admin Master Key.")
+        st.stop()
+
+    st.markdown("<div class='section-title-btn'>Admin Control Panel</div>", unsafe_allow_html=True)
     if st.button("← Back to Main Hub", key="btn_back_admin"):
         navigate("Dashboard")
         st.rerun()
 
-    # --- MASTER KEY SECURITY GATE ---
-    if not st.session_state.admin_unlocked:
-        st.info("🔒 This section contains confidential studio data and financial controls. Please authenticate using your Master Key.")
-        col_gate = st.columns([1, 1.5, 1])[1]
-        with col_gate:
-            with st.form("admin_gate_form"):
-                admin_key_input = st.text_input("Enter Master Key to Unlock Panel", type="password", placeholder="Enter 6-digit key...")
-                unlock_btn = st.form_submit_button("Unlock Admin Panel", use_container_width=True)
-                if unlock_btn:
-                    if admin_key_input.strip() == MASTER_KEY:
-                        st.session_state.admin_unlocked = True
-                        st.success("Admin Panel Unlocked!")
-                        st.rerun()
-                    else:
-                        st.error("Invalid Master Key. Access denied.")
-        st.stop()
+    # --- 1. ADMIN SECURITY & PASSWORD MANAGEMENT ---
+    st.markdown("### 🔐 Admin Security & Password Recovery Setup")
+    with st.form("admin_security_form"):
+        s1, s2 = st.columns(2)
+        with s1:
+            new_admin_key_val = st.text_input(
+                "Admin Master Password", 
+                value=get_setting("admin_master_key", "ADMIN176920"), 
+                type="password"
+            )
+            new_tailor_key_val = st.text_input(
+                "Staff / Tailor Master Password", 
+                value=get_setting("tailor_master_key", "176920"), 
+                type="password"
+            )
+        with s2:
+            recovery_phone_val = st.text_input(
+                "Admin Recovery Phone Number (Used for Password Reset)", 
+                value=get_setting("admin_recovery_phone", ""),
+                placeholder="e.g., +91 9876543210"
+            )
+            st.caption("If you forget your password, you will enter this phone number on the login screen to reset it.")
 
-    # Once unlocked: Show Lock Button to re-lock anytime
-    col_hdr, col_lck = st.columns([3, 1])
-    with col_hdr:
-        st.write(f"Logged in as Master Administrator (`{MASTER_KEY}` verified)")
-    with col_lck:
-        if st.button("🔒 Lock Admin Panel", use_container_width=True):
-            st.session_state.admin_unlocked = False
-            st.rerun()
+        save_security = st.form_submit_button("Save Security Credentials", use_container_width=True)
+        if save_security:
+            if new_admin_key_val.strip() and new_tailor_key_val.strip():
+                set_setting("admin_master_key", new_admin_key_val.strip())
+                set_setting("tailor_master_key", new_tailor_key_val.strip())
+                set_setting("admin_recovery_phone", recovery_phone_val.strip())
+                st.success("Security settings and passwords updated successfully!")
+                st.rerun()
+            else:
+                st.error("Master passwords cannot be empty.")
 
     st.markdown("---")
 
-    # --- BRAND CUSTOMIZATION ---
-    st.markdown("### 🏷️ Studio Branding & Identity Customizer")
+    # --- 2. BRAND CUSTOMIZATION ---
+    st.markdown("### Studio Branding & Identity Customizer")
     with st.form("brand_settings_form"):
         b1, b2 = st.columns(2)
         with b1:
@@ -1211,8 +1270,8 @@ elif st.session_state.page == "Admin Settings":
 
     st.markdown("---")
 
-    # --- MS EXCEL LOCAL BACKUP & SYNC ---
-    st.markdown("### 📊 Microsoft Excel Backup & Data Export")
+    # --- 3. MS EXCEL BACKUP ---
+    st.markdown("### Microsoft Excel Backup & Data Export")
     st.write("Export your entire studio database (Clients, Measurements, Billing Ledgers) into an Excel workbook for local storage and reporting.")
 
     with get_db() as conn:
@@ -1232,7 +1291,7 @@ elif st.session_state.page == "Admin Settings":
     excel_data = excel_buffer.getvalue()
     today_str = datetime.date.today().strftime('%Y-%m-%d')
     st.download_button(
-        label="📥 Download Full Database as Excel (.xlsx)",
+        label="Download Full Database as Excel (.xlsx)",
         data=excel_data,
         file_name=f"{BRAND_NAME.replace(' ', '_')}_Backup_{today_str}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -1241,8 +1300,8 @@ elif st.session_state.page == "Admin Settings":
 
     st.markdown("---")
 
-    # --- TALLY PRIME SALES XML EXPORT ---
-    st.markdown("### 📑 Tally Prime XML Integration (Direct Accounting Import)")
+    # --- 4. TALLY PRIME SALES XML EXPORT ---
+    st.markdown("### Tally Prime XML Integration (Direct Accounting Import)")
     st.write("Generate a Tally-compliant XML sales voucher file. You can import this file directly into **Tally Prime** via **Import > Transactions > XML**.")
     
     with st.form("tally_config_form"):
@@ -1351,7 +1410,7 @@ elif st.session_state.page == "Admin Settings":
             get_setting("tally_bank_ledger", "Bank Account")
         )
         st.download_button(
-            label="📄 Export Sales & Receipts for Tally Prime (.xml)",
+            label="Export Sales & Receipts for Tally Prime (.xml)",
             data=tally_xml_string,
             file_name=f"Tally_Import_Vouchers_{today_str}.xml",
             mime="application/xml",
