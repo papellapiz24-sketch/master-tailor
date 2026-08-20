@@ -400,7 +400,7 @@ elif st.session_state.page == "New Client":
     with st.form("new_client_form", clear_on_submit=True):
         c1, c2 = st.columns(2)
         with c1:
-            client_code = st.text_input("Client ID / Phone Number*", placeholder="e.g., MH-2026-001")
+            client_code = st.text_input("Client ID / Phone Number*", placeholder="e.g., 1234567890")
             full_name = st.text_input("Full Name*")
             phone = st.text_input("Contact Number*")
             email = st.text_input("Email (Optional)")
