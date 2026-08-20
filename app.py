@@ -729,7 +729,7 @@ elif st.session_state.page == "New Order":
 # 4. PRINT RECEIPT (STEP 4: DISTINGUISHED UPPER / LOWER TABLE)
 # ---------------------------------------------------------
 elif st.session_state.page == "Print Slip":
-    st.markdown("<div class='section-title-btn'>Step 4: Print A5 Receipt Slip</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title-btn'>Step 4: Print Receipt</div>", unsafe_allow_html=True)
     if st.button("← Back to Main Hub", key="btn_back_slip"):
         navigate("Dashboard")
         st.rerun()
@@ -816,7 +816,7 @@ elif st.session_state.page == "Print Slip":
                 "</style>",
                 "</head>",
                 "<body style='margin:0; padding:6px; background:#FFFFFF; font-family:Courier New, Courier, monospace; color:#000000; font-size:12px; line-height:1.3;'>",
-                "<button class='print-btn' onclick='window.print()' style='display:block; width:100%; max-width:138mm; margin:0 auto 10px auto; background:#111827; color:#FFFFFF; border:none; padding:10px; font-size:14px; font-weight:bold; cursor:pointer; border-radius:6px;'>🖨️ PRINT RECEIPT (A5) / PRESS ENTER</button>",
+                "<button class='print-btn' onclick='window.print()' style='display:block; width:100%; max-width:138mm; margin:0 auto 10px auto; background:#111827; color:#FFFFFF; border:none; padding:10px; font-size:14px; font-weight:bold; cursor:pointer; border-radius:6px;'> PRINT RECEIPT </button>",
                 "<div style='width:100%; max-width:138mm; margin:0 auto; border:1.5px solid #000000; padding:10px 12px;'>",
                 "<div style='text-align:center;'>",
                 "<div style='font-size:16px; font-weight:bold; letter-spacing:1px; margin:0;'>" + store_name + "</div>",
