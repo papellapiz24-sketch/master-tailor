@@ -156,67 +156,6 @@ st.markdown("""
         padding: 1.2rem;
         margin-bottom: 1rem;
     }
-
-    /* -------------------------------------------------- */
-    /* NATIVE 1-PAGE A5 PRINTER ENGINE STYLES             */
-    /* -------------------------------------------------- */
-    #printable-receipt-card {
-        width: 100%;
-        max-width: 420px;
-        margin: 1.5rem auto;
-        padding: 20px;
-        background: #FFFFFF !important;
-        border: 1.5px solid #000000;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-        font-family: 'Courier Prime', monospace, 'Courier New', Courier;
-        color: #000000 !important;
-        line-height: 1.35;
-    }
-    #printable-receipt-card * {
-        color: #000000 !important;
-        font-family: 'Courier Prime', monospace, 'Courier New', Courier !important;
-    }
-
-    @media print {
-        @page {
-            size: A5 portrait;
-            margin: 6mm;
-        }
-        body, html, .stApp {
-            background-color: #FFFFFF !important;
-            color: #000000 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-        }
-        /* Completely hide every non-receipt element */
-        section[data-testid="stSidebar"],
-        header[data-testid="stHeader"],
-        div[data-testid="stToolbar"],
-        footer,
-        .stButton,
-        .section-title-btn,
-        .stSelectbox,
-        [data-testid="stElementContainer"]:has(.stSelectbox),
-        [data-testid="stElementContainer"]:has(.stButton) {
-            display: none !important;
-            visibility: hidden !important;
-        }
-        #printable-receipt-card {
-            border: 1px solid #000000 !important;
-            box-shadow: none !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            padding: 8px !important;
-            margin: 0 !important;
-            display: block !important;
-            visibility: visible !important;
-            page-break-inside: avoid !important;
-        }
-        * {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-        }
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -471,7 +410,7 @@ if st.session_state.page == "Dashboard":
             st.rerun()
 
 # ---------------------------------------------------------
-# 2.  NEW 
+# 2. NEW CLIENT
 # ---------------------------------------------------------
 elif st.session_state.page == "New Client":
     st.markdown("<div class='section-title-btn'>👤 Register New Client Profile</div>", unsafe_allow_html=True)
@@ -560,7 +499,7 @@ elif st.session_state.page == "New Measurement":
             "Safari Suit"
         ]
         
-        selected_garment_type = st.selectbox(" Choose Garment Type to Measure", garment_options)
+        selected_garment_type = st.selectbox("Choose Garment Type to Measure", garment_options)
         
         with st.form("measurement_form"):
             h1, h2, h3 = st.columns(3)
@@ -571,37 +510,42 @@ elif st.session_state.page == "New Measurement":
             with h3:
                 unit = st.selectbox("Measurement Unit", ["Inches", "Centimeters"])
             
-            st.markdown("<div class='section-title-btn'> Upper Body & Torso Dimensions</div>", unsafe_allow_html=True)
+            st.markdown("<div class='section-title-btn'>Upper Body & Torso Dimensions</div>", unsafe_allow_html=True)
             u1, u2, u3, u4 = st.columns(4)
             with u1:
-                neck = st.number_input("Neck / Collar", min_value=, step=0.25)
-                chest_full = st.number_input("Chest (Full / Bust)", min_value=, step=0.25)
+                neck = st.number_input("Neck / Collar", min_value=0.0, step=0.25)
+                chest_full = st.number_input("Chest (Full / Bust)", min_value=0.0, step=0.25)
+                chest_upper = st.number_input("Upper Chest", min_value=0.0, step=0.25)
             with u2:
-                waist_stomach = st.number_input("Stomach / Waist", min_value=, step=0.25)
-                cross_shoulder = st.number_input("Shoulder Width", min_value=, step=0.25)
-              
+                waist_stomach = st.number_input("Stomach / Waist", min_value=0.0, step=0.25)
+                cross_shoulder = st.number_input("Shoulder Width", min_value=0.0, step=0.25)
+                back_width = st.number_input("Back Width", min_value=0.0, step=0.25)
             with u3:
-                front_chest_width = st.number_input("Front Chest Width", min_value=, step=0.25)
-                armhole = st.number_input("Armhole", min_value=, step=0.25)
-                bicep = st.number_input("Bicep / Muscle", min_value=, step=0.25)
+                front_chest_width = st.number_input("Front Chest Width", min_value=0.0, step=0.25)
+                armhole = st.number_input("Armhole", min_value=0.0, step=0.25)
+                bicep = st.number_input("Bicep / Muscle", min_value=0.0, step=0.25)
             with u4:
-                wrist = st.number_input("Wrist / Cuff", min_value=, step=0.25)
-                sleeve_length = st.number_input("Sleeve Length", min_value=, step=0.25)
-                full_length_jacket = st.number_input("Coat / Shirt / Kurta Full Length", min_value=, step=0.25)
-               
-            st.markdown("<div class='section-title-btn'> Lower Body & Leg Dimensions</div>", unsafe_allow_html=True)
+                wrist = st.number_input("Wrist / Cuff", min_value=0.0, step=0.25)
+                sleeve_length = st.number_input("Sleeve Length", min_value=0.0, step=0.25)
+                full_length_jacket = st.number_input("Coat / Shirt / Kurta Full Length", min_value=0.0, step=0.25)
+                nape_to_waist = st.number_input("Nape to Waist", min_value=0.0, step=0.25)
+
+            st.markdown("<div class='section-title-btn'>Lower Body & Leg Dimensions</div>", unsafe_allow_html=True)
             l1, l2, l3, l4 = st.columns(4)
             with l1:
-                trouser_waist = st.number_input("Trouser / Pajama Waist", min_value=, step=0.25)
-                seat_hip = st.number_input("Seat / Hip", min_value=, step=0.25)
+                trouser_waist = st.number_input("Trouser / Pajama Waist", min_value=0.0, step=0.25)
+                seat_hip = st.number_input("Seat / Hip", min_value=0.0, step=0.25)
             with l2:
-                thigh = st.number_input("Thigh", min_value=, step=0.25)
-                knee = st.number_input("Knee", min_value=, step=0.25)
+                thigh = st.number_input("Thigh", min_value=0.0, step=0.25)
+                knee = st.number_input("Knee", min_value=0.0, step=0.25)
             with l3:
-               bottom_opening = st.number_input("Bottom Opening", min_value=, step=0.25)
+                calf = st.number_input("Calf", min_value=0.0, step=0.25)
+                bottom_opening = st.number_input("Bottom Opening", min_value=0.0, step=0.25)
             with l4:
-                front_rise = st.number_input("Front Rise", min_value=, step=0.25)
-                crotch_depth = st.number_input("Crotch Depth", min_value=, step=0.25)
+                outseam = st.number_input("Full Length / Outseam", min_value=0.0, step=0.25)
+                inseam = st.number_input("Inseam", min_value=0.0, step=0.25)
+                front_rise = st.number_input("Front Rise", min_value=0.0, step=0.25)
+                crotch_depth = st.number_input("Crotch Depth", min_value=0.0, step=0.25)
 
             m_notes = st.text_area("Measurement Session & Fit Notes", placeholder="e.g., Slim tapering requested...")
             save_m = st.form_submit_button("💾 Save Measurements to Client File", use_container_width=True)
@@ -660,11 +604,11 @@ elif st.session_state.page == "New Order":
                     order_no = st.text_input("Order Reference ID*", value=f"BS-{datetime.date.today().strftime('%Y%m%d')}-01")
                     selected_rev = st.selectbox("Cutting Measurement Revision*", list(rev_dict.keys()))
                     garment_type = st.selectbox("Garment to Stitch", [
-                        "Kurta (Straight / Designer)", "Kurta Pajama Set", "Traditional Dhoti Kurta",
-                        "Sherwani / Achkan", "Nehru Jacket / Sadri", "Bandhgala / Jodhpuri Suit",
-                        "Pathani Suit", "Angrakha Suit", "Churidar / Shalwar Set",
-                        "Two-Piece Suit", "Three-Piece Suit", "Blazer / Formal Coat",
-                        "Dress Shirt & Trousers", "Safari Suit"
+                        "Kurta saya", "Kurta saya with izar", "Pehran", "Only kurta",
+                        "Kurta Short)", "Pajama", "Shirt", "Trousers", "Sherwani",
+                        "Nehru Jacket", "Waistcoat", "Jodhpuri Suit", "Pathani Suit",
+                        "Two-Piece / Three-Piece Suit", "Blazer / Formal Coat",
+                        "Shirt & Trousers", "Safari Suit"
                     ])
                     fit_preference = st.selectbox("Fit Preference", ["Slim Fit", "Regular Fit", "Relaxed Fit", "Traditional Loose"])
                 with o2:
@@ -786,7 +730,7 @@ elif st.session_state.page == "Update Orders":
                 st.markdown("<hr style='margin:0.5rem 0 1rem 0; border:0.5px solid #E5DCCE;'>", unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 6.   RECEIPT 
+# 6. RECEIPT
 # ---------------------------------------------------------
 elif st.session_state.page == "Print Slip":
     st.markdown("<div class='section-title-btn'>🧾 A5 Order Receipt Slip</div>", unsafe_allow_html=True)
@@ -837,7 +781,6 @@ elif st.session_state.page == "Print Slip":
             pay_stat = str(slip_data['payment_status'])
             unit = str(slip_data['unit'])
 
-            # Pure standalone HTML (Guarantees zero code print & strict single A5 sheet)
             pure_receipt_html = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -980,7 +923,6 @@ elif st.session_state.page == "Print Slip":
 </body>
 </html>"""
 
-            # Download button as fallback + embedded iframe viewer
             d_col, _ = st.columns([1.5, 2.5])
             with d_col:
                 st.download_button(
@@ -991,8 +933,8 @@ elif st.session_state.page == "Print Slip":
                     use_container_width=True
                 )
 
-            # Renders the receipt inside an isolated sandbox with working print button
             st.components.v1.html(pure_receipt_html, height=650, scrolling=True)
+
 # ---------------------------------------------------------
 # 7. CLIENT DATABASE
 # ---------------------------------------------------------
