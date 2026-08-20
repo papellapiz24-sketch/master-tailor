@@ -461,7 +461,7 @@ if st.session_state.page == "Dashboard":
         if st.button("Order Tracking (Workshop)", key="btn_hub_track_orders", use_container_width=True):
             navigate("Order Tracking")
             st.rerun()
-        if st.button("Order Status & Financials", key="btn_hub_status_orders", use_container_width=True):
+        if st.button("Financials", key="btn_hub_status_orders", use_container_width=True):
             navigate("Order Status")
             st.rerun()
         if st.button("Print Order Receipt Slip", key="btn_hub_print_slip", use_container_width=True):
