@@ -265,8 +265,8 @@ if not st.session_state.authenticated:
         if auth_tab == "Sign In":
             with st.form("signin_form"):
                 st.subheader("Master Tailor Sign In")
-                u_name = st.text_input("Username or Master Key")
-                p_word = st.text_input("Password (Leave blank if using Master Key)", type="password")
+                u_name = st.text_input("Username")
+                p_word = st.text_input("Password", type="password")
                 btn_login = st.form_submit_button("Sign In to Workshop", use_container_width=True)
                 
                 if btn_login:
