@@ -489,7 +489,6 @@ if st.session_state.page == "Dashboard":
             navigate("Client Records")
             st.rerun()
 
-
 # ---------------------------------------------------------
 # 1. REGISTER CLIENT (STEP 1 OF ONBOARDING PIPELINE)
 # ---------------------------------------------------------
@@ -499,10 +498,16 @@ elif st.session_state.page == "New Client":
         navigate("Dashboard")
         st.rerun()
         
+    # Auto-generate serial ID starting from 001
+    with get_db() as conn:
+        max_id_row = conn.cursor().execute("SELECT MAX(id) FROM clients").fetchone()
+        next_num = (max_id_row[0] or 0) + 1
+        default_client_code = f"{next_num:03d}"
+        
     with st.form("new_client_form"):
         c1, c2 = st.columns(2)
         with c1:
-            client_code = st.text_input("Client ID *", placeholder="e.g., BS-2026-001")
+            client_code = st.text_input("Client ID *", value=default_client_code)
             full_name = st.text_input("Full Name *")
             phone = st.text_input("Contact Number *")
             email = st.text_input("Email (Optional)")
@@ -522,7 +527,7 @@ elif st.session_state.page == "New Client":
                     new_id = cur.lastrowid
                     conn.commit()
                 st.session_state.active_client_id = new_id
-                st.success(f"Client '{full_name}' created! Redirecting to measurements...")
+                st.success(f"Client '{full_name}' created with ID {client_code}! Redirecting to measurements...")
                 navigate("New Measurement")
                 st.rerun()
             except sqlite3.IntegrityError:
