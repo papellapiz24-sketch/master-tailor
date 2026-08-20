@@ -19,24 +19,37 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
 
-    /* Global App Background with Subtle Linen Weave */
+    /* Global Background */
     .stApp {
         background-color: #FAF7F2 !important;
         background-image: radial-gradient(#D6C7B2 0.75px, transparent 0.75px), radial-gradient(#D6C7B2 0.75px, #FAF7F2 0.75px) !important;
         background-size: 20px 20px !important;
         background-position: 0 0, 10px 10px !important;
-        color: #1A1A1A !important;
+        color: #000000 !important;
         font-family: 'Plus Jakarta Sans', sans-serif !important;
     }
 
-    /* Sidebar Background */
+    /* Force ALL Headings, Field Labels & Text to Sharp Black */
+    h1, h2, h3, h4, p, span, label, div, [data-testid="stMarkdownContainer"] p {
+        color: #000000 !important;
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
+    }
+
+    /* Make Form Input Field Labels Extra Visible & Bold */
+    label[data-testid="stWidgetLabel"] p {
+        color: #000000 !important;
+        font-weight: 800 !important;
+        font-size: 1.15rem !important;
+        margin-bottom: 4px !important;
+    }
+
+    /* Sidebar Styling */
     section[data-testid="stSidebar"] {
         background-color: #26221F !important;
         border-right: 2px solid #E3D9CD !important;
     }
     section[data-testid="stSidebar"] * {
         color: #FDFCFA !important;
-        font-family: 'Plus Jakarta Sans', sans-serif !important;
     }
 
     /* Brand Header */
@@ -44,7 +57,7 @@ st.markdown("""
         font-family: 'Cinzel', serif !important;
         font-size: 3.2rem;
         font-weight: 800;
-        color: #1A1A1A;
+        color: #000000 !important;
         text-align: center;
         letter-spacing: 2px;
         margin-bottom: 0.1rem;
@@ -52,7 +65,7 @@ st.markdown("""
 
     .brand-tagline {
         text-align: center;
-        color: #8C6D4F;
+        color: #8C6D4F !important;
         font-size: 1.05rem;
         letter-spacing: 3px;
         text-transform: uppercase;
@@ -60,17 +73,17 @@ st.markdown("""
         font-weight: 700;
     }
 
-    /* EXTRA LARGE BEIGE BUTTONS WITH BOLD BLACK TEXT */
+    /* Big Beige Action Buttons with Bold Black Text */
     .stButton>button {
         background: #F3ECE1 !important;
         color: #000000 !important;
         border: 2px solid #D6C7B2 !important;
         border-radius: 14px !important;
-        min-height: 4.8rem !important;
+        min-height: 4.5rem !important;
         font-size: 1.15rem !important;
         font-weight: 800 !important;
         letter-spacing: 0.5px !important;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.04) !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.05) !important;
         transition: all 0.2s ease-in-out !important;
         margin-bottom: 0.6rem !important;
     }
@@ -79,58 +92,37 @@ st.markdown("""
         background: #E8DDCD !important;
         border-color: #8C6D4F !important;
         color: #000000 !important;
-        transform: translateY(-3px) scale(1.01) !important;
-        box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+        transform: translateY(-2px) !important;
     }
 
     /* Section Title Badges */
     .section-title-btn {
         background: #E8DDCD;
         color: #000000 !important;
-        border: 1.5px solid #D6C7B2;
+        border: 2px solid #D6C7B2;
         padding: 0.7rem 1.5rem;
         border-radius: 10px;
-        font-size: 1.25rem;
+        font-size: 1.3rem;
         font-weight: 800;
         letter-spacing: 1px;
         display: inline-block;
         margin: 1.2rem 0 1rem 0;
-        box-shadow: 0 3px 8px rgba(0,0,0,0.05);
     }
 
-    /* Metric Boxes */
-    div[data-testid="stMetric"] {
+    /* White Form Container Cards */
+    div[data-testid="stForm"] {
         background: #FFFFFF !important;
         border: 2px solid #E3D9CD !important;
-        padding: 1.4rem !important;
         border-radius: 14px !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.03) !important;
-    }
-    div[data-testid="stMetric"] label {
-        color: #594D42 !important;
-        font-weight: 700 !important;
-        font-size: 1.05rem !important;
-    }
-    div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
-        color: #000000 !important;
-        font-weight: 800 !important;
-        font-size: 2rem !important;
+        padding: 2rem !important;
     }
 
-    /* Form Container */
-    div[data-testid="stForm"] {
-        background: #FFFFFF;
-        border: 2px solid #E3D9CD;
-        border-radius: 14px;
-        padding: 1.5rem;
-        box-shadow: 0 4px 14px rgba(0,0,0,0.03);
-    }
-
-    /* Form Inputs */
-    .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] {
+    /* Form Input Boxes & Textareas */
+    .stTextInput input, .stNumberInput input, .stTextArea textarea, .stSelectbox div[data-baseweb="select"] {
         background-color: #FAF7F2 !important;
         color: #000000 !important;
-        font-weight: 600 !important;
+        font-weight: 700 !important;
+        font-size: 1.05rem !important;
         border-radius: 10px !important;
         border: 1.5px solid #D6C7B2 !important;
     }
