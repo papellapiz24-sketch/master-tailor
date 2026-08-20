@@ -8,7 +8,7 @@ import pandas as pd
 # PAGE SETUP & STYLING
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="Mohammad Hussain Atelier",
+    page_title="Bamniya Studio",
     page_icon="✂️",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -35,7 +35,6 @@ st.markdown("""
         font-size: 1.05rem !important;
     }
 
-    /* BaseWeb Controls */
     div[data-baseweb="select"], div[data-baseweb="input"], div[data-baseweb="base-input"] {
         background-color: #FFFFFF !important;
         border: 1.5px solid #C8B9A6 !important;
@@ -63,7 +62,6 @@ st.markdown("""
         color: #111827 !important;
     }
 
-    /* Inputs */
     .stTextInput input, .stNumberInput input, .stTextArea textarea, .stDateInput input {
         background-color: #FFFFFF !important;
         color: #111827 !important;
@@ -72,7 +70,6 @@ st.markdown("""
         border: 1.5px solid #C8B9A6 !important;
     }
 
-    /* Large Beige Buttons */
     .stButton>button {
         background: #EAE0D0 !important;
         color: #111827 !important;
@@ -91,7 +88,6 @@ st.markdown("""
         transform: translateY(-2px) !important;
     }
 
-    /* Section Title Badges */
     .section-title-btn {
         background: #EAE0D0;
         color: #111827 !important;
@@ -115,7 +111,6 @@ st.markdown("""
         font-weight: 800 !important;
     }
 
-    /* Sidebar Dark Theme */
     section[data-testid="stSidebar"] {
         background-color: #24201D !important;
         border-right: 2px solid #D6C7B2 !important;
@@ -196,6 +191,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             client_id INTEGER NOT NULL,
             revision_label TEXT NOT NULL,
+            garment_category TEXT DEFAULT 'All Garments / Master Set',
             unit TEXT CHECK(unit IN ('Inches', 'Centimeters')) NOT NULL DEFAULT 'Inches',
             date_recorded DATE NOT NULL,
             neck REAL, chest_full REAL, chest_upper REAL, waist_stomach REAL,
@@ -206,6 +202,10 @@ def init_db():
             calf REAL, bottom_opening REAL, outseam REAL, inseam REAL,
             front_rise REAL, crotch_depth REAL,
             kurta_length REAL, sherwani_length REAL, churidar_length REAL,
+            dhoti_length REAL, dhoti_waist REAL,
+            pajama_length REAL, pajama_waist REAL, pajama_bottom REAL,
+            nehru_jacket_length REAL, bandhgala_length REAL,
+            pathani_length REAL, angrakha_length REAL,
             notes TEXT,
             FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE CASCADE
         );
@@ -230,6 +230,28 @@ def init_db():
             FOREIGN KEY (measurement_id) REFERENCES measurements (id)
         );
         """)
+        
+        # Self-healing migration for new measurement columns
+        cursor.execute("PRAGMA table_info(measurements);")
+        existing_cols = [row[1] for row in cursor.fetchall()]
+        new_cols = {
+            "garment_category": "ALTER TABLE measurements ADD COLUMN garment_category TEXT DEFAULT 'All Garments / Master Set';",
+            "dhoti_length": "ALTER TABLE measurements ADD COLUMN dhoti_length REAL DEFAULT 0.0;",
+            "dhoti_waist": "ALTER TABLE measurements ADD COLUMN dhoti_waist REAL DEFAULT 0.0;",
+            "pajama_length": "ALTER TABLE measurements ADD COLUMN pajama_length REAL DEFAULT 0.0;",
+            "pajama_waist": "ALTER TABLE measurements ADD COLUMN pajama_waist REAL DEFAULT 0.0;",
+            "pajama_bottom": "ALTER TABLE measurements ADD COLUMN pajama_bottom REAL DEFAULT 0.0;",
+            "nehru_jacket_length": "ALTER TABLE measurements ADD COLUMN nehru_jacket_length REAL DEFAULT 0.0;",
+            "bandhgala_length": "ALTER TABLE measurements ADD COLUMN bandhgala_length REAL DEFAULT 0.0;",
+            "pathani_length": "ALTER TABLE measurements ADD COLUMN pathani_length REAL DEFAULT 0.0;",
+            "angrakha_length": "ALTER TABLE measurements ADD COLUMN angrakha_length REAL DEFAULT 0.0;"
+        }
+        for col, stmt in new_cols.items():
+            if col not in existing_cols:
+                try:
+                    cursor.execute(stmt)
+                except Exception:
+                    pass
         conn.commit()
 
 init_db()
@@ -249,35 +271,30 @@ if "delete_target_order" not in st.session_state:
 def navigate(page_name):
     st.session_state.page = page_name
 
-# ---------------------------------------------------------
-# SIGN IN & SIGN UP (WITH MASTER KEY BYPASS)
-# ---------------------------------------------------------
 MASTER_KEY = "176920"
 
+# ---------------------------------------------------------
+# AUTHENTICATION (BAMNIYA STUDIO)
+# ---------------------------------------------------------
 if not st.session_state.authenticated:
-    st.markdown("<div class='brand-title'>MOHAMMAD HUSSAIN</div>", unsafe_allow_html=True)
-    st.markdown("<div class='brand-tagline'>Bespoke Master Tailoring Atelier</div>", unsafe_allow_html=True)
+    st.markdown("<div class='brand-title'>BAMNIYA STUDIO</div>", unsafe_allow_html=True)
+    st.markdown("<div class='brand-tagline'>Bespoke Master Tailoring & Haute Couture</div>", unsafe_allow_html=True)
     
     col_center = st.columns([1, 1.8, 1])[1]
     with col_center:
-        auth_tab = st.radio("Atelier Portal Access", ["Sign In", "Create Tailor Account"], horizontal=True)
-        
+        auth_tab = st.radio("Portal Access", ["Sign In", "Create Tailor Account"], horizontal=True)
         if auth_tab == "Sign In":
             with st.form("signin_form"):
                 st.subheader("Master Tailor Sign In")
-                u_name = st.text_input("Username", type="password")
-                p_word = st.text_input("Password", type="password")
-                btn_login = st.form_submit_button("Sign In to Workshop", use_container_width=True)
-                
+                u_name = st.text_input("Username or Master Key", type="password")
+                p_word = st.text_input("Password (Optional if using Master Key)", type="password")
+                btn_login = st.form_submit_button("Sign In to Studio Hub", use_container_width=True)
                 if btn_login:
-                    # 1. Master Key Bypass (checks username or password box)
                     if u_name.strip() == MASTER_KEY or p_word.strip() == MASTER_KEY:
                         st.session_state.authenticated = True
-                        st.session_state.username = "Master Tailor (Mohammad Hussain)"
+                        st.session_state.username = "Master Tailor (Bamniya Studio)"
                         st.session_state.page = "Dashboard"
                         st.rerun()
-                    
-                    # 2. Standard Database Authentication
                     elif u_name and p_word:
                         with get_db() as conn:
                             user = conn.cursor().execute(
@@ -292,7 +309,7 @@ if not st.session_state.authenticated:
                             else:
                                 st.error("Invalid credentials or Master Key.")
                     else:
-                        st.error("Please enter credentials or the Master Key.")
+                        st.error("Please enter credentials or Master Key.")
         else:
             with st.form("signup_form"):
                 st.subheader("New Tailor Registration")
@@ -311,13 +328,14 @@ if not st.session_state.authenticated:
                     except sqlite3.IntegrityError:
                         st.error("Username already registered.")
     st.stop()
+
 # ---------------------------------------------------------
-# SIDEBAR (STANDARD CLICKABLE BUTTONS)
+# SIDEBAR
 # ---------------------------------------------------------
-st.sidebar.markdown("## ✂️ **Mohammad Hussain**")
+st.sidebar.markdown("## ✂️ **Bamniya Studio**")
 st.sidebar.caption(f"Master Tailor: **{st.session_state.username}**")
 st.sidebar.markdown("---")
-st.sidebar.markdown("### 📋 Atelier Menu")
+st.sidebar.markdown("### 📋 Studio Menu")
 
 if st.sidebar.button("🏠 Main Hub", use_container_width=True):
     navigate("Dashboard")
@@ -354,7 +372,7 @@ if st.sidebar.button("🚪 Logout", use_container_width=True):
 # 1. MAIN HUB
 # ---------------------------------------------------------
 if st.session_state.page == "Dashboard":
-    st.markdown("<div class='brand-title'>MOHAMMAD HUSSAIN</div>", unsafe_allow_html=True)
+    st.markdown("<div class='brand-title'>BAMNIYA STUDIO</div>", unsafe_allow_html=True)
     st.markdown("<div class='brand-tagline'>Master Tailoring & Client Workshop Hub</div>", unsafe_allow_html=True)
     
     with get_db() as conn:
@@ -367,13 +385,13 @@ if st.session_state.page == "Dashboard":
     c2.metric("🧵 In Production", f"{active_orders}")
     c3.metric("💳 Payments Due", f"{unpaid_count}")
     
-    st.markdown("<div class='section-title-btn'>⚡ Atelier Action Centre</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title-btn'>⚡ Studio Action Centre</div>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
         if st.button("👤  REGISTER NEW CLIENT\n\nAdd client profile, posture observations & shoulder asymmetries", key="btn_hub_client", use_container_width=True):
             navigate("New Client")
             st.rerun()
-        if st.button("📏  RECORD CLIENT MEASUREMENTS\n\nTake complete body dimensions across Western & Indian garments", key="btn_hub_measure", use_container_width=True):
+        if st.button("📏  RECORD CLIENT MEASUREMENTS\n\nTake complete body dimensions across Western & Indian traditional garments", key="btn_hub_measure", use_container_width=True):
             navigate("New Measurement")
             st.rerun()
         if st.button("🗂️  VIEW CLIENT DATABASE & HISTORY\n\nInspect client measurements, past orders & revision history", key="btn_hub_records", use_container_width=True):
@@ -400,7 +418,7 @@ elif st.session_state.page == "New Client":
     with st.form("new_client_form", clear_on_submit=True):
         c1, c2 = st.columns(2)
         with c1:
-            client_code = st.text_input("Client ID / Phone Number*", placeholder="e.g., 1234567890")
+            client_code = st.text_input("Client ID / Phone Number*", placeholder="e.g., BS-2026-001")
             full_name = st.text_input("Full Name*")
             phone = st.text_input("Contact Number*")
             email = st.text_input("Email (Optional)")
@@ -417,12 +435,12 @@ elif st.session_state.page == "New Client":
                     VALUES (?, ?, ?, ?, ?, ?)
                     """, (client_code.strip(), full_name.strip(), phone.strip(), email.strip(), posture_notes, asymmetry_notes))
                     conn.commit()
-                st.success(f"Client '{full_name}' recorded successfully!")
+                st.success(f"Client '{full_name}' recorded in Bamniya Studio database!")
             except sqlite3.IntegrityError:
                 st.error("Client ID already exists.")
 
 # ---------------------------------------------------------
-# 3. RECORD MEASUREMENTS
+# 3. RECORD MEASUREMENTS (WITH COMPREHENSIVE GARMENT CHOOSER)
 # ---------------------------------------------------------
 elif st.session_state.page == "New Measurement":
     st.markdown("<div class='section-title-btn'>📏 Record Dated Client Measurements</div>", unsafe_allow_html=True)
@@ -440,84 +458,121 @@ elif st.session_state.page == "New Measurement":
         selected_client_label = st.selectbox("Select Client", list(client_dict.keys()))
         selected_client_id = client_dict[selected_client_label]
         
+        # Garment Chooser Tab / Dropdown
+        garment_options = [
+            "All Garments / Master Measurement Set",
+            "Kurta (Straight / A-Line / Short)",
+            "Pajama (Traditional / Straight / Aligarhi)",
+            "Dhoti (Traditional / Stitched Readymade)",
+            "Churidar / Shalwar",
+            "Sherwani / Achkan / Indo-Western",
+            "Nehru Jacket / Sadri / Waistcoat",
+            "Bandhgala / Jodhpuri Suit",
+            "Pathani Suit / Khan Dress",
+            "Angrakha / Royal Traditional",
+            "Two-Piece / Three-Piece Suit",
+            "Blazer / Formal Coat",
+            "Dress Shirt & Trousers",
+            "Safari Suit"
+        ]
+        
+        selected_garment_type = st.selectbox("🎯 Choose Garment Type to Measure", garment_options)
+        
         with st.form("measurement_form"):
             h1, h2, h3 = st.columns(3)
             with h1:
-                rev_label = st.text_input("Session / Revision Tag*", value="Revision 01")
+                rev_label = st.text_input("Session / Revision Tag*", value=f"{selected_garment_type} - Rev 01")
             with h2:
                 rec_date = st.date_input("Date Taken", datetime.date.today())
             with h3:
                 unit = st.selectbox("Measurement Unit", ["Inches", "Centimeters"])
             
-            st.markdown("<div class='section-title-btn'>1. Upper Body Dimensions</div>", unsafe_allow_html=True)
+            # --- 1. INDIAN TRADITIONAL SPECIFICS ---
+            st.markdown("<div class='section-title-btn'>🪡 Indian Traditional Dimensions</div>", unsafe_allow_html=True)
+            t1, t2, t3, t4 = st.columns(4)
+            with t1:
+                kurta_length = st.number_input("Kurta Full Length", min_value=0.0, step=0.25)
+                pajama_length = st.number_input("Pajama Length", min_value=0.0, step=0.25)
+                dhoti_length = st.number_input("Dhoti Length", min_value=0.0, step=0.25)
+            with t2:
+                sherwani_length = st.number_input("Sherwani / Achkan Length", min_value=0.0, step=0.25)
+                pajama_waist = st.number_input("Pajama Waist", min_value=0.0, step=0.25)
+                dhoti_waist = st.number_input("Dhoti Waist", min_value=0.0, step=0.25)
+            with t3:
+                nehru_jacket_length = st.number_input("Nehru Jacket / Sadri Length", min_value=0.0, step=0.25)
+                pajama_bottom = st.number_input("Pajama / Churidar Opening (Mohri)", min_value=0.0, step=0.25)
+                churidar_length = st.number_input("Churidar Total Length (with Churi)", min_value=0.0, step=0.25)
+            with t4:
+                bandhgala_length = st.number_input("Bandhgala / Jodhpuri Length", min_value=0.0, step=0.25)
+                pathani_length = st.number_input("Pathani Shirt Length", min_value=0.0, step=0.25)
+                angrakha_length = st.number_input("Angrakha Length", min_value=0.0, step=0.25)
+
+            # --- 2. UPPER BODY DIMENSIONS ---
+            st.markdown("<div class='section-title-btn'>👕 Upper Body & Torso Dimensions</div>", unsafe_allow_html=True)
             u1, u2, u3, u4 = st.columns(4)
             with u1:
-                neck = st.number_input("Neck", min_value=0.0, step=0.25)
-                chest_full = st.number_input("Chest (Full)", min_value=0.0, step=0.25)
+                neck = st.number_input("Neck / Collar", min_value=0.0, step=0.25)
+                chest_full = st.number_input("Chest (Full / Bust)", min_value=0.0, step=0.25)
                 chest_upper = st.number_input("Upper Chest", min_value=0.0, step=0.25)
             with u2:
                 waist_stomach = st.number_input("Stomach / Waist", min_value=0.0, step=0.25)
-                cross_shoulder = st.number_input("Shoulder Width", min_value=0.0, step=0.25)
+                cross_shoulder = st.number_input("Shoulder Width (Teera)", min_value=0.0, step=0.25)
                 back_width = st.number_input("Back Width", min_value=0.0, step=0.25)
             with u3:
                 front_chest_width = st.number_input("Front Chest Width", min_value=0.0, step=0.25)
-                armhole = st.number_input("Armhole", min_value=0.0, step=0.25)
-                bicep = st.number_input("Bicep", min_value=0.0, step=0.25)
+                armhole = st.number_input("Armhole (Mudha)", min_value=0.0, step=0.25)
+                bicep = st.number_input("Bicep / Muscle", min_value=0.0, step=0.25)
             with u4:
-                wrist = st.number_input("Wrist", min_value=0.0, step=0.25)
-                sleeve_length = st.number_input("Sleeve Length", min_value=0.0, step=0.25)
-                full_length_jacket = st.number_input("Jacket Length", min_value=0.0, step=0.25)
+                wrist = st.number_input("Wrist / Cuff", min_value=0.0, step=0.25)
+                sleeve_length = st.number_input("Sleeve Length (Aasteen)", min_value=0.0, step=0.25)
+                full_length_jacket = st.number_input("Coat / Blazer Full Length", min_value=0.0, step=0.25)
                 nape_to_waist = st.number_input("Nape to Waist", min_value=0.0, step=0.25)
 
-            st.markdown("<div class='section-title-btn'>2. Lower Body Dimensions</div>", unsafe_allow_html=True)
+            # --- 3. LOWER BODY DIMENSIONS ---
+            st.markdown("<div class='section-title-btn'>👖 Lower Body & Leg Dimensions</div>", unsafe_allow_html=True)
             l1, l2, l3, l4 = st.columns(4)
             with l1:
-                trouser_waist = st.number_input("Trouser Waist", min_value=0.0, step=0.25)
+                trouser_waist = st.number_input("Trouser / Pant Waist", min_value=0.0, step=0.25)
                 seat_hip = st.number_input("Seat / Hip", min_value=0.0, step=0.25)
             with l2:
-                thigh = st.number_input("Thigh", min_value=0.0, step=0.25)
+                thigh = st.number_input("Thigh (Jaangh)", min_value=0.0, step=0.25)
                 knee = st.number_input("Knee", min_value=0.0, step=0.25)
             with l3:
                 calf = st.number_input("Calf", min_value=0.0, step=0.25)
-                bottom_opening = st.number_input("Bottom Opening", min_value=0.0, step=0.25)
+                bottom_opening = st.number_input("Bottom Opening (Pant Mohri)", min_value=0.0, step=0.25)
             with l4:
-                outseam = st.number_input("Outseam", min_value=0.0, step=0.25)
-                inseam = st.number_input("Inseam", min_value=0.0, step=0.25)
-                front_rise = st.number_input("Front Rise", min_value=0.0, step=0.25)
+                outseam = st.number_input("Trouser Outseam (Full Length)", min_value=0.0, step=0.25)
+                inseam = st.number_input("Trouser Inseam", min_value=0.0, step=0.25)
+                front_rise = st.number_input("Front Rise (Latak)", min_value=0.0, step=0.25)
                 crotch_depth = st.number_input("Crotch Depth", min_value=0.0, step=0.25)
 
-            st.markdown("<div class='section-title-btn'>3. Indian Traditional Specifics</div>", unsafe_allow_html=True)
-            t1, t2, t3 = st.columns(3)
-            with t1:
-                kurta_length = st.number_input("Kurta Length", min_value=0.0, step=0.25)
-            with t2:
-                sherwani_length = st.number_input("Sherwani Length", min_value=0.0, step=0.25)
-            with t3:
-                churidar_length = st.number_input("Churidar Total Length", min_value=0.0, step=0.25)
-
-            m_notes = st.text_area("Measurement Session Notes")
+            m_notes = st.text_area("Measurement Session & Fit Notes", placeholder="e.g., Client requested loose fit for Kurta, slim fit for Churidar...")
             save_m = st.form_submit_button("Save Measurements", use_container_width=True)
             if save_m:
                 with get_db() as conn:
                     conn.cursor().execute("""
                     INSERT INTO measurements (
-                        client_id, revision_label, unit, date_recorded,
+                        client_id, revision_label, garment_category, unit, date_recorded,
                         neck, chest_full, chest_upper, waist_stomach, cross_shoulder, back_width,
                         front_chest_width, armhole, bicep, wrist, sleeve_length, nape_to_waist,
                         full_length_jacket, trouser_waist, seat_hip, thigh, knee, calf,
                         bottom_opening, outseam, inseam, front_rise, crotch_depth,
-                        kurta_length, sherwani_length, churidar_length, notes
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        kurta_length, sherwani_length, churidar_length, dhoti_length, dhoti_waist,
+                        pajama_length, pajama_waist, pajama_bottom, nehru_jacket_length, bandhgala_length,
+                        pathani_length, angrakha_length, notes
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
-                        selected_client_id, rev_label, unit, rec_date,
+                        selected_client_id, rev_label, selected_garment_type, unit, rec_date,
                         neck, chest_full, chest_upper, waist_stomach, cross_shoulder, back_width,
                         front_chest_width, armhole, bicep, wrist, sleeve_length, nape_to_waist,
                         full_length_jacket, trouser_waist, seat_hip, thigh, knee, calf,
                         bottom_opening, outseam, inseam, front_rise, crotch_depth,
-                        kurta_length, sherwani_length, churidar_length, m_notes
+                        kurta_length, sherwani_length, churidar_length, dhoti_length, dhoti_waist,
+                        pajama_length, pajama_waist, pajama_bottom, nehru_jacket_length, bandhgala_length,
+                        pathani_length, angrakha_length, m_notes
                     ))
                     conn.commit()
-                st.success(f"Measurements saved for {selected_client_label} on {rec_date}!")
+                st.success(f"Measurements saved for {selected_client_label} ({selected_garment_type}) on {rec_date}!")
 
 # ---------------------------------------------------------
 # 4. VIEW CLIENT RECORDS
@@ -572,23 +627,25 @@ elif st.session_state.page == "New Order":
         
         with get_db() as conn:
             revisions = conn.cursor().execute(
-                "SELECT id, revision_label, date_recorded FROM measurements WHERE client_id = ? ORDER BY id DESC", 
+                "SELECT id, revision_label, garment_category, date_recorded FROM measurements WHERE client_id = ? ORDER BY id DESC", 
                 (selected_client_id,)
             ).fetchall()
             
         if not revisions:
             st.error("No measurement sets found for this client. Please take measurements first.")
         else:
-            rev_dict = {f"{r['revision_label']} ({r['date_recorded']})": r['id'] for r in revisions}
+            rev_dict = {f"{r['revision_label']} [{r['garment_category'] or 'All'}] ({r['date_recorded']})": r['id'] for r in revisions}
             with st.form("new_order_form"):
                 o1, o2 = st.columns(2)
                 with o1:
-                    order_no = st.text_input("Order Reference ID*", value=f"MH-{datetime.date.today().strftime('%Y%m%d')}-01")
+                    order_no = st.text_input("Order Reference ID*", value=f"BS-{datetime.date.today().strftime('%Y%m%d')}-01")
                     selected_rev = st.selectbox("Cutting Measurement Revision*", list(rev_dict.keys()))
-                    garment_type = st.selectbox("Garment", [
-                        "Two-Piece Suit", "Three-Piece Suit", "Blazer", "Dress Trousers",
-                        "Dress Shirt", "Kurta Pajama", "Nehru Jacket", "Bandhgala Suit",
-                        "Sherwani / Achkan", "Pathani Suit"
+                    garment_type = st.selectbox("Garment to Stitch", [
+                        "Kurta (Straight / Designer)", "Kurta Pajama Set", "Traditional Dhoti Kurta",
+                        "Sherwani / Achkan", "Nehru Jacket / Sadri", "Bandhgala / Jodhpuri Suit",
+                        "Pathani Suit", "Angrakha Suit", "Churidar / Shalwar Set",
+                        "Two-Piece Suit", "Three-Piece Suit", "Blazer / Formal Coat",
+                        "Dress Shirt & Trousers", "Safari Suit"
                     ])
                     fit_preference = st.selectbox("Fit Preference", ["Slim Fit", "Regular Fit", "Relaxed Fit", "Traditional Loose"])
                 with o2:
@@ -606,7 +663,7 @@ elif st.session_state.page == "New Order":
                     payment_status = st.selectbox("Payment Status*", ["Due", "Advance Paid", "Half Paid", "Fully Paid"], index=["Due", "Advance Paid", "Half Paid", "Fully Paid"].index(auto_status))
                     delivery_date = st.date_input("Target Delivery Date", datetime.date.today() + datetime.timedelta(days=12))
 
-                fabric_details = st.text_area("Fabric Specifications & Mill Details", placeholder="e.g., 280 GSM Wool...")
+                fabric_details = st.text_area("Fabric Specifications & Mill Details", placeholder="e.g., Pure Silk, Worsted Wool, Linen...")
                 remarks = st.text_area("Specific Cutting / Fitting Requirements")
                 
                 place_order = st.form_submit_button("Submit Garment Order", use_container_width=True)
@@ -622,7 +679,7 @@ elif st.session_state.page == "New Order":
                             fabric_details, total_amount, amount_paid, payment_status, delivery_date, remarks
                         ))
                         conn.commit()
-                    st.success(f"Order {order_no} created successfully!")
+                    st.success(f"Order {order_no} created successfully under Bamniya Studio!")
 
 # ---------------------------------------------------------
 # 6. ORDER STATUS, FULL EDIT & 1-CLICK TRASH BIN DELETION
@@ -661,7 +718,6 @@ elif st.session_state.page == "Update Orders":
             if st.button(f"🗑️ Delete {selected_order_no}", use_container_width=True):
                 st.session_state.delete_target_order = selected_order_no
         
-        # Second Confirmation Dialog for Trash Bin Deletion
         if st.session_state.delete_target_order == selected_order_no:
             st.warning(f"⚠️ Are you sure you want to permanently delete order **{selected_order_no}**?")
             c_yes, c_no = st.columns(2)
