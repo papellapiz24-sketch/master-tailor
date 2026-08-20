@@ -381,11 +381,11 @@ if st.session_state.page == "Dashboard":
         unpaid_count = conn.cursor().execute("SELECT COUNT(*) FROM orders WHERE payment_status IN ('Due', 'Advance Paid', 'Half Paid')").fetchone()[0]
 
     c1, c2, c3 = st.columns(3)
-    c1.metric(" Profiles", f"{total_clients}")
-    c2.metric(" In Production", f"{active_orders}")
-    c3.metric(" Payments Due", f"{unpaid_count}")
+    c1.metric("Client Profiles", f"{total_clients}")
+    c2.metric("In Production", f"{active_orders}")
+    c3.metric("Payments Due", f"{unpaid_count}")
     
-   st.markdown("<div class='section-title-btn'>Studio Action Centre</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title-btn'>Studio Action Centre</div>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
         if st.button("Register New Client", key="btn_hub_client", use_container_width=True):
