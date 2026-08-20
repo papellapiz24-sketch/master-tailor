@@ -384,6 +384,7 @@ if st.session_state.page == "Dashboard":
     c1.metric(" Profiles", f"{total_clients}")
     c2.metric(" In Production", f"{active_orders}")
     c3.metric(" Payments Due", f"{unpaid_count}")
+    
    st.markdown("<div class='section-title-btn'>Studio Action Centre</div>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
