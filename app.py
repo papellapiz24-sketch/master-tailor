@@ -9,7 +9,7 @@ import pandas as pd
 # ---------------------------------------------------------
 st.set_page_config(
     page_title="Bamniya Studio",
-    page_icon="✂️",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -329,7 +329,7 @@ if not st.session_state.authenticated:
 # LIST
 # ---------------------------------------------------------
 st.sidebar.markdown("##  **Bamniya Studio**")
-st.sidebar.caption(f"Master Tailor: **{st.session_state.username}**")
+st.sidebar.caption(f": **{st.session_state.username}**")
 st.sidebar.markdown("---")
 st.sidebar.markdown("###  Studio Menu")
 
