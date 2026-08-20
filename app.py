@@ -1,15 +1,16 @@
 import sqlite3
 import datetime
 import hashlib
+import io
 import urllib.parse
 import streamlit as st
 import pandas as pd
 
 # ---------------------------------------------------------
-# PAGE SETUP & ATELIER STYLING
+# PAGE SETUP
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="Bamniya Studio",
+    page_title="Studio Management Suite",
     page_icon="✂️",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -34,7 +35,6 @@ st.components.v1.html("""
         const active = doc.activeElement;
         if (!active) return;
 
-        // If user is on Receipt page and hits enter, trigger print
         const printBtn = doc.querySelector('iframe')?.contentDocument?.querySelector('.print-btn') || doc.querySelector('.print-btn');
         if (printBtn && active.tagName === 'BODY') {
             printBtn.click();
@@ -45,7 +45,6 @@ st.components.v1.html("""
         const isTextArea = active.tagName === 'TEXTAREA';
         
         if (isInput || isTextArea) {
-            // Allow shift+enter inside textareas for explicit multi-line
             if (isTextArea && e.shiftKey) return;
             
             const currentForm = active.closest('form');
@@ -58,7 +57,6 @@ st.components.v1.html("""
                 
                 const currentIndex = formInputs.indexOf(active);
                 
-                // If there are more inputs inside current form, jump to the next input
                 if (currentIndex > -1 && currentIndex < formInputs.length - 1) {
                     e.preventDefault();
                     e.stopPropagation();
@@ -66,13 +64,10 @@ st.components.v1.html("""
                     nextInput.focus();
                     if (nextInput.select) nextInput.select();
                 } else if (currentIndex === formInputs.length - 1) {
-                    // Last input in form: Automatically click the Form Submit Button
                     e.preventDefault();
                     e.stopPropagation();
                     const submitBtn = currentForm.querySelector('button[kind="primaryFormSubmit"], button[type="submit"]');
-                    if (submitBtn) {
-                        submitBtn.click();
-                    }
+                    if (submitBtn) submitBtn.click();
                 }
             }
         }
@@ -84,9 +79,122 @@ st.components.v1.html("""
 </script>
 """, height=0, width=0)
 
+# ---------------------------------------------------------
+# DATABASE ENGINE & SETTINGS TABLE
+# ---------------------------------------------------------
+DB_FILE = "master_tailor.db"
+
+def get_db():
+    conn = sqlite3.connect(DB_FILE, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON;")
+    return conn
+
+def hash_pw(password):
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def init_db():
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );
+        """)
+        cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('brand_name', 'BAMNIYA STUDIO')")
+        cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('brand_tagline', 'Bespoke Master Tailoring & Haute Couture')")
+        cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('tally_ledger', 'Tailoring Sales')")
+        cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('tally_cash_ledger', 'Cash')")
+        cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('tally_bank_ledger', 'Bank Account')")
+
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS clients (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_code TEXT UNIQUE NOT NULL,
+            full_name TEXT NOT NULL,
+            phone TEXT NOT NULL,
+            email TEXT,
+            posture_notes TEXT,
+            asymmetry_notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS measurements (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_id INTEGER NOT NULL,
+            revision_label TEXT DEFAULT 'Standard',
+            garment_category TEXT DEFAULT 'All Garments / Master Set',
+            unit TEXT CHECK(unit IN ('Inches', 'Centimeters')) NOT NULL DEFAULT 'Inches',
+            date_recorded DATE NOT NULL,
+            full_length_jacket REAL,
+            neck REAL,
+            cross_shoulder REAL,
+            chest_full REAL,
+            waist_stomach REAL,
+            seat_hip REAL,
+            armhole REAL,
+            sleeve_length REAL,
+            wrist REAL,
+            trouser_waist REAL,
+            front_rise REAL,
+            crotch_depth REAL,
+            thigh REAL,
+            bottom_opening REAL,
+            notes TEXT,
+            FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE CASCADE
+        );
+        """)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_number TEXT UNIQUE NOT NULL,
+            client_id INTEGER NOT NULL,
+            measurement_id INTEGER NOT NULL,
+            garment_type TEXT NOT NULL,
+            fit_preference TEXT NOT NULL,
+            fabric_details TEXT,
+            total_amount REAL DEFAULT 0.0,
+            amount_paid REAL DEFAULT 0.0,
+            payment_mode TEXT DEFAULT 'Cash',
+            payment_status TEXT DEFAULT 'Due',
+            delivery_date DATE,
+            workflow_status TEXT DEFAULT 'Drafted',
+            fitting_remarks TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE CASCADE,
+            FOREIGN KEY (measurement_id) REFERENCES measurements (id) ON DELETE CASCADE
+        );
+        """)
+        conn.commit()
+
+init_db()
+
+def get_setting(key, default=""):
+    with get_db() as conn:
+        row = conn.cursor().execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+        return row[0] if row else default
+
+def set_setting(key, value):
+    with get_db() as conn:
+        conn.cursor().execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
+        conn.commit()
+
+BRAND_NAME = get_setting("brand_name", "BAMNIYA STUDIO")
+BRAND_TAGLINE = get_setting("brand_tagline", "Bespoke Master Tailoring & Haute Couture")
+
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Courier+Prime:wght@400;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
 
     .stApp {
         background-color: #FAF7F2 !important;
@@ -127,9 +235,6 @@ st.markdown("""
     ul[data-baseweb="menu"] li:hover {
         background-color: #EAE0D0 !important;
         color: #000000 !important;
-    }
-    div[data-baseweb="calendar"] * {
-        color: #111827 !important;
     }
 
     .stTextInput input, .stNumberInput input, .stTextArea textarea, .stDateInput input {
@@ -229,94 +334,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# DATABASE ENGINE
-# ---------------------------------------------------------
-DB_FILE = "master_tailor.db"
-
-def get_db():
-    conn = sqlite3.connect(DB_FILE, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON;")
-    return conn
-
-def hash_pw(password):
-    return hashlib.sha256(password.encode()).hexdigest()
-
-def init_db():
-    with get_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-        """)
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS clients (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            client_code TEXT UNIQUE NOT NULL,
-            full_name TEXT NOT NULL,
-            phone TEXT NOT NULL,
-            email TEXT,
-            posture_notes TEXT,
-            asymmetry_notes TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-        """)
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS measurements (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            client_id INTEGER NOT NULL,
-            revision_label TEXT DEFAULT 'Standard',
-            garment_category TEXT DEFAULT 'All Garments / Master Set',
-            unit TEXT CHECK(unit IN ('Inches', 'Centimeters')) NOT NULL DEFAULT 'Inches',
-            date_recorded DATE NOT NULL,
-            full_length_jacket REAL,
-            neck REAL,
-            cross_shoulder REAL,
-            chest_full REAL,
-            waist_stomach REAL,
-            seat_hip REAL,
-            armhole REAL,
-            sleeve_length REAL,
-            wrist REAL,
-            trouser_waist REAL,
-            front_rise REAL,
-            crotch_depth REAL,
-            thigh REAL,
-            bottom_opening REAL,
-            notes TEXT,
-            FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE CASCADE
-        );
-        """)
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS orders (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            order_number TEXT UNIQUE NOT NULL,
-            client_id INTEGER NOT NULL,
-            measurement_id INTEGER NOT NULL,
-            garment_type TEXT NOT NULL,
-            fit_preference TEXT NOT NULL,
-            fabric_details TEXT,
-            total_amount REAL DEFAULT 0.0,
-            amount_paid REAL DEFAULT 0.0,
-            payment_mode TEXT DEFAULT 'Cash',
-            payment_status TEXT DEFAULT 'Due',
-            delivery_date DATE,
-            workflow_status TEXT DEFAULT 'Drafted',
-            fitting_remarks TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE CASCADE,
-            FOREIGN KEY (measurement_id) REFERENCES measurements (id) ON DELETE CASCADE
-        );
-        """)
-        conn.commit()
-
-init_db()
-
-# ---------------------------------------------------------
 # STATE ROUTING
 # ---------------------------------------------------------
 if "authenticated" not in st.session_state:
@@ -333,6 +350,8 @@ if "delete_target_order" not in st.session_state:
     st.session_state.delete_target_order = None
 if "delete_target_client" not in st.session_state:
     st.session_state.delete_target_client = None
+if "admin_unlocked" not in st.session_state:
+    st.session_state.admin_unlocked = False
 
 def navigate(page_name):
     st.session_state.page = page_name
@@ -343,8 +362,8 @@ MASTER_KEY = "176920"
 # AUTHENTICATION
 # ---------------------------------------------------------
 if not st.session_state.authenticated:
-    st.markdown("<div class='brand-title'>BAMNIYA STUDIO</div>", unsafe_allow_html=True)
-    st.markdown("<div class='brand-tagline'>Bespoke Master Tailoring & Haute Couture</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='brand-title'>{BRAND_NAME}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='brand-tagline'>{BRAND_TAGLINE}</div>", unsafe_allow_html=True)
     
     col_center = st.columns([1, 1.8, 1])[1]
     with col_center:
@@ -358,7 +377,8 @@ if not st.session_state.authenticated:
                 if btn_login:
                     if u_name.strip() == MASTER_KEY or p_word.strip() == MASTER_KEY:
                         st.session_state.authenticated = True
-                        st.session_state.username = "Master Tailor (Bamniya Studio)"
+                        st.session_state.username = f"Admin ({BRAND_NAME})"
+                        st.session_state.admin_unlocked = True
                         st.session_state.page = "Dashboard"
                         st.rerun()
                     elif u_name and p_word:
@@ -398,8 +418,8 @@ if not st.session_state.authenticated:
 # ---------------------------------------------------------
 # SIDEBAR NAVIGATION
 # ---------------------------------------------------------
-st.sidebar.markdown("## ✂️ **Bamniya Studio**")
-st.sidebar.caption(f"Master Tailor: **{st.session_state.username}**")
+st.sidebar.markdown(f"## ✂️ **{BRAND_NAME}**")
+st.sidebar.caption(f"Operator: **{st.session_state.username}**")
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Studio Menu")
 
@@ -435,12 +455,17 @@ if st.sidebar.button("7. Database", use_container_width=True):
     navigate("Client Records")
     st.rerun()
 
+if st.sidebar.button("⚙️ Admin, Excel & Tally", use_container_width=True):
+    navigate("Admin Settings")
+    st.rerun()
+
 st.sidebar.markdown("---")
 if st.sidebar.button("Logout", use_container_width=True):
     st.session_state.authenticated = False
     st.session_state.username = ""
     st.session_state.active_client_id = None
     st.session_state.active_order_no = None
+    st.session_state.admin_unlocked = False
     st.session_state.page = "Dashboard"
     st.rerun()
 
@@ -449,8 +474,8 @@ if st.sidebar.button("Logout", use_container_width=True):
 # LANDING PAGE: MAIN HUB
 # ---------------------------------------------------------
 if st.session_state.page == "Dashboard":
-    st.markdown("<div class='brand-title'>BAMNIYA STUDIO</div>", unsafe_allow_html=True)
-    st.markdown("<div class='brand-tagline'>Master Tailoring & Client Workshop Hub</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='brand-title'>{BRAND_NAME}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='brand-tagline'>{BRAND_TAGLINE}</div>", unsafe_allow_html=True)
     
     with get_db() as conn:
         total_clients = conn.cursor().execute("SELECT COUNT(*) FROM clients").fetchone()[0]
@@ -489,8 +514,9 @@ if st.session_state.page == "Dashboard":
             navigate("Client Records")
             st.rerun()
 
+
 # ---------------------------------------------------------
-# 1. REGISTER CLIENT (STEP 1 OF ONBOARDING PIPELINE)
+# 1. REGISTER CLIENT
 # ---------------------------------------------------------
 elif st.session_state.page == "New Client":
     st.markdown("<div class='section-title-btn'>Step 1: Register Client Profile</div>", unsafe_allow_html=True)
@@ -498,12 +524,10 @@ elif st.session_state.page == "New Client":
         navigate("Dashboard")
         st.rerun()
         
-    # Strict continuation from the highest registered client ID (001, 002, 003...)
     with get_db() as conn:
         cur = conn.cursor()
         cur.execute("SELECT client_code FROM clients")
         rows = cur.fetchall()
-        
         highest_num = 0
         for r in rows:
             code_str = str(r[0]).strip() if r[0] else ""
@@ -511,7 +535,6 @@ elif st.session_state.page == "New Client":
                 val = int(code_str)
                 if val > highest_num:
                     highest_num = val
-                    
         next_num = highest_num + 1
         default_client_code = f"{next_num:03d}"
         
@@ -544,8 +567,9 @@ elif st.session_state.page == "New Client":
             except sqlite3.IntegrityError:
                 st.error("Client ID or Phone already exists. Please choose a different ID.")
 
+
 # ---------------------------------------------------------
-# 2. RECORD MEASUREMENTS (STEP 2 OF ONBOARDING PIPELINE)
+# 2. RECORD MEASUREMENTS
 # ---------------------------------------------------------
 elif st.session_state.page == "New Measurement":
     st.markdown("<div class='section-title-btn'>Step 2: Record Client Measurements</div>", unsafe_allow_html=True)
@@ -637,7 +661,7 @@ elif st.session_state.page == "New Measurement":
 
 
 # ---------------------------------------------------------
-# 3. CREATE NEW ORDER / BILLING (STEP 3 OF PIPELINE)
+# 3. CREATE NEW ORDER / BILLING
 # ---------------------------------------------------------
 elif st.session_state.page == "New Order":
     st.markdown("<div class='section-title-btn'>New Order Booking & Billing</div>", unsafe_allow_html=True)
@@ -742,10 +766,10 @@ elif st.session_state.page == "New Order":
 
 
 # ---------------------------------------------------------
-# 4. PRINT RECEIPT (STEP 4: DISTINGUISHED UPPER / LOWER TABLE)
+# 4. PRINT RECEIPT
 # ---------------------------------------------------------
 elif st.session_state.page == "Print Slip":
-    st.markdown("<div class='section-title-btn'>Step 4: Print Receipt</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title-btn'>Step 4: Print A5 Receipt Slip</div>", unsafe_allow_html=True)
     if st.button("← Back to Main Hub", key="btn_back_slip"):
         navigate("Dashboard")
         st.rerun()
@@ -789,7 +813,6 @@ elif st.session_state.page == "Print Slip":
             paid_amt = float(slip_data['amount_paid'] or 0.0)
             bal_amt = total_amt - paid_amt
             
-            store_name = "BAMNIYA STUDIO"
             c_name = str(slip_data['client_name'])
             c_id = str(slip_data['client_code'])
             c_phone = str(slip_data['phone'])
@@ -802,7 +825,6 @@ elif st.session_state.page == "Print Slip":
             pay_stat = str(slip_data['payment_status'])
             unit = str(slip_data['unit'])
 
-            # Upper Body Dimensions (Left Side Column)
             up_len = str(slip_data['full_length_jacket'] or '-')
             up_neck = str(slip_data['neck'] or '-')
             up_shld = str(slip_data['cross_shoulder'] or '-')
@@ -813,7 +835,6 @@ elif st.session_state.page == "Print Slip":
             up_slv = str(slip_data['sleeve_length'] or '-')
             up_wrst = str(slip_data['wrist'] or '-')
 
-            # Lower Side Dimensions (Right Side Column)
             lw_waist = str(slip_data['trouser_waist'] or '-')
             lw_frise = str(slip_data['front_rise'] or '-')
             lw_crotch = str(slip_data['crotch_depth'] or '-')
@@ -821,7 +842,6 @@ elif st.session_state.page == "Print Slip":
             lw_thigh = str(slip_data['thigh'] or '-')
             lw_bot = str(slip_data['bottom_opening'] or '-')
 
-            # Clear distinguished Left (Upper) vs Right (Lower) Grid HTML
             receipt_html_parts = [
                 "<!DOCTYPE html><html><head><meta charset='utf-8'>",
                 "<title>Receipt_" + ord_id + "</title>",
@@ -832,11 +852,11 @@ elif st.session_state.page == "Print Slip":
                 "</style>",
                 "</head>",
                 "<body style='margin:0; padding:6px; background:#FFFFFF; font-family:Courier New, Courier, monospace; color:#000000; font-size:12px; line-height:1.3;'>",
-                "<button class='print-btn' onclick='window.print()' style='display:block; width:100%; max-width:138mm; margin:0 auto 10px auto; background:#111827; color:#FFFFFF; border:none; padding:10px; font-size:14px; font-weight:bold; cursor:pointer; border-radius:6px;'> PRINT RECEIPT </button>",
+                "<button class='print-btn' onclick='window.print()' style='display:block; width:100%; max-width:138mm; margin:0 auto 10px auto; background:#111827; color:#FFFFFF; border:none; padding:10px; font-size:14px; font-weight:bold; cursor:pointer; border-radius:6px;'>🖨️ PRINT RECEIPT (A5) / PRESS ENTER</button>",
                 "<div style='width:100%; max-width:138mm; margin:0 auto; border:1.5px solid #000000; padding:10px 12px;'>",
                 "<div style='text-align:center;'>",
-                "<div style='font-size:16px; font-weight:bold; letter-spacing:1px; margin:0;'>" + store_name + "</div>",
-                "<div style='font-size:10px; margin:2px 0; text-transform:uppercase;'>Bespoke Master Tailoring Atelier</div>",
+                "<div style='font-size:16px; font-weight:bold; letter-spacing:1px; margin:0;'>" + BRAND_NAME + "</div>",
+                "<div style='font-size:10px; margin:2px 0; text-transform:uppercase;'>" + BRAND_TAGLINE + "</div>",
                 "<div style='font-size:11px; font-weight:bold;'>SALES & MEASUREMENT RECEIPT</div>",
                 "</div>",
                 "<hr style='border:none; border-top:1px dashed #000; margin:6px 0;'>",
@@ -849,7 +869,6 @@ elif st.session_state.page == "Print Slip":
                 "</table>",
                 "<hr style='border:none; border-top:1px dashed #000; margin:6px 0;'>",
                 
-                # Distinguished 2-Column Measurement Table
                 "<div style='font-weight:bold; font-size:11px; text-align:center; margin-bottom:4px;'>[ BODY MEASUREMENTS (" + unit + ") ]</div>",
                 "<table style='width:100%; border-collapse:collapse; font-size:10.5px;'>",
                 "<tr style='background:#EEEEEE; text-align:center;'>",
@@ -903,7 +922,7 @@ elif st.session_state.page == "Print Slip":
                 "<tr><td><b>PAYMENT STAGE:</b></td><td style='text-align:right; font-weight:bold;'>" + pay_stat + "</td></tr>",
                 "</table>",
                 "<hr style='border:none; border-top:1px dashed #000; margin:6px 0;'>",
-                "<div style='text-align:center; font-size:10px;'>THANK YOU FOR CHOOSING " + store_name + "<br>Exact Fit & Master Craftsmanship Guaranteed</div>",
+                "<div style='text-align:center; font-size:10px;'>THANK YOU FOR CHOOSING " + BRAND_NAME + "<br>Exact Fit & Master Craftsmanship Guaranteed</div>",
                 "<br>",
                 "<table style='width:100%; font-size:9.5px;'><tr><td>CLIENT SIGN: ____________</td><td style='text-align:right;'>MASTER TAILOR: ____________</td></tr></table>",
                 "</div></body></html>"
@@ -914,7 +933,7 @@ elif st.session_state.page == "Print Slip":
 
 
 # ---------------------------------------------------------
-# 5A. ORDER TRACKING (WORKSHOP PRODUCTION PIPELINE)
+# 5A. ORDER TRACKING
 # ---------------------------------------------------------
 elif st.session_state.page == "Order Tracking":
     st.markdown("<div class='section-title-btn'>Order Tracking (Workshop Production)</div>", unsafe_allow_html=True)
@@ -986,7 +1005,7 @@ elif st.session_state.page == "Order Tracking":
 
 
 # ---------------------------------------------------------
-# 5B  FINANCE
+# 5B. ORDER STATUS & FINANCIAL SALES REPORT
 # ---------------------------------------------------------
 elif st.session_state.page == "Order Status":
     st.markdown("<div class='section-title-btn'>Order Status & Financial Sales Report</div>", unsafe_allow_html=True)
@@ -1022,37 +1041,32 @@ elif st.session_state.page == "Order Status":
         st.markdown("### Order Financial List")
         st.dataframe(orders_df, use_container_width=True)
         
-        st.markdown("### 💬 Outstanding Payment Reminders & Reconciliation")
+        st.markdown("### 💬 Outstanding Payment Reminders & Settlement")
         unpaid_orders = orders_df[orders_df['balance_due'] > 0]
         
         if unpaid_orders.empty:
-            st.success("All client orders are fully paid! No outstanding balances.")
+            st.success("All client orders are fully settled! No outstanding balances.")
         else:
             for _, order in unpaid_orders.iterrows():
                 with st.container():
                     c_details, c_msg, c_paid = st.columns([2.5, 1.5, 1.2])
-                    
                     with c_details:
                         st.markdown(f"**{order['client_name']}** (`{order['phone']}`)<br>"
                                     f"Order: `{order['order_number']}` ({order['garment_type']}) | "
                                     f"**Due: ₹{order['balance_due']:,.2f}**", unsafe_allow_html=True)
-                    
                     with c_msg:
-                        # Clean phone number (strip spaces, symbols)
                         clean_phone = "".join(filter(str.isdigit, str(order['phone'])))
-                        # Ensure default country code if missing (e.g. 91 for India if 10 digits)
                         if len(clean_phone) == 10:
                             clean_phone = "91" + clean_phone
                         
-                        # Structured WhatsApp Message
                         wa_text = (
                             f"Dear {order['client_name']},\n\n"
-                            f"This is a gentle payment reminder from *Bamniya Studio* regarding your bespoke order *{order['order_number']}* ({order['garment_type']}).\n\n"
+                            f"This is a payment reminder from *{BRAND_NAME}* regarding your order *{order['order_number']}* ({order['garment_type']}).\n\n"
                             f"• Total Order Price: ₹{order['total_amount']:,.2f}\n"
                             f"• Amount Received: ₹{order['amount_paid']:,.2f}\n"
                             f"• *Balance Due: ₹{order['balance_due']:,.2f}*\n\n"
                             f"Kindly clear the remaining balance at your earliest convenience.\n\n"
-                            f"Thank you,\n*Bamniya Studio*"
+                            f"Thank you,\n*{BRAND_NAME}*"
                         )
                         encoded_msg = urllib.parse.quote(wa_text)
                         wa_link = f"https://wa.me/{clean_phone}?text={encoded_msg}"
@@ -1061,28 +1075,23 @@ elif st.session_state.page == "Order Status":
                             f"""<a href="{wa_link}" target="_blank" style="text-decoration:none;">
                                 <button style="width:100%; background:#25D366; color:#FFFFFF; border:none; 
                                 border-radius:10px; padding:0.6rem; font-weight:800; font-size:0.95rem; cursor:pointer;">
-                                💬 Send WhatsApp Reminder
+                                💬 Send WhatsApp
                                 </button>
                             </a>""", 
                             unsafe_allow_html=True
                         )
-                        
                     with c_paid:
-                        if st.button(f"Mark Paid (₹{order['balance_due']:,.0f})", key=f"reconcile_{order['order_number']}", use_container_width=True):
+                        if st.button(f"Mark Full Paid (₹{order['balance_due']:,.0f})", key=f"reconcile_{order['order_number']}", use_container_width=True):
                             with get_db() as conn:
-                                conn.cursor().execute(
-                                    "UPDATE orders SET amount_paid = total_amount, payment_status = 'Fully Paid' WHERE order_number = ?", 
-                                    (order['order_number'],)
-                                )
+                                conn.cursor().execute("UPDATE orders SET amount_paid = total_amount, payment_status = 'Fully Paid' WHERE order_number = ?", (order['order_number'],))
                                 conn.commit()
                             st.success(f"Order {order['order_number']} marked Fully Paid!")
                             st.rerun()
-                            
                     st.markdown("<hr style='margin:0.4rem 0 0.8rem 0; border:0.5px solid #E5DCCE;'>", unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------
-# 6. DATABASE (INTEGRATED CLIENT SEARCH & POPUP ACTIONS)
+# 6. DATABASE
 # ---------------------------------------------------------
 elif st.session_state.page == "Client Records":
     st.markdown("<div class='section-title-btn'>Client Database</div>", unsafe_allow_html=True)
@@ -1145,3 +1154,208 @@ elif st.session_state.page == "Client Records":
                     st.markdown("<hr style='margin:0.3rem 0 0.8rem 0; border:0.5px solid #E5DCCE;'>", unsafe_allow_html=True)
     else:
         st.info("No client records found in the database.")
+
+
+# ---------------------------------------------------------
+# 7. ADMIN, BRAND CUSTOMIZATION, EXCEL & TALLY PRIME EXPORT
+# ---------------------------------------------------------
+elif st.session_state.page == "Admin Settings":
+    st.markdown("<div class='section-title-btn'>⚙️ Admin Control, Brand Editor, Excel & Tally Connect</div>", unsafe_allow_html=True)
+    if st.button("← Back to Main Hub", key="btn_back_admin"):
+        navigate("Dashboard")
+        st.rerun()
+
+    # --- MASTER KEY SECURITY GATE ---
+    if not st.session_state.admin_unlocked:
+        st.info("🔒 This section contains confidential studio data and financial controls. Please authenticate using your Master Key.")
+        col_gate = st.columns([1, 1.5, 1])[1]
+        with col_gate:
+            with st.form("admin_gate_form"):
+                admin_key_input = st.text_input("Enter Master Key to Unlock Panel", type="password", placeholder="Enter 6-digit key...")
+                unlock_btn = st.form_submit_button("Unlock Admin Panel", use_container_width=True)
+                if unlock_btn:
+                    if admin_key_input.strip() == MASTER_KEY:
+                        st.session_state.admin_unlocked = True
+                        st.success("Admin Panel Unlocked!")
+                        st.rerun()
+                    else:
+                        st.error("Invalid Master Key. Access denied.")
+        st.stop()
+
+    # Once unlocked: Show Lock Button to re-lock anytime
+    col_hdr, col_lck = st.columns([3, 1])
+    with col_hdr:
+        st.write(f"Logged in as Master Administrator (`{MASTER_KEY}` verified)")
+    with col_lck:
+        if st.button("🔒 Lock Admin Panel", use_container_width=True):
+            st.session_state.admin_unlocked = False
+            st.rerun()
+
+    st.markdown("---")
+
+    # --- BRAND CUSTOMIZATION ---
+    st.markdown("### 🏷️ Studio Branding & Identity Customizer")
+    with st.form("brand_settings_form"):
+        b1, b2 = st.columns(2)
+        with b1:
+            new_brand = st.text_input("Brand / Studio Name", value=BRAND_NAME)
+        with b2:
+            new_tagline = st.text_input("Tagline (Appears on Receipts & Headers)", value=BRAND_TAGLINE)
+        
+        save_brand = st.form_submit_button("Save Branding Settings", use_container_width=True)
+        if save_brand:
+            set_setting("brand_name", new_brand.strip())
+            set_setting("brand_tagline", new_tagline.strip())
+            st.success("Brand identity updated across the entire application and receipts!")
+            st.rerun()
+
+    st.markdown("---")
+
+    # --- MS EXCEL LOCAL BACKUP & SYNC ---
+    st.markdown("### 📊 Microsoft Excel Backup & Data Export")
+    st.write("Export your entire studio database (Clients, Measurements, Billing Ledgers) into an Excel workbook for local storage and reporting.")
+
+    with get_db() as conn:
+        df_clients = pd.read_sql_query("SELECT * FROM clients", conn)
+        df_measurements = pd.read_sql_query("SELECT * FROM measurements", conn)
+        df_orders = pd.read_sql_query("""
+            SELECT o.*, c.client_code, c.full_name as client_name, c.phone 
+            FROM orders o JOIN clients c ON o.client_id = c.id
+        """, conn)
+
+    excel_buffer = io.BytesIO()
+    with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+        df_clients.to_excel(writer, sheet_name='Clients', index=False)
+        df_measurements.to_excel(writer, sheet_name='Measurements', index=False)
+        df_orders.to_excel(writer, sheet_name='Orders_and_Billing', index=False)
+    
+    excel_data = excel_buffer.getvalue()
+    today_str = datetime.date.today().strftime('%Y-%m-%d')
+    st.download_button(
+        label="📥 Download Full Database as Excel (.xlsx)",
+        data=excel_data,
+        file_name=f"{BRAND_NAME.replace(' ', '_')}_Backup_{today_str}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
+
+    st.markdown("---")
+
+    # --- TALLY PRIME SALES XML EXPORT ---
+    st.markdown("### 📑 Tally Prime XML Integration (Direct Accounting Import)")
+    st.write("Generate a Tally-compliant XML sales voucher file. You can import this file directly into **Tally Prime** via **Import > Transactions > XML**.")
+    
+    with st.form("tally_config_form"):
+        t1, t2, t3 = st.columns(3)
+        with t1:
+            sales_ledger = st.text_input("Tally Sales Ledger Name", value=get_setting("tally_ledger", "Tailoring Sales"))
+        with t2:
+            cash_ledger = st.text_input("Tally Cash Ledger Name", value=get_setting("tally_cash_ledger", "Cash"))
+        with t3:
+            bank_ledger = st.text_input("Tally Bank Ledger Name", value=get_setting("tally_bank_ledger", "Bank Account"))
+        
+        save_tally = st.form_submit_button("Update Tally Ledger Names", use_container_width=True)
+        if save_tally:
+            set_setting("tally_ledger", sales_ledger.strip())
+            set_setting("tally_cash_ledger", cash_ledger.strip())
+            set_setting("tally_bank_ledger", bank_ledger.strip())
+            st.success("Tally ledger configurations saved!")
+            st.rerun()
+
+    def build_tally_xml(orders_dataframe, sales_acc, cash_acc, bank_acc):
+        xml = [
+            '<ENVELOPE>',
+            '  <HEADER>',
+            '    <TALLYREQUEST>Import Data</TALLYREQUEST>',
+            '  </HEADER>',
+            '  <BODY>',
+            '    <IMPORTDATA>',
+            '      <REQUESTDESC>',
+            '        <REPORTNAME>Vouchers</REPORTNAME>',
+            '      </REQUESTDESC>',
+            '      <REQUESTDATA>'
+        ]
+        
+        for _, ord_row in orders_dataframe.iterrows():
+            v_date = datetime.date.today().strftime('%Y%m%d')
+            if ord_row['created_at']:
+                try:
+                    v_date = str(ord_row['created_at'])[:10].replace('-', '')
+                except:
+                    pass
+                    
+            total_val = float(ord_row['total_amount'] or 0.0)
+            paid_val = float(ord_row['amount_paid'] or 0.0)
+            client_party = str(ord_row['client_name']).replace('&', '&amp;').replace('<', '&lt;')
+            ord_ref = str(ord_row['order_number'])
+            pay_mode = str(ord_row['payment_mode'] or 'Cash')
+            
+            debit_ledger = cash_acc if 'Cash' in pay_mode else bank_acc
+
+            xml.append('        <TALLYMESSAGE xmlns:UDF="TallyUDF">')
+            xml.append(f'          <VOUCHER VCHTYPE="Sales" ACTION="Create">')
+            xml.append(f'            <DATE>{v_date}</DATE>')
+            xml.append(f'            <VOUCHERTYPENAME>Sales</VOUCHERTYPENAME>')
+            xml.append(f'            <VOUCHERNUMBER>{ord_ref}</VOUCHERNUMBER>')
+            xml.append(f'            <PARTYLEDGERNAME>{client_party}</PARTYLEDGERNAME>')
+            xml.append(f'            <NARRATION>Bespoke order {ord_ref} ({ord_row["garment_type"]}) for {client_party}</NARRATION>')
+            
+            xml.append('            <ALLLEDGERENTRIES.LIST>')
+            xml.append(f'              <LEDGERNAME>{client_party}</LEDGERNAME>')
+            xml.append('              <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>')
+            xml.append(f'              <AMOUNT>-{total_val:.2f}</AMOUNT>')
+            xml.append('            </ALLLEDGERENTRIES.LIST>')
+            
+            xml.append('            <ALLLEDGERENTRIES.LIST>')
+            xml.append(f'              <LEDGERNAME>{sales_acc}</LEDGERNAME>')
+            xml.append('              <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>')
+            xml.append(f'              <AMOUNT>{total_val:.2f}</AMOUNT>')
+            xml.append('            </ALLLEDGERENTRIES.LIST>')
+            xml.append('          </VOUCHER>')
+            xml.append('        </TALLYMESSAGE>')
+
+            if paid_val > 0:
+                xml.append('        <TALLYMESSAGE xmlns:UDF="TallyUDF">')
+                xml.append(f'          <VOUCHER VCHTYPE="Receipt" ACTION="Create">')
+                xml.append(f'            <DATE>{v_date}</DATE>')
+                xml.append(f'            <VOUCHERTYPENAME>Receipt</VOUCHERTYPENAME>')
+                xml.append(f'            <VOUCHERNUMBER>RCT-{ord_ref}</VOUCHERNUMBER>')
+                xml.append(f'            <PARTYLEDGERNAME>{client_party}</PARTYLEDGERNAME>')
+                xml.append(f'            <NARRATION>Payment received via {pay_mode} for order {ord_ref}</NARRATION>')
+                
+                xml.append('            <ALLLEDGERENTRIES.LIST>')
+                xml.append(f'              <LEDGERNAME>{debit_ledger}</LEDGERNAME>')
+                xml.append('              <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>')
+                xml.append(f'              <AMOUNT>-{paid_val:.2f}</AMOUNT>')
+                xml.append('            </ALLLEDGERENTRIES.LIST>')
+                
+                xml.append('            <ALLLEDGERENTRIES.LIST>')
+                xml.append(f'              <LEDGERNAME>{client_party}</LEDGERNAME>')
+                xml.append('              <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>')
+                xml.append(f'              <AMOUNT>{paid_val:.2f}</AMOUNT>')
+                xml.append('            </ALLLEDGERENTRIES.LIST>')
+                xml.append('          </VOUCHER>')
+                xml.append('        </TALLYMESSAGE>')
+
+        xml.append('      </REQUESTDATA>')
+        xml.append('    </IMPORTDATA>')
+        xml.append('  </BODY>')
+        xml.append('</ENVELOPE>')
+        return "\n".join(xml)
+
+    if not df_orders.empty:
+        tally_xml_string = build_tally_xml(
+            df_orders, 
+            get_setting("tally_ledger", "Tailoring Sales"),
+            get_setting("tally_cash_ledger", "Cash"),
+            get_setting("tally_bank_ledger", "Bank Account")
+        )
+        st.download_button(
+            label="📄 Export Sales & Receipts for Tally Prime (.xml)",
+            data=tally_xml_string,
+            file_name=f"Tally_Import_Vouchers_{today_str}.xml",
+            mime="application/xml",
+            use_container_width=True
+        )
+    else:
+        st.info("No order transactions available to export to Tally.")
