@@ -24,7 +24,6 @@ st.markdown("""
         font-family: 'Plus Jakarta Sans', sans-serif !important;
     }
 
-    /* Universal Text Color */
     p, span, label, h1, h2, h3, h4, h5, h6, [data-testid="stMarkdownContainer"] p {
         color: #111827 !important;
         font-family: 'Plus Jakarta Sans', sans-serif !important;
@@ -36,7 +35,7 @@ st.markdown("""
         font-size: 1.05rem !important;
     }
 
-    /* Fix BaseWeb Inputs & Dropdowns */
+    /* BaseWeb Controls */
     div[data-baseweb="select"], div[data-baseweb="input"], div[data-baseweb="base-input"] {
         background-color: #FFFFFF !important;
         border: 1.5px solid #C8B9A6 !important;
@@ -48,7 +47,6 @@ st.markdown("""
         font-weight: 700 !important;
     }
 
-    /* Popover Menus & Calendars */
     div[data-baseweb="popover"], div[data-baseweb="popover"] > div, ul[data-baseweb="menu"], div[data-baseweb="calendar"] {
         background-color: #FFFFFF !important;
         border: 1.5px solid #C8B9A6 !important;
@@ -65,7 +63,7 @@ st.markdown("""
         color: #111827 !important;
     }
 
-    /* Inputs and Textareas */
+    /* Inputs */
     .stTextInput input, .stNumberInput input, .stTextArea textarea, .stDateInput input {
         background-color: #FFFFFF !important;
         color: #111827 !important;
@@ -74,21 +72,23 @@ st.markdown("""
         border: 1.5px solid #C8B9A6 !important;
     }
 
-    /* Buttons */
+    /* Large Beige Buttons */
     .stButton>button {
         background: #EAE0D0 !important;
         color: #111827 !important;
         border: 2px solid #C8B9A6 !important;
         border-radius: 14px !important;
-        min-height: 4rem !important;
-        font-size: 1.1rem !important;
+        min-height: 3.8rem !important;
+        font-size: 1.05rem !important;
         font-weight: 800 !important;
-        margin-bottom: 0.5rem !important;
+        margin-bottom: 0.4rem !important;
+        transition: all 0.2s ease-in-out !important;
     }
     .stButton>button:hover {
         background: #DFD3C0 !important;
         border-color: #8C6D4F !important;
         color: #000000 !important;
+        transform: translateY(-2px) !important;
     }
 
     /* Section Title Badges */
@@ -115,13 +115,24 @@ st.markdown("""
         font-weight: 800 !important;
     }
 
-    /* Sidebar */
+    /* Sidebar Dark Theme */
     section[data-testid="stSidebar"] {
         background-color: #24201D !important;
         border-right: 2px solid #D6C7B2 !important;
     }
     section[data-testid="stSidebar"] * {
         color: #FDFCFA !important;
+    }
+    section[data-testid="stSidebar"] .stButton>button {
+        background: #3A3430 !important;
+        color: #FDFCFA !important;
+        border: 1.5px solid #5A524C !important;
+        min-height: 3.2rem !important;
+    }
+    section[data-testid="stSidebar"] .stButton>button:hover {
+        background: #524741 !important;
+        border-color: #D6C7B2 !important;
+        color: #FFFFFF !important;
     }
 
     .brand-title {
@@ -224,18 +235,23 @@ def init_db():
 init_db()
 
 # ---------------------------------------------------------
-# AUTHENTICATION
+# STATE ROUTING
 # ---------------------------------------------------------
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 if "username" not in st.session_state:
     st.session_state.username = ""
-if "current_page" not in st.session_state:
-    st.session_state.current_page = "Dashboard"
+if "page" not in st.session_state:
+    st.session_state.page = "Dashboard"
+if "delete_target_order" not in st.session_state:
+    st.session_state.delete_target_order = None
 
-def set_page(page_name):
-    st.session_state.current_page = page_name
+def navigate(page_name):
+    st.session_state.page = page_name
 
+# ---------------------------------------------------------
+# AUTHENTICATION
+# ---------------------------------------------------------
 if not st.session_state.authenticated:
     st.markdown("<div class='brand-title'>MOHAMMAD HUSSAIN</div>", unsafe_allow_html=True)
     st.markdown("<div class='brand-tagline'>Bespoke Master Tailoring Atelier</div>", unsafe_allow_html=True)
@@ -259,6 +275,7 @@ if not st.session_state.authenticated:
                             if user:
                                 st.session_state.authenticated = True
                                 st.session_state.username = u_name
+                                st.session_state.page = "Dashboard"
                                 st.rerun()
                             else:
                                 st.error("Invalid credentials.")
@@ -282,42 +299,48 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ---------------------------------------------------------
-# SIDEBAR
+# SIDEBAR (STANDARD CLICKABLE BUTTONS)
 # ---------------------------------------------------------
 st.sidebar.markdown("## ✂️ **Mohammad Hussain**")
 st.sidebar.caption(f"Master Tailor: **{st.session_state.username}**")
 st.sidebar.markdown("---")
+st.sidebar.markdown("### 📋 Atelier Menu")
 
-nav_options = [
-    "🏠 Main Hub",
-    "👤 Register Client",
-    "📏 Record Measurements",
-    "🗂️ View Client Records",
-    "➕ Create New Order",
-    "🔄 Update & Manage Orders"
-]
-selected_sidebar = st.sidebar.radio("Atelier Menu", nav_options)
+if st.sidebar.button("🏠 Main Hub", use_container_width=True):
+    navigate("Dashboard")
+    st.rerun()
 
-page_map = {
-    "🏠 Main Hub": "Dashboard",
-    "👤 Register Client": "New Client",
-    "📏 Record Measurements": "New Measurement",
-    "🗂️ View Client Records": "Client Records",
-    "➕ Create New Order": "New Order",
-    "🔄 Update & Manage Orders": "Update Orders"
-}
-st.session_state.current_page = page_map[selected_sidebar]
+if st.sidebar.button("👤 Register Client", use_container_width=True):
+    navigate("New Client")
+    st.rerun()
+
+if st.sidebar.button("📏 Record Measurements", use_container_width=True):
+    navigate("New Measurement")
+    st.rerun()
+
+if st.sidebar.button("🗂️ View Client Records", use_container_width=True):
+    navigate("Client Records")
+    st.rerun()
+
+if st.sidebar.button("➕ Create New Order", use_container_width=True):
+    navigate("New Order")
+    st.rerun()
+
+if st.sidebar.button("🔄 Update & Manage Orders", use_container_width=True):
+    navigate("Update Orders")
+    st.rerun()
 
 st.sidebar.markdown("---")
 if st.sidebar.button("🚪 Logout", use_container_width=True):
     st.session_state.authenticated = False
     st.session_state.username = ""
+    st.session_state.page = "Dashboard"
     st.rerun()
 
 # ---------------------------------------------------------
 # 1. MAIN HUB
 # ---------------------------------------------------------
-if st.session_state.current_page == "Dashboard":
+if st.session_state.page == "Dashboard":
     st.markdown("<div class='brand-title'>MOHAMMAD HUSSAIN</div>", unsafe_allow_html=True)
     st.markdown("<div class='brand-tagline'>Master Tailoring & Client Workshop Hub</div>", unsafe_allow_html=True)
     
@@ -334,31 +357,31 @@ if st.session_state.current_page == "Dashboard":
     st.markdown("<div class='section-title-btn'>⚡ Atelier Action Centre</div>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("👤  REGISTER NEW CLIENT\n\nAdd client profile, posture observations & shoulder asymmetries", use_container_width=True):
-            set_page("New Client")
+        if st.button("👤  REGISTER NEW CLIENT\n\nAdd client profile, posture observations & shoulder asymmetries", key="btn_hub_client", use_container_width=True):
+            navigate("New Client")
             st.rerun()
-        if st.button("📏  RECORD CLIENT MEASUREMENTS\n\nTake complete body dimensions across Western & Indian garments", use_container_width=True):
-            set_page("New Measurement")
+        if st.button("📏  RECORD CLIENT MEASUREMENTS\n\nTake complete body dimensions across Western & Indian garments", key="btn_hub_measure", use_container_width=True):
+            navigate("New Measurement")
             st.rerun()
-        if st.button("🗂️  VIEW CLIENT DATABASE & HISTORY\n\nInspect client measurements, past orders & revision history", use_container_width=True):
-            set_page("Client Records")
+        if st.button("🗂️  VIEW CLIENT DATABASE & HISTORY\n\nInspect client measurements, past orders & revision history", key="btn_hub_records", use_container_width=True):
+            navigate("Client Records")
             st.rerun()
 
     with col2:
-        if st.button("➕  CREATE NEW GARMENT ORDER\n\nSet garment, fabrics, price, advance & payment stage", use_container_width=True):
-            set_page("New Order")
+        if st.button("➕  CREATE NEW GARMENT ORDER\n\nSet garment, fabrics, price, advance & payment stage", key="btn_hub_new_order", use_container_width=True):
+            navigate("New Order")
             st.rerun()
-        if st.button("🔄  ORDER STATUS & EDIT / DELETE\n\nTrack payments, fittings, full edits and order deletion", use_container_width=True):
-            set_page("Update Orders")
+        if st.button("🔄  ORDER STATUS & EDIT / DELETE\n\nTrack payments, fittings, full edits and 🗑️ order deletion", key="btn_hub_manage_orders", use_container_width=True):
+            navigate("Update Orders")
             st.rerun()
 
 # ---------------------------------------------------------
 # 2. REGISTER NEW CLIENT
 # ---------------------------------------------------------
-elif st.session_state.current_page == "New Client":
+elif st.session_state.page == "New Client":
     st.markdown("<div class='section-title-btn'>👤 Register New Client Profile</div>", unsafe_allow_html=True)
-    if st.button("← Back to Hub"):
-        set_page("Dashboard")
+    if st.button("← Back to Hub", key="btn_back_client"):
+        navigate("Dashboard")
         st.rerun()
         
     with st.form("new_client_form", clear_on_submit=True):
@@ -388,10 +411,10 @@ elif st.session_state.current_page == "New Client":
 # ---------------------------------------------------------
 # 3. RECORD MEASUREMENTS
 # ---------------------------------------------------------
-elif st.session_state.current_page == "New Measurement":
+elif st.session_state.page == "New Measurement":
     st.markdown("<div class='section-title-btn'>📏 Record Dated Client Measurements</div>", unsafe_allow_html=True)
-    if st.button("← Back to Hub"):
-        set_page("Dashboard")
+    if st.button("← Back to Hub", key="btn_back_measure"):
+        navigate("Dashboard")
         st.rerun()
         
     with get_db() as conn:
@@ -486,10 +509,10 @@ elif st.session_state.current_page == "New Measurement":
 # ---------------------------------------------------------
 # 4. VIEW CLIENT RECORDS
 # ---------------------------------------------------------
-elif st.session_state.current_page == "Client Records":
+elif st.session_state.page == "Client Records":
     st.markdown("<div class='section-title-btn'>🗂️ Client Database & Historical Records</div>", unsafe_allow_html=True)
-    if st.button("← Back to Hub"):
-        set_page("Dashboard")
+    if st.button("← Back to Hub", key="btn_back_records"):
+        navigate("Dashboard")
         st.rerun()
         
     with get_db() as conn:
@@ -518,10 +541,10 @@ elif st.session_state.current_page == "Client Records":
 # ---------------------------------------------------------
 # 5. CREATE NEW GARMENT ORDER
 # ---------------------------------------------------------
-elif st.session_state.current_page == "New Order":
+elif st.session_state.page == "New Order":
     st.markdown("<div class='section-title-btn'>➕ Create New Garment Order</div>", unsafe_allow_html=True)
-    if st.button("← Back to Hub"):
-        set_page("Dashboard")
+    if st.button("← Back to Hub", key="btn_back_new_order"):
+        navigate("Dashboard")
         st.rerun()
         
     with get_db() as conn:
@@ -589,12 +612,12 @@ elif st.session_state.current_page == "New Order":
                     st.success(f"Order {order_no} created successfully!")
 
 # ---------------------------------------------------------
-# 6. ORDER STATUS, FULL EDIT & DELETION ENGINE
+# 6. ORDER STATUS, FULL EDIT & 1-CLICK TRASH BIN DELETION
 # ---------------------------------------------------------
-elif st.session_state.current_page == "Update Orders":
+elif st.session_state.page == "Update Orders":
     st.markdown("<div class='section-title-btn'>🔄 Order Status, Editor & Deletion Hub</div>", unsafe_allow_html=True)
-    if st.button("← Back to Hub"):
-        set_page("Dashboard")
+    if st.button("← Back to Hub", key="btn_back_update_orders"):
+        navigate("Dashboard")
         st.rerun()
         
     with get_db() as conn:
@@ -613,24 +636,48 @@ elif st.session_state.current_page == "Update Orders":
     else:
         st.dataframe(orders_df, use_container_width=True)
         
-        st.markdown("<div class='section-title-btn'>Select Order to Edit or Delete</div>", unsafe_allow_html=True)
+        st.markdown("<div class='section-title-btn'>Select Order to Manage</div>", unsafe_allow_html=True)
         order_list = orders_df["order_number"].tolist()
-        selected_order_no = st.selectbox("Select Order Reference", order_list)
+        
+        col_select, col_del_btn = st.columns([3, 1])
+        with col_select:
+            selected_order_no = st.selectbox("Order Reference", order_list)
+        with col_del_btn:
+            st.write("")
+            st.write("")
+            if st.button(f"🗑️ Delete {selected_order_no}", use_container_width=True):
+                st.session_state.delete_target_order = selected_order_no
+        
+        # Second Confirmation Dialog for Trash Bin Deletion
+        if st.session_state.delete_target_order == selected_order_no:
+            st.warning(f"⚠️ Are you sure you want to permanently delete order **{selected_order_no}**?")
+            c_yes, c_no = st.columns(2)
+            with c_yes:
+                if st.button("✅ Yes, Delete Permanently", use_container_width=True):
+                    with get_db() as conn:
+                        conn.cursor().execute("DELETE FROM orders WHERE order_number = ?", (selected_order_no,))
+                        conn.commit()
+                    st.session_state.delete_target_order = None
+                    st.success(f"Order {selected_order_no} has been deleted.")
+                    st.rerun()
+            with c_no:
+                if st.button("❌ Cancel", use_container_width=True):
+                    st.session_state.delete_target_order = None
+                    st.rerun()
+        
         current_order = orders_df[orders_df["order_number"] == selected_order_no].iloc[0]
         
-        # Display Current Summary
         total_p = float(current_order['total_amount'] or 0.0)
         paid_p = float(current_order['amount_paid'] or 0.0)
         balance_p = total_p - paid_p
         
         m1, m2, m3 = st.columns(3)
-        m1.metric("Total Order Price", f"₹{total_p:,.2f}")
-        m2.metric("Total Paid", f"₹{paid_p:,.2f}")
-        m3.metric("Balance Remaining", f"₹{balance_p:,.2f}")
+        m1.metric("Total Price", f"₹{total_p:,.2f}")
+        m2.metric("Amount Paid", f"₹{paid_p:,.2f}")
+        m3.metric("Balance Due", f"₹{balance_p:,.2f}")
 
-        # Complete Order Editor Form
         with st.form("edit_full_order_form"):
-            st.markdown("### ✏️ Edit Order Fields")
+            st.markdown("### ✏️ Edit Order Details")
             e1, e2 = st.columns(2)
             with e1:
                 stages = ['Drafted', 'Fabric Cut', 'Basted Fitting', 'Alterations', 'Final Pressed', 'Delivered']
@@ -656,7 +703,6 @@ elif st.session_state.current_page == "Update Orders":
 
             save_changes = st.form_submit_button("💾 Save All Order Changes", use_container_width=True)
             if save_changes:
-                # Auto-calculate payment status if updated
                 if edit_paid >= edit_total and edit_total > 0:
                     edit_pay_status = "Fully Paid"
                 elif edit_paid == (edit_total / 2) and edit_total > 0:
@@ -677,18 +723,3 @@ elif st.session_state.current_page == "Update Orders":
                     conn.commit()
                 st.success(f"Order {selected_order_no} updated successfully!")
                 st.rerun()
-
-        # Dedicated Deletion Section
-        st.markdown("---")
-        with st.expander("🗑️ Delete This Order", expanded=False):
-            st.error(f"Danger Zone: Deleting order `{selected_order_no}` is permanent and cannot be undone.")
-            confirm_delete = st.checkbox(f"Yes, permanently delete order {selected_order_no}")
-            if st.button("Permanently Delete Order", type="secondary", use_container_width=True):
-                if confirm_delete:
-                    with get_db() as conn:
-                        conn.cursor().execute("DELETE FROM orders WHERE order_number = ?", (selected_order_no,))
-                        conn.commit()
-                    st.success(f"Order {selected_order_no} has been deleted.")
-                    st.rerun()
-                else:
-                    st.warning("Please check the confirmation box first.")
