@@ -5,7 +5,7 @@ import streamlit as st
 import pandas as pd
 
 # ---------------------------------------------------------
-# PAGE SETUP & MODERN BESPOKE THEME (WARM PALETTE + ANIMATIONS)
+# PAGE SETUP & DYNAMIC THEME ENGINE
 # ---------------------------------------------------------
 st.set_page_config(
     page_title="Mohammad Hussain Atelier",
@@ -14,84 +14,201 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom Warm-Toned Animated CSS
-st.markdown("""
+# 1. Preset Sartorial Color Themes
+COLOR_THEMES = {
+    "Warm Cognac & Amber": {
+        "primary": "#D97706",
+        "secondary": "#9A3412",
+        "accent": "#B45309",
+        "card_bg": "#FFFDF8",
+        "border": "#FDE68A",
+        "text_dark": "#451A03",
+        "btn_grad_1": "#FFFBEB",
+        "btn_grad_2": "#FDE68A",
+        "bg_base": "#FDFBF7",
+        "pat_color": "%23D97706"
+    },
+    "Royal Navy & Gold (Savile Row)": {
+        "primary": "#1E3A8A",
+        "secondary": "#1E293B",
+        "accent": "#D97706",
+        "card_bg": "#F8FAFC",
+        "border": "#CBD5E1",
+        "text_dark": "#0F172A",
+        "btn_grad_1": "#FFFFFF",
+        "btn_grad_2": "#E2E8F0",
+        "bg_base": "#F1F5F9",
+        "pat_color": "%231E3A8A"
+    },
+    "Emerald & Brass (Heritage)": {
+        "primary": "#047857",
+        "secondary": "#064E3B",
+        "accent": "#B45309",
+        "card_bg": "#F4FDF8",
+        "border": "#A7F3D0",
+        "text_dark": "#022C22",
+        "btn_grad_1": "#ECFDF5",
+        "btn_grad_2": "#A7F3D0",
+        "bg_base": "#F0FDF4",
+        "pat_color": "%23047857"
+    },
+    "Charcoal & Crimson (Minimalist)": {
+        "primary": "#DC2626",
+        "secondary": "#18181B",
+        "accent": "#991B1B",
+        "card_bg": "#FAFAFA",
+        "border": "#E4E4E7",
+        "text_dark": "#09090B",
+        "btn_grad_1": "#FFFFFF",
+        "btn_grad_2": "#F4F4F5",
+        "bg_base": "#F4F4F5",
+        "pat_color": "%2371717A"
+    },
+    "Regal Plum & Velvet Gold": {
+        "primary": "#7E22CE",
+        "secondary": "#3B0764",
+        "accent": "#D97706",
+        "card_bg": "#FAF5FF",
+        "border": "#E9D5FF",
+        "text_dark": "#2E1065",
+        "btn_grad_1": "#FAF5FF",
+        "btn_grad_2": "#F3E8FF",
+        "bg_base": "#F5F3FF",
+        "pat_color": "%237E22CE"
+    }
+}
+
+# 2. Historical & Classic Typography Styles
+FONT_STYLES = {
+    "Victorian Script": {
+        "title": "'Playfair Display SC', 'Cinzel Decorative', serif",
+        "body": "'Cormorant Garamond', 'Georgia', serif",
+        "title_weight": "700",
+        "letter_spacing": "1.5px"
+    },
+    "Art Deco (1920s Geometry)": {
+        "title": "'Poiret One', 'Marcellus', serif",
+        "body": "'Josefin Sans', sans-serif",
+        "title_weight": "800",
+        "letter_spacing": "4px"
+    },
+    "Art Nouveau (Organic Curves)": {
+        "title": "'Italiana', 'Cinzel', serif",
+        "body": "'Bellefair', serif",
+        "title_weight": "600",
+        "letter_spacing": "2px"
+    },
+    "Modern Bespoke (Savile Row)": {
+        "title": "'Cinzel', serif",
+        "body": "'Plus Jakarta Sans', sans-serif",
+        "title_weight": "700",
+        "letter_spacing": "2px"
+    }
+}
+
+# Initialize dynamic theme state
+if "selected_theme" not in st.session_state:
+    st.session_state.selected_theme = "Warm Cognac & Amber"
+if "selected_font" not in st.session_state:
+    st.session_state.selected_font = "Art Deco (1920s Geometry)"
+
+theme = COLOR_THEMES[st.session_state.selected_theme]
+font = FONT_STYLES[st.session_state.selected_font]
+
+# Inject Dynamic CSS with Linen/Tweed Fabric Pattern
+st.markdown(f"""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Bellefair&family=Cinzel:wght@500;700;800&family=Cinzel+Decorative:wght@700&family=Cormorant+Garamond:wght@400;600;700&family=Italiana&family=Josefin+Sans:wght@400;600&family=Marcellus&family=Playfair+Display+SC:wght@700&family=Plus+Jakarta+Sans:wght@400;600;700&family=Poiret+One&display=swap');
 
-    :root {
-        --primary-amber: #D97706;
-        --warm-terracotta: #C2410C;
-        --deep-espresso: #291B15;
-        --card-warm-bg: #FFFDF9;
-        --gold-accent: #B45309;
-        --border-soft: #FDE68A;
-    }
+    /* Global Fabric Weave Background */
+    .stApp {{
+        background-color: {theme['bg_base']};
+        background-image: radial-gradient({theme['primary']} 0.55px, transparent 0.55px), radial-gradient({theme['primary']} 0.55px, {theme['bg_base']} 0.55px);
+        background-size: 22px 22px;
+        background-position: 0 0, 11px 11px;
+        background-opacity: 0.04;
+        color: {theme['text_dark']};
+        font-family: {font['body']} !important;
+    }}
 
-    @keyframes fadeInSlide {
-        0% { opacity: 0; transform: translateY(12px); }
-        100% { opacity: 1; transform: translateY(0); }
-    }
+    /* Typography Overrides */
+    h1, h2, h3, .brand-title {{
+        font-family: {font['title']} !important;
+        letter-spacing: {font['letter_spacing']} !important;
+        font-weight: {font['title_weight']} !important;
+    }}
+    
+    body, p, span, label {{
+        font-family: {font['body']} !important;
+        font-size: 1.02rem;
+    }}
 
-    .brand-title {
-        font-family: 'Cinzel', serif !important;
-        font-weight: 800;
-        font-size: 2.8rem;
-        background: linear-gradient(135deg, #B45309 0%, #D97706 50%, #9A3412 100%);
+    /* Animated Brand Title */
+    .brand-title {{
+        font-size: 2.9rem;
+        background: linear-gradient(135deg, {theme['secondary']} 0%, {theme['primary']} 50%, {theme['accent']} 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         text-align: center;
-        letter-spacing: 2px;
-        margin-bottom: 0.2rem;
-        animation: fadeInSlide 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    
-    .brand-tagline {
-        font-family: 'Plus Jakarta Sans', sans-serif;
-        text-align: center;
-        color: #78350F;
-        font-size: 1.05rem;
-        letter-spacing: 1.5px;
-        text-transform: uppercase;
-        margin-bottom: 2rem;
-        font-weight: 600;
-    }
+        margin-bottom: 0.1rem;
+        animation: fadeIn 0.8s ease-in-out;
+    }}
 
-    .stButton>button {
-        border-radius: 14px !important;
+    .brand-tagline {{
+        text-align: center;
+        color: {theme['secondary']};
+        font-size: 0.95rem;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        margin-bottom: 1.8rem;
+        font-weight: 600;
+    }}
+
+    /* Realistic Fabric Buttons with Hover Animation */
+    .stButton>button {{
+        border-radius: 12px !important;
         height: 3.8rem !important;
         font-weight: 700 !important;
         font-size: 1.05rem !important;
-        background: linear-gradient(145deg, #FFFFFF, #FEF3C7) !important;
-        color: #78350F !important;
-        border: 1.5px solid #FDE68A !important;
+        background: linear-gradient(145deg, {theme['btn_grad_1']}, {theme['btn_grad_2']}) !important;
+        color: {theme['text_dark']} !important;
+        border: 1.5px solid {theme['border']} !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.04);
         transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
-        animation: fadeInSlide 0.6s ease-out;
-    }
+    }}
     
-    .stButton>button:hover {
-        transform: translateY(-4px) scale(1.01) !important;
-        border-color: #D97706 !important;
-        background: linear-gradient(145deg, #FFFBEB, #FDE68A) !important;
-        box-shadow: 0 10px 22px rgba(180, 83, 9, 0.18) !important;
-    }
+    .stButton>button:hover {{
+        transform: translateY(-3px) scale(1.01) !important;
+        border-color: {theme['primary']} !important;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.12) !important;
+    }}
 
-    div[data-testid="stMetric"] {
-        background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
-        border: 1px solid #FDE68A;
-        padding: 1.2rem;
-        border-radius: 16px;
-        box-shadow: 0 4px 12px rgba(217, 119, 6, 0.08);
+    /* Textured Metric Cards */
+    div[data-testid="stMetric"] {{
+        background: {theme['card_bg']} !important;
+        border: 1px solid {theme['border']} !important;
+        padding: 1.2rem !important;
+        border-radius: 16px !important;
+        box-shadow: 0 4px 14px rgba(0,0,0,0.05) !important;
         transition: transform 0.25s ease;
-    }
-    div[data-testid="stMetric"]:hover {
+    }}
+    div[data-testid="stMetric"]:hover {{
         transform: translateY(-2px);
-    }
+    }}
+
+    /* Form and Dataframe Styling */
+    div[data-testid="stForm"] {{
+        background: {theme['card_bg']};
+        border: 1px solid {theme['border']};
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 6px 18px rgba(0,0,0,0.04);
+    }}
 </style>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# DATABASE ENGINE WITH AUTO-MIGRATION
+# DATABASE ENGINE
 # ---------------------------------------------------------
 DB_FILE = "master_tailor.db"
 
@@ -170,7 +287,7 @@ def init_db():
         );
         """)
         
-        # Self-healing migration: Add any missing columns to existing tables
+        # Self-healing table migrations
         cursor.execute("PRAGMA table_info(orders);")
         existing_cols = [row[1] for row in cursor.fetchall()]
         
@@ -213,7 +330,7 @@ if not st.session_state.authenticated:
     
     col_center = st.columns([1, 1.8, 1])[1]
     with col_center:
-        auth_tab = st.radio("Portal Access", ["Sign In", "Create Tailor Account"], horizontal=True)
+        auth_tab = st.radio("Workshop Portal Access", ["Sign In", "Create Tailor Account"], horizontal=True)
         
         if auth_tab == "Sign In":
             with st.form("signin_form"):
@@ -224,7 +341,7 @@ if not st.session_state.authenticated:
                 
                 if btn_login:
                     if not u_name or not p_word:
-                        st.error("Please enter both username and password.")
+                        st.error("Please provide both username and password.")
                     else:
                         with get_db() as conn:
                             user = conn.cursor().execute(
@@ -237,17 +354,17 @@ if not st.session_state.authenticated:
                                 st.session_state.username = u_name
                                 st.rerun()
                             else:
-                                st.error("Invalid username or password.")
+                                st.error("Invalid credentials. Please verify username/password.")
         else:
             with st.form("signup_form"):
-                st.subheader("New Tailor Sign Up")
+                st.subheader("New Master Tailor Registration")
                 new_user = st.text_input("Choose Username*")
                 new_pass = st.text_input("Create Password*", type="password")
                 btn_signup = st.form_submit_button("Register Account", use_container_width=True)
                 
                 if btn_signup:
                     if not new_user or not new_pass:
-                        st.error("Fields cannot be empty.")
+                        st.error("Username and password cannot be blank.")
                     else:
                         try:
                             with get_db() as conn:
@@ -256,17 +373,41 @@ if not st.session_state.authenticated:
                                     (new_user.strip(), hash_pw(new_pass))
                                 )
                                 conn.commit()
-                            st.success("Account created successfully! Switch to 'Sign In' to login.")
+                            st.success("Account created! Switch to 'Sign In' to enter the atelier.")
                         except sqlite3.IntegrityError:
-                            st.error("Username already taken.")
+                            st.error("Username already registered.")
     st.stop()
 
 # ---------------------------------------------------------
-# SIDEBAR
+# SIDEBAR CONTROLS (THEMES & NAVIGATION)
 # ---------------------------------------------------------
 st.sidebar.markdown("### ✂️ **Mohammad Hussain**")
 st.sidebar.caption(f"Master Tailor: **{st.session_state.username}**")
 
+st.sidebar.markdown("---")
+st.sidebar.markdown("🎨 **Atelier Styling Engine**")
+
+# Interactive Theme Selector
+theme_choice = st.sidebar.selectbox(
+    "Color Palette",
+    list(COLOR_THEMES.keys()),
+    index=list(COLOR_THEMES.keys()).index(st.session_state.selected_theme)
+)
+if theme_choice != st.session_state.selected_theme:
+    st.session_state.selected_theme = theme_choice
+    st.rerun()
+
+# Interactive Font & Typography Selector
+font_choice = st.sidebar.selectbox(
+    "Period Typography Style",
+    list(FONT_STYLES.keys()),
+    index=list(FONT_STYLES.keys()).index(st.session_state.selected_font)
+)
+if font_choice != st.session_state.selected_font:
+    st.session_state.selected_font = font_choice
+    st.rerun()
+
+st.sidebar.markdown("---")
 nav_options = [
     "🏠 Main Hub",
     "👤 Register Client",
@@ -298,7 +439,7 @@ if st.sidebar.button("🚪 Logout", use_container_width=True):
 # ---------------------------------------------------------
 if st.session_state.current_page == "Dashboard":
     st.markdown("<div class='brand-title'>MOHAMMAD HUSSAIN</div>", unsafe_allow_html=True)
-    st.markdown("<div class='brand-tagline'>Master Tailoring & Client Workshop Hub</div>", unsafe_allow_html=True)
+    st.markdown("<div class='brand-tagline'>Master Tailoring & Bespoke Workshop Hub</div>", unsafe_allow_html=True)
     
     with get_db() as conn:
         total_clients = conn.cursor().execute("SELECT COUNT(*) FROM clients").fetchone()[0]
@@ -306,31 +447,31 @@ if st.session_state.current_page == "Dashboard":
         unpaid_count = conn.cursor().execute("SELECT COUNT(*) FROM orders WHERE payment_status IN ('Due', 'Advance Paid', 'Half Paid')").fetchone()[0]
 
     c1, c2, c3 = st.columns(3)
-    c1.metric("👥 Client Directory", f"{total_clients} Profiles")
-    c2.metric("🧵 In Production", f"{active_orders} Garments")
-    c3.metric("💳 Payments Pending", f"{unpaid_count} Accounts Due")
+    c1.metric("👥 Master Client Profiles", f"{total_clients}")
+    c2.metric("🧵 In-Production Garments", f"{active_orders}")
+    c3.metric("💳 Payment Accounts Due", f"{unpaid_count}")
     
     st.markdown("---")
-    st.subheader("⚡ Workshop Actions")
+    st.subheader("⚡ Atelier Workspace Actions")
     
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("👤  Register New Client\n\nRecord profile, contact, posture & shoulder asymmetry", use_container_width=True):
+        if st.button("👤  Register New Client\n\nRecord profile, posture & shoulder asymmetry", use_container_width=True):
             set_page("New Client")
             st.rerun()
             
         st.write("")
-        if st.button("📏  Record Measurements\n\nRecord dated body metrics across Western & Indian cuts", use_container_width=True):
+        if st.button("📏  Record Measurements\n\nTake complete body dimensions across Western & Indian cuts", use_container_width=True):
             set_page("New Measurement")
             st.rerun()
             
         st.write("")
-        if st.button("🗂️  Client Records & Revisions\n\nInspect client measurements, past orders & revision history", use_container_width=True):
+        if st.button("🗂️  Client Database & Archive\n\nInspect client measurements, past orders & revision history", use_container_width=True):
             set_page("Client Records")
             st.rerun()
 
     with col2:
-        if st.button("➕  Create Garment Order\n\nSet garment, fabrics, total cost, advance, and payment status", use_container_width=True):
+        if st.button("➕  Create Garment Order\n\nSet garment, fabrics, price, advance & payment stage", use_container_width=True):
             set_page("New Order")
             st.rerun()
             
@@ -373,7 +514,7 @@ elif st.session_state.current_page == "New Client":
                         conn.commit()
                     st.success(f"Client '{full_name}' recorded in Mohammad Hussain database!")
                 except sqlite3.IntegrityError:
-                    st.error("Client ID already exists. Please use a unique ID.")
+                    st.error("Client ID already exists. Please use a unique identifier.")
 
 # ---------------------------------------------------------
 # 3. RECORD MEASUREMENTS
