@@ -574,39 +574,34 @@ elif st.session_state.page == "New Measurement":
             st.markdown("<div class='section-title-btn'> Upper Body & Torso Dimensions</div>", unsafe_allow_html=True)
             u1, u2, u3, u4 = st.columns(4)
             with u1:
-                neck = st.number_input("Neck / Collar", min_value=0.0, step=0.25)
-                chest_full = st.number_input("Chest (Full / Bust)", min_value=0.0, step=0.25)
-                chest_upper = st.number_input("Upper Chest", min_value=0.0, step=0.25)
+                neck = st.number_input("Neck / Collar", min_value=, step=0.25)
+                chest_full = st.number_input("Chest (Full / Bust)", min_value=, step=0.25)
             with u2:
-                waist_stomach = st.number_input("Stomach / Waist", min_value=0.0, step=0.25)
-                cross_shoulder = st.number_input("Shoulder Width", min_value=0.0, step=0.25)
-                back_width = st.number_input("Back Width", min_value=0.0, step=0.25)
+                waist_stomach = st.number_input("Stomach / Waist", min_value=, step=0.25)
+                cross_shoulder = st.number_input("Shoulder Width", min_value=, step=0.25)
+              
             with u3:
-                front_chest_width = st.number_input("Front Chest Width", min_value=0.0, step=0.25)
-                armhole = st.number_input("Armhole", min_value=0.0, step=0.25)
-                bicep = st.number_input("Bicep / Muscle", min_value=0.0, step=0.25)
+                front_chest_width = st.number_input("Front Chest Width", min_value=, step=0.25)
+                armhole = st.number_input("Armhole", min_value=, step=0.25)
+                bicep = st.number_input("Bicep / Muscle", min_value=, step=0.25)
             with u4:
-                wrist = st.number_input("Wrist / Cuff", min_value=0.0, step=0.25)
-                sleeve_length = st.number_input("Sleeve Length", min_value=0.0, step=0.25)
-                full_length_jacket = st.number_input("Coat / Shirt / Kurta Full Length", min_value=0.0, step=0.25)
-                nape_to_waist = st.number_input("Nape to Waist", min_value=0.0, step=0.25)
-
+                wrist = st.number_input("Wrist / Cuff", min_value=, step=0.25)
+                sleeve_length = st.number_input("Sleeve Length", min_value=, step=0.25)
+                full_length_jacket = st.number_input("Coat / Shirt / Kurta Full Length", min_value=, step=0.25)
+               
             st.markdown("<div class='section-title-btn'> Lower Body & Leg Dimensions</div>", unsafe_allow_html=True)
             l1, l2, l3, l4 = st.columns(4)
             with l1:
-                trouser_waist = st.number_input("Trouser / Pajama Waist", min_value=0.0, step=0.25)
-                seat_hip = st.number_input("Seat / Hip", min_value=0.0, step=0.25)
+                trouser_waist = st.number_input("Trouser / Pajama Waist", min_value=, step=0.25)
+                seat_hip = st.number_input("Seat / Hip", min_value=, step=0.25)
             with l2:
-                thigh = st.number_input("Thigh", min_value=0.0, step=0.25)
-                knee = st.number_input("Knee", min_value=0.0, step=0.25)
+                thigh = st.number_input("Thigh", min_value=, step=0.25)
+                knee = st.number_input("Knee", min_value=, step=0.25)
             with l3:
-                calf = st.number_input("Calf", min_value=0.0, step=0.25)
-                bottom_opening = st.number_input("Bottom Opening", min_value=0.0, step=0.25)
+               bottom_opening = st.number_input("Bottom Opening", min_value=, step=0.25)
             with l4:
-                outseam = st.number_input("Full Length / Outseam", min_value=0.0, step=0.25)
-                inseam = st.number_input("Inseam", min_value=0.0, step=0.25)
-                front_rise = st.number_input("Front Rise", min_value=0.0, step=0.25)
-                crotch_depth = st.number_input("Crotch Depth", min_value=0.0, step=0.25)
+                front_rise = st.number_input("Front Rise", min_value=, step=0.25)
+                crotch_depth = st.number_input("Crotch Depth", min_value=, step=0.25)
 
             m_notes = st.text_area("Measurement Session & Fit Notes", placeholder="e.g., Slim tapering requested...")
             save_m = st.form_submit_button("💾 Save Measurements to Client File", use_container_width=True)
