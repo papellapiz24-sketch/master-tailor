@@ -595,7 +595,7 @@ elif st.session_state.page == "New Order":
                     default_idx = idx
                     break
 
-        selected_client_label = st.selectbox("Search & Select Client (Type Name or Phone)", list(client_options.keys()), index=default_idx)
+        selected_client_label = st.selectbox("Search  (Type Name or Phone)", list(client_options.keys()), index=default_idx)
         selected_client_id = client_options[selected_client_label]
         st.session_state.active_client_id = selected_client_id
         
@@ -608,7 +608,7 @@ elif st.session_state.page == "New Order":
         st.markdown("### Client Action Options")
         col_act_m, col_act_b = st.columns(2)
         with col_act_m:
-            if st.button("Update / Adjust Measurements First", use_container_width=True):
+            if st.button("Update / Adjust Measurements ", use_container_width=True):
                 navigate("New Measurement")
                 st.rerun()
         with col_act_b:
@@ -881,10 +881,10 @@ elif st.session_state.page == "Order Tracking":
 
 
 # ---------------------------------------------------------
-# 5B. ORDER STATUS & FINANCIAL SALES REPORT
+# 5B.  FINANCIAL SALES REPORT
 # ---------------------------------------------------------
-elif st.session_state.page == "Order Status":
-    st.markdown("<div class='section-title-btn'>Order Status & Financial Sales Report</div>", unsafe_allow_html=True)
+elif st.session_state.page == "sales":
+    st.markdown("<div class='section-title-btn'> Financial Sales Report</div>", unsafe_allow_html=True)
     if st.button("← Back to Main Hub", key="btn_back_status"):
         navigate("Dashboard")
         st.rerun()
