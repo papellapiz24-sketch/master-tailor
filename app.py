@@ -728,34 +728,35 @@ elif st.session_state.page == "Print Slip":
             unit = str(slip_data['unit'])
 
             pure_receipt_html = f"""<!DOCTYPE html>
+pure_receipt_html = f"""<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
 <title>Receipt_{ord_id}</title>
 <style>
-  @page { size: A5 portrait; margin: 5mm; }
-  * { box-sizing: border-box; font-family: 'Courier New', Courier, monospace; color: #000000; }
-  body { margin: 0; padding: 6px; background: #FFFFFF; font-size: 12px; line-height: 1.3; }
-  .ticket { width: 100%; max-width: 138mm; margin: 0 auto; border: 1px solid #000000; padding: 10px 12px; }
-  .center { text-align: center; }
-  .right { text-align: right; }
-  .bold { font-weight: bold; }
-  .title { font-size: 16px; font-weight: bold; margin: 0; letter-spacing: 1px; }
-  .sub { font-size: 10px; margin: 2px 0; text-transform: uppercase; }
-  .dash { border: none; border-top: 1px dashed #000; margin: 6px 0; }
-  table { width: 100%; border-collapse: collapse; }
-  td, th { padding: 2px 0; vertical-align: top; }
-  .grid-table { margin: 4px 0; }
-  .grid-table td, .grid-table th { border: 1px solid #000; padding: 3px 4px; font-size: 11px; }
-  .print-btn {
+  @page {{ size: A5 portrait; margin: 5mm; }}
+  * {{ box-sizing: border-box; font-family: 'Courier New', Courier, monospace; color: #000000; }}
+  body {{ margin: 0; padding: 6px; background: #FFFFFF; font-size: 12px; line-height: 1.3; }}
+  .ticket {{ width: 100%; max-width: 138mm; margin: 0 auto; border: 1px solid #000000; padding: 10px 12px; }}
+  .center {{ text-align: center; }}
+  .right {{ text-align: right; }}
+  .bold {{ font-weight: bold; }}
+  .title {{ font-size: 16px; font-weight: bold; margin: 0; letter-spacing: 1px; }}
+  .sub {{ font-size: 10px; margin: 2px 0; text-transform: uppercase; }}
+  .dash {{ border: none; border-top: 1px dashed #000; margin: 6px 0; }}
+  table {{ width: 100%; border-collapse: collapse; }}
+  td, th {{ padding: 2px 0; vertical-align: top; }}
+  .grid-table {{ margin: 4px 0; }}
+  .grid-table td, .grid-table th {{ border: 1px solid #000; padding: 3px 4px; font-size: 11px; }}
+  .print-btn {{
     display: block; width: 100%; background: #111827; color: #FFFFFF; border: none;
     padding: 10px; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 6px; margin-bottom: 10px;
-  }
-  @media print {
-    .print-btn { display: none !important; }
-    body { padding: 0 !important; }
-    .ticket { border: 1px solid #000 !important; }
-  }
+  }}
+  @media print {{
+    .print-btn {{ display: none !important; }}
+    body {{ padding: 0 !important; }}
+    .ticket {{ border: 1px solid #000 !important; }}
+  }}
 </style>
 </head>
 <body>
@@ -813,7 +814,6 @@ elif st.session_state.page == "Print Slip":
 </html>"""
 
             st.components.v1.html(pure_receipt_html, height=650, scrolling=True)
-
 
 # ---------------------------------------------------------
 # 5A. ORDER TRACKING (WORKSHOP PRODUCTION PIPELINE)
