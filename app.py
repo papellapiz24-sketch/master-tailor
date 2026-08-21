@@ -1,83 +1,71 @@
+import io
 import os
+import sys
 import shutil
 import sqlite3
 import datetime
 import hashlib
-import io
 import urllib.parse
+from contextlib import contextmanager
+
 import streamlit as st
 import pandas as pd
 
 # ---------------------------------------------------------
-# PAGE CONFIGURATION & METADATA
+# 1. DATABASE & PERSISTENCE ENGINE
 # ---------------------------------------------------------
-st.set_page_config(
-    page_title="Studio Management Suite",
-    page_icon="✂️",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_FILE = os.path.join(APP_DIR, "master_tailor.db")
+BACKUP_DIR = os.path.join(APP_DIR, "backups")
 
-# ---------------------------------------------------------
-# DATABASE PERSISTENCE ENGINE & BACKUP SYSTEM
-# ---------------------------------------------------------
-# Custom dedicated folder on your D: drive
-CUSTOM_DATA_FOLDER = r"D:\MyStudioData"
-
-os.makedirs(CUSTOM_DATA_FOLDER, exist_ok=True)
-DB_FILE = os.path.join(CUSTOM_DATA_FOLDER, "master_tailor.db")
-BACKUP_DIR = os.path.join(CUSTOM_DATA_FOLDER, "backups")
 os.makedirs(BACKUP_DIR, exist_ok=True)
 
-def create_auto_backup():
+@contextmanager
+def get_db_connection():
+    conn = sqlite3.connect(DB_FILE, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON;")
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+def auto_snapshot_backup():
     if os.path.exists(DB_FILE):
         today_tag = datetime.date.today().strftime("%Y%m%d")
-        backup_name = f"tailor_db_backup_{today_tag}.db"
-        dest_path = os.path.join(BACKUP_DIR, backup_name)
+        dest_path = os.path.join(BACKUP_DIR, f"auto_snapshot_{today_tag}.db")
         if not os.path.exists(dest_path):
             try:
                 shutil.copy2(DB_FILE, dest_path)
             except Exception:
                 pass
 
-create_auto_backup()
-
-def get_db():
-    conn = sqlite3.connect(DB_FILE, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON;")
-    return conn
-
-def hash_pw(password):
-    return hashlib.sha256(password.encode()).hexdigest()
-
-def init_db():
-    with get_db() as conn:
+def init_enterprise_schema():
+    auto_snapshot_backup()
+    with get_db_connection() as conn:
         cursor = conn.cursor()
+        
+        # System Settings
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL
         );
         """)
-        cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('brand_name', 'BAMNIYA STUDIO')")
-        cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('brand_tagline', 'Bespoke Master Tailoring & Haute Couture')")
-        cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('theme_palette', 'Linen Warm Cream')")
-        cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('admin_master_key', 'ADMIN176920')")
-        cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('tailor_master_key', '176920')")
-        cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('admin_recovery_phone', '')")
-        cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('tally_ledger', 'Tailoring Sales')")
-        cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('tally_cash_ledger', 'Cash')")
-        cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('tally_bank_ledger', 'Bank Account')")
+        default_settings = [
+            ('brand_name', 'BAMNIYA STUDIO'),
+            ('brand_tagline', 'Bespoke Master Tailoring & Haute Couture'),
+            ('theme_palette', 'Linen Warm Cream'),
+            ('admin_master_key', 'ADMIN176920'),
+            ('tailor_master_key', '176920'),
+            ('admin_recovery_phone', ''),
+            ('tally_ledger', 'Tailoring Sales'),
+            ('tally_cash_ledger', 'Cash'),
+            ('tally_bank_ledger', 'Bank Account')
+        ]
+        cursor.executemany("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", default_settings)
 
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-        """)
+        # Clients Registry
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS clients (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -90,12 +78,14 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """)
+
+        # Measurement Vault (Contains full torso, contra hips, and trouser length)
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS measurements (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             client_id INTEGER NOT NULL,
             revision_label TEXT DEFAULT 'Standard',
-            garment_category TEXT DEFAULT 'All Garments / Master Set',
+            garment_category TEXT DEFAULT 'Master Set',
             unit TEXT CHECK(unit IN ('Inches', 'Centimeters')) NOT NULL DEFAULT 'Inches',
             date_recorded DATE NOT NULL,
             full_length_jacket REAL,
@@ -107,6 +97,7 @@ def init_db():
             armhole REAL,
             sleeve_length REAL,
             wrist REAL,
+            trouser_length REAL,
             trouser_waist REAL,
             front_rise REAL,
             crotch_depth REAL,
@@ -116,6 +107,49 @@ def init_db():
             FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE CASCADE
         );
         """)
+
+        # Garment Price-Book & Worker Piece-Rate Catalog
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS garment_catalog (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            garment_name TEXT UNIQUE NOT NULL,
+            default_selling_price REAL DEFAULT 0.0,
+            worker_making_cost REAL DEFAULT 0.0
+        );
+        """)
+        default_garments = [
+            ("Kurta saya", 1800.0, 450.0),
+            ("Kurta saya with izar", 2500.0, 650.0),
+            ("Pehran", 2200.0, 500.0),
+            ("Only kurta", 1200.0, 300.0),
+            ("Kurta Short", 1000.0, 250.0),
+            ("Pajama", 800.0, 200.0),
+            ("Shirt", 950.0, 250.0),
+            ("Trousers", 1100.0, 300.0),
+            ("Sherwani", 9500.0, 2500.0),
+            ("Nehru Jacket", 3500.0, 900.0),
+            ("Waistcoat", 2800.0, 750.0),
+            ("Two-Piece Suit", 8500.0, 2200.0),
+            ("Safari Suit", 4500.0, 1100.0)
+        ]
+        cursor.executemany("INSERT OR IGNORE INTO garment_catalog (garment_name, default_selling_price, worker_making_cost) VALUES (?, ?, ?)", default_garments)
+
+        # Worker Profiles & Payroll Directory
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS workers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            worker_code TEXT UNIQUE NOT NULL,
+            name TEXT NOT NULL,
+            phone TEXT NOT NULL,
+            gov_id_number TEXT,
+            role_designation TEXT DEFAULT 'Tailor / Stitcher',
+            status TEXT DEFAULT 'Active',
+            joined_date DATE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """)
+
+        # Orders & Allotments Ledger
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS orders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -131,330 +165,569 @@ def init_db():
             payment_status TEXT DEFAULT 'Due',
             delivery_date DATE,
             workflow_status TEXT DEFAULT 'Drafted',
+            assigned_worker_id INTEGER,
+            worker_payout_amount REAL DEFAULT 0.0,
+            worker_payment_status TEXT DEFAULT 'Pending',
             fitting_remarks TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE CASCADE,
-            FOREIGN KEY (measurement_id) REFERENCES measurements (id) ON DELETE CASCADE
+            FOREIGN KEY (measurement_id) REFERENCES measurements (id) ON DELETE CASCADE,
+            FOREIGN KEY (assigned_worker_id) REFERENCES workers (id) ON DELETE SET NULL
+        );
+        """)
+
+        # Self-Healing Migrations for existing DB instances
+        try: cursor.execute("ALTER TABLE measurements ADD COLUMN trouser_length REAL")
+        except sqlite3.OperationalError: pass
+
+        try: cursor.execute("ALTER TABLE orders ADD COLUMN assigned_worker_id INTEGER REFERENCES workers(id)")
+        except sqlite3.OperationalError: pass
+
+        try: cursor.execute("ALTER TABLE orders ADD COLUMN worker_payout_amount REAL DEFAULT 0.0")
+        except sqlite3.OperationalError: pass
+
+        try: cursor.execute("ALTER TABLE orders ADD COLUMN worker_payment_status TEXT DEFAULT 'Pending'")
+        except sqlite3.OperationalError: pass
+
+        # User Auth Table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            role TEXT DEFAULT 'Tailor',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """)
         conn.commit()
 
-init_db()
-
 def get_setting(key, default=""):
-    with get_db() as conn:
+    with get_db_connection() as conn:
         row = conn.cursor().execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
         return row[0] if row else default
 
 def set_setting(key, value):
-    with get_db() as conn:
+    with get_db_connection() as conn:
         conn.cursor().execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
         conn.commit()
 
+def hash_password(password: str) -> str:
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def verify_user(username: str, password_raw: str):
+    with get_db_connection() as conn:
+        return conn.cursor().execute("SELECT * FROM users WHERE username = ? AND password_hash = ?", 
+                                     (username.strip(), hash_password(password_raw))).fetchone()
+
+def register_user(username: str, password_raw: str, role: str = 'Tailor'):
+    with get_db_connection() as conn:
+        conn.cursor().execute("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
+                            (username.strip(), hash_password(password_raw), role))
+        conn.commit()
+
 # ---------------------------------------------------------
-# TALLY-STYLE ENTER KEY STEPPER & FORM NAVIGATION ENGINE
+# 2. MATHEMATICAL PATTERN DRAFTING & SVG VECTOR ENGINE
 # ---------------------------------------------------------
-st.components.v1.html("""
-<script>
-(function() {
-    function getRootDocument() {
-        try {
-            return window.parent.document || window.document;
-        } catch (e) {
-            return window.document;
+class PatternDraftingEngine:
+    FIT_EASE = {
+        "Slim Fit": {"chest": 2.5, "waist": 2.0, "hip": 2.0, "thigh": 1.5, "armhole": 1.0},
+        "Regular Fit": {"chest": 3.5, "waist": 3.0, "hip": 3.0, "thigh": 2.5, "armhole": 1.5},
+        "Relaxed Fit": {"chest": 4.5, "waist": 4.0, "hip": 4.0, "thigh": 3.5, "armhole": 2.0},
+        "Qasar fit": {"chest": 5.5, "waist": 5.0, "hip": 5.0, "thigh": 4.0, "armhole": 2.5},
+        "Barik kali": {"chest": 4.0, "waist": 3.5, "hip": 6.0, "thigh": 3.0, "armhole": 1.5, "kali_flare": 8.0}
+    }
+
+    @staticmethod
+    def draft_kurta(m: dict, fit: str = "Regular Fit", seam_allowance: float = 0.5) -> dict:
+        ease = PatternDraftingEngine.FIT_EASE.get(fit, PatternDraftingEngine.FIT_EASE["Regular Fit"])
+        length = float(m.get('full_length_jacket') or 40.0)
+        neck = float(m.get('neck') or 15.0)
+        shoulder = float(m.get('cross_shoulder') or 17.5)
+        chest = float(m.get('chest_full') or 38.0)
+        waist = float(m.get('waist_stomach') or 34.0)
+        hip = float(m.get('seat_hip') or 40.0)
+        wrist = float(m.get('wrist') or 9.5)
+        
+        half_shoulder = (shoulder / 2.0)
+        neck_width = (neck / 6.0) + 0.25
+        neck_depth_front = (neck / 6.0) + 0.75
+        shoulder_slope = 1.25
+        scye_depth = (chest / 4.0) - 0.5 + (ease['armhole'] / 2.0)
+        waist_level = 16.5
+        hip_level = 24.0
+        
+        chest_width = (chest / 4.0) + (ease['chest'] / 4.0)
+        waist_width = (waist / 4.0) + (ease['waist'] / 4.0)
+        hip_width = (hip / 4.0) + (ease['hip'] / 4.0)
+        bottom_flare = hip_width + (ease.get('kali_flare', 2.5))
+        sleeve_bicep = (chest / 3.0) + 1.0
+        sleeve_wrist = (wrist / 2.0) + 0.75
+        
+        pts_front = [
+            {"name": "Neck Point", "x": neck_width, "y": 0.0},
+            {"name": "Shoulder Tip", "x": half_shoulder, "y": shoulder_slope},
+            {"name": "Armhole Notch", "x": half_shoulder - 0.5, "y": scye_depth * 0.65},
+            {"name": "Chest (Underarm)", "x": chest_width, "y": scye_depth},
+            {"name": "Waist Point", "x": waist_width, "y": waist_level},
+            {"name": "Hip / Slit Top", "x": hip_width, "y": hip_level},
+            {"name": "Bottom Hem", "x": bottom_flare, "y": length},
+            {"name": "Center Bottom Fold", "x": 0.0, "y": length},
+            {"name": "Front Neck Depth", "x": 0.0, "y": neck_depth_front},
+            {"name": "Center Neck Top", "x": 0.0, "y": 0.0}
+        ]
+        
+        return {
+            "garment": "Kurta / Upper Body Panel", "fit": fit, "unit": m.get('unit', 'Inches'),
+            "seam_allowance": seam_allowance,
+            "metrics": {
+                "Fabric Cut Length": length + 2.0,
+                "Chest Line Width (1/4)": round(chest_width, 2),
+                "Waist Line Width (1/4)": round(waist_width, 2),
+                "Hip / Slit Width (1/4)": round(hip_width, 2),
+                "Bottom Flare Width (1/4)": round(bottom_flare, 2),
+                "Armhole Scye Depth": round(scye_depth, 2),
+                "Shoulder Half Width": round(half_shoulder, 2),
+                "Sleeve Bicep Half": round(sleeve_bicep, 2),
+                "Sleeve Cuff Half": round(sleeve_wrist, 2)
+            },
+            "points": pts_front
         }
-    }
 
-    function handleTallyEnterNavigation(e) {
-        if (e.key !== 'Enter') return;
+    @staticmethod
+    def draft_trouser(m: dict, fit: str = "Regular Fit", seam_allowance: float = 0.5) -> dict:
+        ease = PatternDraftingEngine.FIT_EASE.get(fit, PatternDraftingEngine.FIT_EASE["Regular Fit"])
+        t_length = float(m.get('trouser_length') or 39.0)
+        waist = float(m.get('trouser_waist') or 34.0)
+        seat = float(m.get('seat_hip') or 40.0)
+        frise = float(m.get('front_rise') or 10.5)
+        thigh = float(m.get('thigh') or 24.0)
+        bottom = float(m.get('bottom_opening') or 15.0)
+        
+        crotch_depth = frise if frise > 0 else (seat / 4.0) + 1.0
+        waist_width = (waist / 4.0) + 0.75
+        hip_width = (seat / 4.0) + (ease['hip'] / 4.0)
+        crotch_extension = (seat / 16.0) + 0.25
+        thigh_width = (thigh / 2.0) + (ease['thigh'] / 2.0)
+        knee_level = (t_length / 2.0) + 2.0
+        knee_width = (thigh_width * 0.78)
+        bottom_half = (bottom / 2.0)
+        
+        pts_trouser = [
+            {"name": "Waist Side", "x": 0.0, "y": 0.0},
+            {"name": "Waist Center", "x": waist_width, "y": 0.0},
+            {"name": "Crotch Point", "x": hip_width + crotch_extension, "y": crotch_depth},
+            {"name": "Inseam Knee", "x": (knee_width / 2.0) + (hip_width / 2.0), "y": knee_level},
+            {"name": "Inseam Hem", "x": (bottom_half / 2.0) + (hip_width / 2.0), "y": t_length},
+            {"name": "Outseam Hem", "x": (hip_width / 2.0) - (bottom_half / 2.0), "y": t_length},
+            {"name": "Outseam Knee", "x": (hip_width / 2.0) - (knee_width / 2.0), "y": knee_level},
+            {"name": "Hip Level Outseam", "x": 0.0, "y": crotch_depth * 0.65}
+        ]
 
-        const doc = getRootDocument();
-        const active = doc.activeElement;
-        if (!active) return;
-
-        const isInput = active.tagName === 'INPUT' && !['button', 'submit', 'checkbox', 'radio', 'file'].includes(active.type);
-        const isTextArea = active.tagName === 'TEXTAREA';
-
-        if (isInput || isTextArea) {
-            if (isTextArea && e.shiftKey) return;
-
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-
-            active.dispatchEvent(new Event('input', { bubbles: true }));
-            active.dispatchEvent(new Event('change', { bubbles: true }));
-
-            const interactiveElements = Array.from(doc.querySelectorAll(
-                'input:not([type="hidden"]):not([disabled]):not([type="submit"]):not([type="button"]), textarea:not([disabled])'
-            )).filter(el => {
-                const style = window.getComputedStyle(el);
-                const rect = el.getBoundingClientRect();
-                return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
-            });
-
-            const currentIndex = interactiveElements.indexOf(active);
-
-            if (currentIndex > -1 && currentIndex < interactiveElements.length - 1) {
-                const nextElement = interactiveElements[currentIndex + 1];
-                nextElement.focus();
-                if (typeof nextElement.select === 'function') {
-                    nextElement.select();
-                }
-            } else if (currentIndex === interactiveElements.length - 1) {
-                const saveButtons = Array.from(doc.querySelectorAll('button')).filter(b => 
-                    b.innerText && (b.innerText.includes('Save') || b.innerText.includes('Submit') || b.innerText.includes('Proceed'))
-                );
-                if (saveButtons.length > 0) {
-                    saveButtons[0].focus();
-                    setTimeout(() => saveButtons[0].click(), 250);
-                }
-            }
+        return {
+            "garment": "Trouser / Pajama Front Panel", "fit": fit, "unit": m.get('unit', 'Inches'),
+            "seam_allowance": seam_allowance,
+            "metrics": {
+                "Total Cut Length": t_length + 2.5,
+                "Waist Band (1/4)": round(waist_width, 2),
+                "Crotch Depth Line": round(crotch_depth, 2),
+                "Total Thigh Width (Half)": round(thigh_width, 2),
+                "Knee Level Line": round(knee_level, 2),
+                "Knee Width (Half)": round(knee_width, 2),
+                "Bottom Opening (Half)": round(bottom_half, 2)
+            },
+            "points": pts_trouser
         }
-    }
 
-    function attachListener() {
-        const doc = getRootDocument();
-        doc.removeEventListener('keydown', handleTallyEnterNavigation, true);
-        doc.addEventListener('keydown', handleTallyEnterNavigation, true);
-    }
+    @staticmethod
+    def render_svg_pattern(draft: dict, width_px: int = 550, height_px: int = 800) -> str:
+        scale = 12.5
+        padding = 50
+        pts = draft["points"]
+        
+        path_d = f"M {pts[0]['x'] * scale + padding},{pts[0]['y'] * scale + padding}"
+        for pt in pts[1:]:
+            path_d += f" L {pt['x'] * scale + padding},{pt['y'] * scale + padding}"
+        path_d += " Z"
 
-    attachListener();
-    setInterval(attachListener, 1000);
-})();
-</script>
-""", height=0, width=0)
+        markers = ""
+        for pt in pts:
+            px = pt['x'] * scale + padding
+            py = pt['y'] * scale + padding
+            markers += f"""
+                <circle cx="{px}" cy="{py}" r="4" fill="#8C5E32" />
+                <text x="{px + 6}" y="{py - 4}" font-size="10" font-family="sans-serif" font-weight="bold" fill="#111827">{pt['name']} ({pt['x']:.1f}\", {pt['y']:.1f}\")</text>
+            """
+
+        return f"""
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width_px} {height_px}" style="background-color:#FDFCF7; border:2px solid #D5C8B8; border-radius:12px; width:100%; height:auto;">
+            <defs>
+                <pattern id="grid" width="25" height="25" patternUnits="userSpaceOnUse">
+                    <path d="M 25 0 L 0 0 0 25" fill="none" stroke="#EFECE6" stroke-width="1"/>
+                </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#grid)" />
+            <text x="20" y="30" font-family="'Cinzel', serif" font-size="14" font-weight="bold" fill="#2B2118">{draft['garment'].upper()} — {draft['fit'].upper()}</text>
+            <text x="20" y="45" font-family="sans-serif" font-size="10" fill="#6B7280">Calculated Seam Allowance: {draft['seam_allowance']}\" | Scale: Parametric Bespoke</text>
+            <path d="{path_d}" fill="rgba(140, 94, 50, 0.08)" stroke="#8C5E32" stroke-width="2.5" stroke-linejoin="round" />
+            {markers}
+            <line x1="{padding}" y1="{padding}" x2="{padding}" y2="{pts[7]['y'] * scale + padding if len(pts) > 7 else height_px - 50}" stroke="#DC2626" stroke-width="2" stroke-dasharray="6,4" />
+            <text x="{padding + 8}" y="{height_px / 2}" font-size="10" font-weight="bold" fill="#DC2626" transform="rotate(-90 {padding + 8} {height_px / 2})">◄ CENTER GRAIN FOLD LINE ►</text>
+        </svg>
+        """
 
 # ---------------------------------------------------------
-# BRANDING & VISUAL PALETTE SYSTEM
+# 3. A5 RECEIPT & APOCALYPSE EXCEL EXPORT ENGINE
 # ---------------------------------------------------------
+def generate_a5_receipt_html(data: dict, brand_name: str, brand_tagline: str) -> str:
+    total_amt = float(data.get('total_amount') or 0.0)
+    paid_amt = float(data.get('amount_paid') or 0.0)
+    bal_amt = total_amt - paid_amt
+
+    return f"""<!DOCTYPE html><html><head><meta charset='utf-8'>
+    <title>Receipt_{data['order_number']}</title>
+    <style>
+    @page {{ size: A5 portrait; margin: 4mm; }}
+    * {{ box-sizing: border-box; font-family: Courier New, Courier, monospace; color: #000; }}
+    @media print {{ .no-print {{ display: none !important; }} }}
+    </style>
+    </head>
+    <body style='margin:0; padding:6px; font-size:11.5px; line-height:1.25;'>
+    <button class='no-print' onclick='window.print()' style='display:block; width:100%; max-width:138mm; margin:0 auto 8px auto; background:#111827; color:#FFF; border:none; padding:8px; font-size:13px; font-weight:bold; cursor:pointer; border-radius:4px;'>PRINT RECEIPT (A5)</button>
+    <div style='width:100%; max-width:138mm; margin:0 auto; border:1.5px solid #000; padding:8px 10px;'>
+        <div style='text-align:center;'>
+            <div style='font-size:15px; font-weight:bold; letter-spacing:1px;'>{brand_name}</div>
+            <div style='font-size:9.5px; text-transform:uppercase;'>{brand_tagline}</div>
+            <div style='font-size:10.5px; font-weight:bold; margin-top:2px;'>SALES & BESPOKE MEASUREMENT SLIP</div>
+        </div>
+        <hr style='border:none; border-top:1px dashed #000; margin:5px 0;'>
+        <table style='width:100%; border-collapse:collapse; font-size:10.5px;'>
+            <tr><td><b>CLIENT:</b> {data['client_name']}</td><td style='text-align:right;'><b>DATE:</b> {str(data['created_at'])[:10]}</td></tr>
+            <tr><td><b>CLIENT ID:</b> {data['client_code']}</td><td style='text-align:right;'><b>ORDER #:</b> {data['order_number']}</td></tr>
+            <tr><td><b>PHONE:</b> {data['phone']}</td><td style='text-align:right;'><b>FIT:</b> <b>{data['fit_preference']}</b></td></tr>
+            <tr><td colspan='2'><b>GARMENT:</b> {data['garment_type']}</td></tr>
+            <tr><td colspan='2'><b>DELIVERY:</b> {data['delivery_date']}</td></tr>
+        </table>
+        <hr style='border:none; border-top:1px dashed #000; margin:5px 0;'>
+        <div style='font-weight:bold; font-size:10.5px; text-align:center; margin-bottom:3px;'>[ MEASUREMENT METRICS ({data['unit']}) ]</div>
+        <table style='width:100%; border-collapse:collapse; font-size:10px;'>
+            <tr style='background:#EEE; text-align:center;'>
+                <th colspan='2' style='border:1px solid #000; padding:2px;'>UPPER BODY (TORSO)</th>
+                <th colspan='2' style='border:1px solid #000; padding:2px;'>LOWER SIDE</th>
+            </tr>
+            <tr>
+                <td style='border:1px solid #000; padding:2px 4px;'>Length (Top)</td>
+                <td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>{data.get('full_length_jacket') or '-'}</b></td>
+                <td style='border:1px solid #000; padding:2px 4px;'>Length (Bottom)</td>
+                <td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>{data.get('trouser_length') or '-'}</b></td>
+            </tr>
+            <tr>
+                <td style='border:1px solid #000; padding:2px 4px;'>Neck</td>
+                <td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>{data.get('neck') or '-'}</b></td>
+                <td style='border:1px solid #000; padding:2px 4px;'>Waist</td>
+                <td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>{data.get('trouser_waist') or '-'}</b></td>
+            </tr>
+            <tr>
+                <td style='border:1px solid #000; padding:2px 4px;'>Shoulder</td>
+                <td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>{data.get('cross_shoulder') or '-'}</b></td>
+                <td style='border:1px solid #000; padding:2px 4px;'>Front Rise</td>
+                <td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>{data.get('front_rise') or '-'}</b></td>
+            </tr>
+            <tr>
+                <td style='border:1px solid #000; padding:2px 4px;'>Chest</td>
+                <td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>{data.get('chest_full') or '-'}</b></td>
+                <td style='border:1px solid #000; padding:2px 4px;'>Crotch Depth</td>
+                <td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>{data.get('crotch_depth') or '-'}</b></td>
+            </tr>
+            <tr>
+                <td style='border:1px solid #000; padding:2px 4px;'>Stomach</td>
+                <td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>{data.get('waist_stomach') or '-'}</b></td>
+                <td style='border:1px solid #000; padding:2px 4px;'>Seat / Hips (Contra)</td>
+                <td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>{data.get('seat_hip') or '-'}</b></td>
+            </tr>
+            <tr>
+                <td style='border:1px solid #000; padding:2px 4px;'>Hips / Seat (Torso)</td>
+                <td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>{data.get('seat_hip') or '-'}</b></td>
+                <td style='border:1px solid #000; padding:2px 4px;'>Thigh</td>
+                <td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>{data.get('thigh') or '-'}</b></td>
+            </tr>
+            <tr>
+                <td style='border:1px solid #000; padding:2px 4px;'>Armhole</td>
+                <td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>{data.get('armhole') or '-'}</b></td>
+                <td style='border:1px solid #000; padding:2px 4px;'>Bottom Opening</td>
+                <td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>{data.get('bottom_opening') or '-'}</b></td>
+            </tr>
+            <tr>
+                <td style='border:1px solid #000; padding:2px 4px;'>Sleeve</td>
+                <td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>{data.get('sleeve_length') or '-'}</b></td>
+                <td style='border:1px solid #000; padding:2px 4px; background:#FAFAFA;'>-</td>
+                <td style='border:1px solid #000; padding:2px 4px; background:#FAFAFA; text-align:center;'>-</td>
+            </tr>
+            <tr>
+                <td style='border:1px solid #000; padding:2px 4px;'>Wrist</td>
+                <td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>{data.get('wrist') or '-'}</b></td>
+                <td style='border:1px solid #000; padding:2px 4px; background:#FAFAFA;'>-</td>
+                <td style='border:1px solid #000; padding:2px 4px; background:#FAFAFA; text-align:center;'>-</td>
+            </tr>
+        </table>
+        <hr style='border:none; border-top:1px dashed #000; margin:5px 0;'>
+        <table style='width:100%; border-collapse:collapse; font-size:10.5px;'>
+            <tr><td><b>TOTAL AMOUNT:</b></td><td style='text-align:right; font-weight:bold;'>Rs. {total_amt:,.2f}</td></tr>
+            <tr><td><b>AMOUNT RECEIVED:</b></td><td style='text-align:right;'>Rs. {paid_amt:,.2f}</td></tr>
+            <tr><td style='font-weight:bold;'>BALANCE DUE:</td><td style='text-align:right; font-weight:bold; font-size:12px;'>Rs. {bal_amt:,.2f}</td></tr>
+            <tr><td><b>PAYMENT MODE:</b></td><td style='text-align:right;'>{data.get('payment_mode') or 'Cash'}</td></tr>
+            <tr><td><b>PAYMENT STAGE:</b></td><td style='text-align:right; font-weight:bold;'>{data.get('payment_status') or 'Due'}</td></tr>
+        </table>
+        <hr style='border:none; border-top:1px dashed #000; margin:5px 0;'>
+        <div style='text-align:center; font-size:9px;'>THANK YOU FOR CHOOSING {brand_name}<br>Bespoke Master Craftsmanship Guaranteed</div>
+        <br>
+        <table style='width:100%; font-size:9px;'><tr><td>CLIENT SIGN: ____________</td><td style='text-align:right;'>MASTER TAILOR: ____________</td></tr></table>
+    </div>
+    </body></html>"""
+
+def build_apocalypse_excel_buffer():
+    with get_db_connection() as conn:
+        df_master = pd.read_sql_query("""
+            SELECT 
+                o.order_number AS [Order Reference],
+                o.workflow_status AS [Workshop Stage],
+                o.garment_type AS [Garment Type],
+                o.fit_preference AS [Fit Preference],
+                o.delivery_date AS [Target Delivery Date],
+                w.name AS [Assigned Craftsman],
+                o.worker_payout_amount AS [Craftsman Payout (INR)],
+                o.worker_payment_status AS [Craftsman Payout Status],
+                o.total_amount AS [Total Price (INR)],
+                o.amount_paid AS [Amount Received (INR)],
+                (o.total_amount - o.amount_paid) AS [Balance Due (INR)],
+                o.payment_status AS [Payment Status],
+                c.client_code AS [Client ID],
+                c.full_name AS [Client Name],
+                c.phone AS [Client Phone],
+                m.full_length_jacket AS [Top Length],
+                m.trouser_length AS [Bottom Length],
+                m.neck AS [Neck],
+                m.cross_shoulder AS [Shoulder],
+                m.chest_full AS [Chest],
+                m.waist_stomach AS [Stomach],
+                m.seat_hip AS [Hips],
+                m.trouser_waist AS [Waist],
+                m.bottom_opening AS [Bottom Opening],
+                o.created_at AS [Order Date]
+            FROM orders o
+            LEFT JOIN clients c ON o.client_id = c.id
+            LEFT JOIN measurements m ON o.measurement_id = m.id
+            LEFT JOIN workers w ON o.assigned_worker_id = w.id
+            ORDER BY o.id DESC
+        """, conn)
+
+        df_clients = pd.read_sql_query("SELECT * FROM clients ORDER BY id ASC", conn)
+        df_workers = pd.read_sql_query("SELECT * FROM workers ORDER BY id ASC", conn)
+        df_rate_card = pd.read_sql_query("SELECT * FROM garment_catalog ORDER BY id ASC", conn)
+        df_measurements = pd.read_sql_query("SELECT * FROM measurements ORDER BY id ASC", conn)
+        df_orders = pd.read_sql_query("SELECT * FROM orders ORDER BY id ASC", conn)
+        df_settings = pd.read_sql_query("SELECT * FROM settings", conn)
+
+    excel_buffer = io.BytesIO()
+    with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+        df_master.to_excel(writer, sheet_name='Master_Ledger', index=False)
+        df_orders.to_excel(writer, sheet_name='Orders_Detailed', index=False)
+        df_workers.to_excel(writer, sheet_name='Workers_Directory', index=False)
+        df_rate_card.to_excel(writer, sheet_name='Garment_Price_Book', index=False)
+        df_measurements.to_excel(writer, sheet_name='Measurements_Vault', index=False)
+        df_clients.to_excel(writer, sheet_name='Clients_Directory', index=False)
+        df_settings.to_excel(writer, sheet_name='System_Settings', index=False)
+
+    return excel_buffer.getvalue()
+
+def build_tally_xml(sales_acc: str, cash_acc: str, bank_acc: str) -> str:
+    with get_db_connection() as conn:
+        orders_df = pd.read_sql_query("SELECT o.*, c.full_name AS client_name FROM orders o LEFT JOIN clients c ON o.client_id = c.id ORDER BY o.id ASC", conn)
+
+    xml = ['<ENVELOPE>', '  <HEADER><TALLYREQUEST>Import Data</TALLYREQUEST></HEADER>', '  <BODY>', '    <IMPORTDATA>', '      <REQUESTDESC><REPORTNAME>Vouchers</REPORTNAME></REQUESTDESC>', '      <REQUESTDATA>']
+    for _, ord_row in orders_df.iterrows():
+        v_date = datetime.date.today().strftime('%Y%m%d')
+        if ord_row['created_at']:
+            try: v_date = str(ord_row['created_at'])[:10].replace('-', '')
+            except Exception: pass
+        total_val, paid_val = float(ord_row.get('total_amount') or 0.0), float(ord_row.get('amount_paid') or 0.0)
+        client_party = str(ord_row.get('client_name') or 'Direct Client').replace('&', '&amp;').replace('<', '&lt;')
+        ord_ref = str(ord_row.get('order_number') or '')
+        debit_ledger = cash_acc if 'Cash' in str(ord_row.get('payment_mode') or 'Cash') else bank_acc
+
+        xml.append('        <TALLYMESSAGE xmlns:UDF="TallyUDF"><VOUCHER VCHTYPE="Sales" ACTION="Create">')
+        xml.append(f'            <DATE>{v_date}</DATE><VOUCHERTYPENAME>Sales</VOUCHERTYPENAME><VOUCHERNUMBER>{ord_ref}</VOUCHERNUMBER><PARTYLEDGERNAME>{client_party}</PARTYLEDGERNAME>')
+        xml.append(f'            <ALLLEDGERENTRIES.LIST><LEDGERNAME>{client_party}</LEDGERNAME><ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE><AMOUNT>-{total_val:.2f}</AMOUNT></ALLLEDGERENTRIES.LIST>')
+        xml.append(f'            <ALLLEDGERENTRIES.LIST><LEDGERNAME>{sales_acc}</LEDGERNAME><ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE><AMOUNT>{total_val:.2f}</AMOUNT></ALLLEDGERENTRIES.LIST>')
+        xml.append('        </VOUCHER></TALLYMESSAGE>')
+        if paid_val > 0:
+            xml.append('        <TALLYMESSAGE xmlns:UDF="TallyUDF"><VOUCHER VCHTYPE="Receipt" ACTION="Create">')
+            xml.append(f'            <DATE>{v_date}</DATE><VOUCHERTYPENAME>Receipt</VOUCHERTYPENAME><VOUCHERNUMBER>RCT-{ord_ref}</VOUCHERNUMBER><PARTYLEDGERNAME>{client_party}</PARTYLEDGERNAME>')
+            xml.append(f'            <ALLLEDGERENTRIES.LIST><LEDGERNAME>{debit_ledger}</LEDGERNAME><ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE><AMOUNT>-{paid_val:.2f}</AMOUNT></ALLLEDGERENTRIES.LIST>')
+            xml.append(f'            <ALLLEDGERENTRIES.LIST><LEDGERNAME>{client_party}</LEDGERNAME><ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE><AMOUNT>{paid_val:.2f}</AMOUNT></ALLLEDGERENTRIES.LIST>')
+            xml.append('        </VOUCHER></TALLYMESSAGE>')
+    xml.extend(['      </REQUESTDATA>', '    </IMPORTDATA>', '  </BODY>', '</ENVELOPE>'])
+    return "\n".join(xml)
+
+# ---------------------------------------------------------
+# 4. STREAMLIT APP ENGINE & UI STYLING
+# ---------------------------------------------------------
+st.set_page_config(
+    page_title="Studio Management Suite",
+    page_icon="✂️",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+init_enterprise_schema()
+
 BRAND_NAME = get_setting("brand_name", "BAMNIYA STUDIO")
 BRAND_TAGLINE = get_setting("brand_tagline", "Bespoke Master Tailoring & Haute Couture")
 CURRENT_THEME = get_setting("theme_palette", "Linen Warm Cream")
 
 COLOR_PALETTES = {
     "Linen Warm Cream": {
-        "bg": "#FAF7F2", "text": "#1E1A16", "btn_bg": "#2B241F", "btn_text": "#FDFCF7",
-        "btn_hover": "#473C34", "btn_hover_text": "#FFFFFF", "accent_banner": "#EDE3D4",
-        "accent_banner_text": "#1F1A17", "border": "#D8CABE", "card_bg": "#FFFFFF",
-        "brand_accent": "#8C6D4F", "sidebar_bg": "#24201D"
+        "bg": "#F8F5EE", "text": "#1A1612", "card_bg": "#FFFFFF", "border": "#A89885",
+        "input_border": "#8C7B68", "focus_border": "#2B2118", "input_bg": "#FFFFFF",
+        "btn_bg": "#2B2118", "btn_hover": "#453628", "accent_banner": "#EADBCE",
+        "accent_banner_text": "#1A1612", "brand_accent": "#8C5E32", "sidebar_bg": "#1E1813"
     },
     "Ivory Royal Navy": {
-        "bg": "#F5F8FA", "text": "#0B1526", "btn_bg": "#0E294B", "btn_text": "#E8F1FC",
-        "btn_hover": "#1B447A", "btn_hover_text": "#FFFFFF", "accent_banner": "#DCE8F5",
-        "accent_banner_text": "#0A1D36", "border": "#B9D0E8", "card_bg": "#FFFFFF",
-        "brand_accent": "#1A528C", "sidebar_bg": "#0B182B"
+        "bg": "#F4F7FB", "text": "#0B1526", "card_bg": "#FFFFFF", "border": "#9DB7D5",
+        "input_border": "#5B84B1", "focus_border": "#0B2545", "input_bg": "#FFFFFF",
+        "btn_bg": "#0B2545", "btn_hover": "#133D6E", "accent_banner": "#D9E6F5",
+        "accent_banner_text": "#0B1526", "brand_accent": "#134B8A", "sidebar_bg": "#07172B"
     },
     "Soft Sage Atelier": {
-        "bg": "#F4F7F4", "text": "#112419", "btn_bg": "#1C3B2B", "btn_text": "#EBF5EF",
-        "btn_hover": "#2C5942", "btn_hover_text": "#FFFFFF", "accent_banner": "#DCECE1",
-        "accent_banner_text": "#10261A", "border": "#BED8C7", "card_bg": "#FFFFFF",
-        "brand_accent": "#2F6B4A", "sidebar_bg": "#13271C"
-    },
-    "Nordic Cloud Slate": {
-        "bg": "#F8FAFC", "text": "#0F172A", "btn_bg": "#1E293B", "btn_text": "#F1F5F9",
-        "btn_hover": "#334155", "btn_hover_text": "#FFFFFF", "accent_banner": "#E2E8F0",
-        "accent_banner_text": "#0F172A", "border": "#CBD5E1", "card_bg": "#FFFFFF",
-        "brand_accent": "#475569", "sidebar_bg": "#0F172A"
-    },
-    "Sandstone & Amber": {
-        "bg": "#FDFBF7", "text": "#241A10", "btn_bg": "#78350F", "btn_text": "#FEF3C7",
-        "btn_hover": "#9A3412", "btn_hover_text": "#FFFFFF", "accent_banner": "#FEF3C7",
-        "accent_banner_text": "#78350F", "border": "#E7D5BC", "card_bg": "#FFFFFF",
-        "brand_accent": "#B45309", "sidebar_bg": "#29180C"
+        "bg": "#F3F7F4", "text": "#102318", "card_bg": "#FFFFFF", "border": "#92B8A0",
+        "input_border": "#5A8B6B", "focus_border": "#173B25", "input_bg": "#FFFFFF",
+        "btn_bg": "#173B25", "btn_hover": "#245738", "accent_banner": "#D8EADB",
+        "accent_banner_text": "#102318", "brand_accent": "#2B6B44", "sidebar_bg": "#0D2115"
     }
 }
-
 active_pal = COLOR_PALETTES.get(CURRENT_THEME, COLOR_PALETTES["Linen Warm Cream"])
 
 st.markdown(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
 
-    .stApp {{
-        background-color: {active_pal['bg']} !important;
-        color: {active_pal['text']} !important;
-        font-family: 'Plus Jakarta Sans', sans-serif !important;
-    }}
+    .stApp {{ background-color: {active_pal['bg']} !important; color: {active_pal['text']} !important; font-family: 'Plus Jakarta Sans', sans-serif !important; }}
+    .stApp p, .stApp span, .stApp label, .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stMarkdown p {{ color: {active_pal['text']} !important; }}
+    label[data-testid="stWidgetLabel"] p, label[data-testid="stWidgetLabel"] span {{ color: #111827 !important; font-weight: 800 !important; font-size: 0.95rem !important; }}
 
-    .stApp > header, .main .block-container p, .main .block-container span, 
-    .main .block-container label, .main .block-container h1, .main .block-container h2, 
-    .main .block-container h3, .main .block-container h4, .main .block-container h5, 
-    .main .block-container h6 {{
-        color: {active_pal['text']};
-        font-family: 'Plus Jakarta Sans', sans-serif !important;
-    }}
-
-    label[data-testid="stWidgetLabel"] p {{
-        color: {active_pal['text']} !important;
-        font-weight: 800 !important;
-        font-size: 1.05rem !important;
-    }}
-
-    div[data-baseweb="select"], div[data-baseweb="input"], div[data-baseweb="base-input"] {{
-        background-color: {active_pal['card_bg']} !important;
-        border: 1.5px solid {active_pal['border']} !important;
+    div[data-baseweb="input"], div[data-baseweb="base-input"], div[data-baseweb="textarea"],
+    div[data-testid="stTextInput"] > div > div, div[data-testid="stNumberInput"] > div > div,
+    div[data-testid="stTextArea"] > div > div, div[data-testid="stDateInput"] > div > div,
+    div[data-baseweb="select"] > div {{
+        background-color: #FFFFFF !important;
+        border: 2px solid {active_pal['input_border']} !important;
         border-radius: 10px !important;
     }}
-    div[data-baseweb="select"] *, div[data-baseweb="input"] * {{
-        background-color: transparent !important;
-        color: {active_pal['text']} !important;
-        font-weight: 700 !important;
+    div[data-baseweb="input"]:focus-within, div[data-baseweb="base-input"]:focus-within,
+    div[data-baseweb="textarea"]:focus-within, div[data-testid="stTextInput"] > div > div:focus-within,
+    div[data-testid="stNumberInput"] > div > div:focus-within, div[data-testid="stTextArea"] > div > div:focus-within,
+    div[data-testid="stDateInput"] > div > div:focus-within, div[data-baseweb="select"] > div:focus-within {{
+        border: 2px solid {active_pal['focus_border']} !important;
+        box-shadow: 0 0 0 2px rgba(0,0,0,0.15) !important;
     }}
 
-    div[data-baseweb="popover"], div[data-baseweb="popover"] > div, ul[data-baseweb="menu"], div[data-baseweb="calendar"] {{
+    input, textarea, select,
+    .stTextInput input, .stNumberInput input, .stTextArea textarea, .stDateInput input,
+    div[data-baseweb="input"] input, div[data-baseweb="base-input"] input, div[data-baseweb="textarea"] textarea {{
+        color: #000000 !important;
+        -webkit-text-fill-color: #000000 !important;
         background-color: #FFFFFF !important;
-        border: 1.5px solid {active_pal['border']} !important;
-    }}
-    ul[data-baseweb="menu"] li {{
-        background-color: #FFFFFF !important;
-        color: {active_pal['text']} !important;
-    }}
-    ul[data-baseweb="menu"] li:hover {{
-        background-color: {active_pal['accent_banner']} !important;
-        color: {active_pal['accent_banner_text']} !important;
-    }}
-
-    .stTextInput input, .stNumberInput input, .stTextArea textarea, .stDateInput input {{
-        background-color: {active_pal['card_bg']} !important;
-        color: {active_pal['text']} !important;
+        font-size: 1rem !important;
         font-weight: 700 !important;
-        border-radius: 10px !important;
-        border: 1.5px solid {active_pal['border']} !important;
+        opacity: 1 !important;
     }}
 
-    .stButton>button {{
-        background-color: {active_pal['btn_bg']} !important;
-        border: 1.5px solid {active_pal['btn_bg']} !important;
-        border-radius: 14px !important;
-        min-height: 3.5rem !important;
-        font-size: 1.05rem !important;
-        font-weight: 800 !important;
-        margin-bottom: 0.3rem !important;
-        transition: all 0.2s ease-in-out !important;
-    }}
-    
-    .stButton>button * {{
-        color: {active_pal['btn_text']} !important;
-        fill: {active_pal['btn_text']} !important;
+    ::placeholder, input::placeholder, textarea::placeholder {{
+        color: #6B7280 !important;
+        -webkit-text-fill-color: #6B7280 !important;
+        font-weight: 500 !important;
     }}
 
-    .stButton>button:hover {{
-        background-color: {active_pal['btn_hover']} !important;
-        border-color: {active_pal['btn_hover']} !important;
-        transform: translateY(-2px) !important;
-    }}
+    div[data-baseweb="select"] span, div[data-baseweb="select"] div {{ color: #000000 !important; font-weight: 700 !important; }}
 
-    .stButton>button:hover * {{
-        color: {active_pal['btn_hover_text']} !important;
-        fill: {active_pal['btn_hover_text']} !important;
+    .stButton > button {{
+        background-color: {active_pal['btn_bg']} !important; border: 2px solid {active_pal['btn_bg']} !important;
+        border-radius: 12px !important; min-height: 3.2rem !important; font-weight: 800 !important; font-size: 1rem !important;
     }}
-
-    .section-title-btn {{
-        background: {active_pal['accent_banner']};
-        color: {active_pal['accent_banner_text']} !important;
-        border: 2px solid {active_pal['border']};
-        padding: 0.5rem 1.2rem;
-        border-radius: 10px;
-        font-size: 1.15rem;
-        font-weight: 800;
-        display: inline-block;
-        margin: 0.8rem 0;
-    }}
-
-    div[data-testid="stMetric"] {{
-        background: {active_pal['card_bg']} !important;
-        border: 2px solid {active_pal['border']} !important;
-        padding: 1rem !important;
-        border-radius: 14px !important;
-    }}
-    div[data-testid="stMetric"] div[data-testid="stMetricValue"] {{
-        color: {active_pal['text']} !important;
-        font-weight: 800 !important;
-    }}
-
-    section[data-testid="stSidebar"] {{
-        background-color: {active_pal['sidebar_bg']} !important;
-        border-right: 2px solid {active_pal['border']} !important;
-    }}
-    section[data-testid="stSidebar"] * {{
-        color: #FDFCFA !important;
-    }}
-    section[data-testid="stSidebar"] .stButton>button {{
-        background-color: rgba(255, 255, 255, 0.1) !important;
-        border: 1.5px solid rgba(255, 255, 255, 0.25) !important;
-        min-height: 3rem !important;
-    }}
-    section[data-testid="stSidebar"] .stButton>button * {{
-        color: #FFFFFF !important;
-    }}
-    section[data-testid="stSidebar"] .stButton>button:hover {{
-        background-color: rgba(255, 255, 255, 0.22) !important;
-        border-color: #FFFFFF !important;
-    }}
-
-    .brand-title {{
-        font-family: 'Cinzel', serif !important;
-        font-size: 2.8rem;
-        font-weight: 800;
-        color: {active_pal['text']} !important;
-        text-align: center;
-        margin-bottom: 0.1rem;
-    }}
-    .brand-tagline {{
-        text-align: center;
-        color: {active_pal['brand_accent']} !important;
-        font-size: 0.95rem;
-        letter-spacing: 2px;
-        text-transform: uppercase;
-        margin-bottom: 1.2rem;
-        font-weight: 700;
-    }}
-
-    .order-card {{
-        background: {active_pal['card_bg']};
-        border: 1.5px solid {active_pal['border']};
-        border-radius: 12px;
-        padding: 1.2rem;
-        margin-bottom: 1rem;
-    }}
+    .stButton > button p, .stButton > button span, .stButton > button div {{ color: #FFFFFF !important; -webkit-text-fill-color: #FFFFFF !important; font-weight: 800 !important; }}
+    .stButton > button:hover {{ background-color: {active_pal['btn_hover']} !important; border-color: {active_pal['btn_hover']} !important; transform: translateY(-2px) !important; }}
+    .section-title-btn {{ background: {active_pal['accent_banner']} !important; color: {active_pal['accent_banner_text']} !important; border: 2px solid {active_pal['border']} !important; padding: 0.5rem 1.2rem; border-radius: 10px; font-size: 1.15rem; font-weight: 800; display: inline-block; margin: 0.8rem 0; }}
+    div[data-testid="stMetric"] {{ background: {active_pal['card_bg']} !important; border: 2px solid {active_pal['border']} !important; padding: 1rem !important; border-radius: 14px !important; }}
+    section[data-testid="stSidebar"] {{ background-color: {active_pal['sidebar_bg']} !important; border-right: 2px solid {active_pal['border']} !important; }}
+    section[data-testid="stSidebar"] p, section[data-testid="stSidebar"] span, section[data-testid="stSidebar"] h1, section[data-testid="stSidebar"] h2, section[data-testid="stSidebar"] h3 {{ color: #FFFFFF !important; }}
+    section[data-testid="stSidebar"] .stButton > button {{ background-color: rgba(255, 255, 255, 0.12) !important; border: 1px solid rgba(255, 255, 255, 0.25) !important; min-height: 2.8rem !important; }}
+    section[data-testid="stSidebar"] .stButton > button p {{ color: #FFFFFF !important; -webkit-text-fill-color: #FFFFFF !important; }}
+    .brand-title {{ font-family: 'Cinzel', serif !important; font-size: 2.8rem; font-weight: 800; text-align: center; color: {active_pal['text']} !important; margin-bottom: 0.1rem; }}
+    .brand-tagline {{ text-align: center; color: {active_pal['brand_accent']} !important; font-size: 0.95rem; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 1.2rem; font-weight: 700; }}
+    .order-card {{ background: #FFFFFF !important; border: 1.5px solid {active_pal['border']} !important; border-radius: 12px; padding: 1.2rem; margin-bottom: 1rem; }}
+    .order-card * {{ color: {active_pal['text']} !important; }}
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------------------------------------------------
-# STATE ROUTING
-# ---------------------------------------------------------
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
-if "is_admin" not in st.session_state:
-    st.session_state.is_admin = False
-if "username" not in st.session_state:
-    st.session_state.username = ""
-if "page" not in st.session_state:
-    st.session_state.page = "Dashboard"
-if "active_client_id" not in st.session_state:
-    st.session_state.active_client_id = None
-if "active_order_no" not in st.session_state:
-    st.session_state.active_order_no = None
-if "delete_target_order" not in st.session_state:
-    st.session_state.delete_target_order = None
-if "delete_target_client" not in st.session_state:
-    st.session_state.delete_target_client = None
+# Tally Sequential Stepper Engine (JS)
+st.components.v1.html("""
+<script>
+(function() {
+    function getRootDocument() { try { return window.parent.document || window.document; } catch (e) { return window.document; } }
+    function handleTallyEnter(e) {
+        if (e.key !== 'Enter') return;
+        const doc = getRootDocument();
+        const active = doc.activeElement;
+        if (!active) return;
+        const isInput = active.tagName === 'INPUT' && !['button', 'submit', 'checkbox', 'radio', 'file'].includes(active.type);
+        const isTextArea = active.tagName === 'TEXTAREA';
+        if (isInput || isTextArea) {
+            if (isTextArea && e.shiftKey) return;
+            e.preventDefault(); e.stopPropagation();
+            active.dispatchEvent(new Event('input', { bubbles: true }));
+            active.dispatchEvent(new Event('change', { bubbles: true }));
+            const elements = Array.from(doc.querySelectorAll('input:not([type="hidden"]):not([disabled]):not([type="submit"]):not([type="button"]), textarea:not([disabled])')).filter(el => {
+                const style = window.getComputedStyle(el);
+                const rect = el.getBoundingClientRect();
+                return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
+            });
+            const idx = elements.indexOf(active);
+            if (idx > -1 && idx < elements.length - 1) {
+                elements[idx + 1].focus();
+                if (typeof elements[idx + 1].select === 'function') elements[idx + 1].select();
+            } else if (idx === elements.length - 1) {
+                const saveBtns = Array.from(doc.querySelectorAll('button')).filter(b => b.innerText && (b.innerText.includes('Save') || b.innerText.includes('Submit') || b.innerText.includes('Proceed')));
+                if (saveBtns.length > 0) { saveBtns[0].focus(); setTimeout(() => saveBtns[0].click(), 250); }
+            }
+        }
+    }
+    const doc = getRootDocument();
+    doc.removeEventListener('keydown', handleTallyEnter, true);
+    doc.addEventListener('keydown', handleTallyEnter, true);
+})();
+</script>
+""", height=0, width=0)
+
+# Session State Routing
+if "authenticated" not in st.session_state: st.session_state.authenticated = False
+if "is_admin" not in st.session_state: st.session_state.is_admin = False
+if "username" not in st.session_state: st.session_state.username = ""
+if "page" not in st.session_state: st.session_state.page = "Dashboard"
+if "active_client_id" not in st.session_state: st.session_state.active_client_id = None
+if "active_order_no" not in st.session_state: st.session_state.active_order_no = None
+if "selected_garment_type" not in st.session_state: st.session_state.selected_garment_type = None
 
 def navigate(page_name):
     st.session_state.page = page_name
 
 # ---------------------------------------------------------
-# AUTHENTICATION
+# AUTHENTICATION GATEWAY
 # ---------------------------------------------------------
 if not st.session_state.authenticated:
     st.markdown(f"<div class='brand-title'>{BRAND_NAME}</div>", unsafe_allow_html=True)
     st.markdown(f"<div class='brand-tagline'>{BRAND_TAGLINE}</div>", unsafe_allow_html=True)
-    
     col_center = st.columns([1, 1.8, 1])[1]
     with col_center:
         auth_tab = st.radio("Portal Access", ["Sign In", "Forgot Password / Reset", "Create Tailor Account"], horizontal=True)
-        
         current_admin_key = get_setting("admin_master_key", "ADMIN176920")
         current_tailor_key = get_setting("tailor_master_key", "176920")
         saved_phone = get_setting("admin_recovery_phone", "")
@@ -464,1165 +737,721 @@ if not st.session_state.authenticated:
                 st.subheader("Studio Sign In")
                 u_name = st.text_input("Username / Master Key", type="password")
                 p_word = st.text_input("Password", type="password")
-                btn_login = st.form_submit_button("Sign In to Studio Hub", use_container_width=True)
-                if btn_login:
-                    entered_code = u_name.strip() or p_word.strip()
-                    
-                    if entered_code == current_admin_key:
-                        st.session_state.authenticated = True
-                        st.session_state.is_admin = True
-                        st.session_state.username = "Administrator"
-                        st.session_state.page = "Dashboard"
-                        st.rerun()
-                    elif entered_code == current_tailor_key:
-                        st.session_state.authenticated = True
-                        st.session_state.is_admin = False
-                        st.session_state.username = f"Master Tailor ({BRAND_NAME})"
-                        st.session_state.page = "Dashboard"
-                        st.rerun()
-                    elif u_name and p_word:
-                        with get_db() as conn:
-                            user = conn.cursor().execute(
-                                "SELECT * FROM users WHERE username = ? AND password_hash = ?", 
-                                (u_name.strip(), hash_pw(p_word))
-                            ).fetchone()
-                            if user:
-                                st.session_state.authenticated = True
-                                st.session_state.is_admin = False
-                                st.session_state.username = u_name.strip()
-                                st.session_state.page = "Dashboard"
-                                st.rerun()
-                            else:
-                                st.error("Invalid credentials.")
+                if st.form_submit_button("Sign In to Studio Hub", use_container_width=True):
+                    code = u_name.strip() or p_word.strip()
+                    if code == current_admin_key:
+                        st.session_state.authenticated, st.session_state.is_admin, st.session_state.username = True, True, "Administrator"
+                        navigate("Dashboard"); st.rerun()
+                    elif code == current_tailor_key:
+                        st.session_state.authenticated, st.session_state.is_admin, st.session_state.username = True, False, f"Staff Master ({BRAND_NAME})"
+                        navigate("Dashboard"); st.rerun()
+                    elif u_name and p_word and verify_user(u_name, p_word):
+                        st.session_state.authenticated, st.session_state.is_admin, st.session_state.username = True, False, u_name.strip()
+                        navigate("Dashboard"); st.rerun()
                     else:
-                        st.error("Please enter credentials")
-                        
+                        st.error("Invalid credentials.")
         elif auth_tab == "Forgot Password / Reset":
             st.subheader("Reset Admin Master Password")
             if not saved_phone:
-                st.warning("No recovery phone number has been configured yet in the Admin Panel.")
+                st.warning("No recovery phone number configured in Admin Panel.")
             else:
-                with st.form("reset_password_form"):
-                    verify_phone = st.text_input("Enter Registered Admin Phone Number")
-                    new_admin_pwd = st.text_input("Enter New Admin Master Password", type="password")
-                    confirm_pwd = st.text_input("Confirm New Admin Master Password", type="password")
-                    btn_reset = st.form_submit_button("Reset Password", use_container_width=True)
-                    
-                    if btn_reset:
-                        clean_input_phone = "".join(filter(str.isdigit, verify_phone))
-                        clean_saved_phone = "".join(filter(str.isdigit, saved_phone))
-                        
-                        if clean_input_phone and clean_input_phone == clean_saved_phone:
-                            if new_admin_pwd and new_admin_pwd == confirm_pwd:
-                                set_setting("admin_master_key", new_admin_pwd.strip())
-                                st.success("Admin Master Password has been reset! You can now Sign In.")
-                            else:
-                                st.error("Passwords do not match or cannot be empty.")
+                with st.form("reset_pwd_form"):
+                    verify_p = st.text_input("Registered Admin Phone Number")
+                    new_p = st.text_input("New Admin Password", type="password")
+                    conf_p = st.text_input("Confirm New Password", type="password")
+                    if st.form_submit_button("Reset Password", use_container_width=True):
+                        if "".join(filter(str.isdigit, verify_p)) == "".join(filter(str.isdigit, saved_phone)) and new_p and new_p == conf_p:
+                            set_setting("admin_master_key", new_p.strip())
+                            st.success("Admin Master Password updated!")
                         else:
-                            st.error("Phone number verification failed. Please enter the exact registered number.")
+                            st.error("Phone verification failed.")
         else:
             with st.form("signup_form"):
-                st.subheader("New Tailor Registration")
-                new_user = st.text_input("Choose Username*")
-                new_pass = st.text_input("Create Password*", type="password")
-                btn_signup = st.form_submit_button("Register Account", use_container_width=True)
-                if btn_signup and new_user and new_pass:
+                st.subheader("New Staff Registration")
+                nu, np = st.text_input("Choose Username*"), st.text_input("Create Password*", type="password")
+                if st.form_submit_button("Register Account", use_container_width=True) and nu and np:
                     try:
-                        with get_db() as conn:
-                            conn.cursor().execute(
-                                "INSERT INTO users (username, password_hash) VALUES (?, ?)",
-                                (new_user.strip(), hash_pw(new_pass))
-                            )
-                            conn.commit()
-                        st.success("Account created! You can now sign in.")
+                        register_user(nu, np)
+                        st.success("Account created successfully!")
                     except sqlite3.IntegrityError:
-                        st.error("Username already registered.")
+                        st.error("Username already exists.")
     st.stop()
 
 # ---------------------------------------------------------
-# SIDEBAR NAVIGATION
+# SIDEBAR
 # ---------------------------------------------------------
 st.sidebar.markdown(f"## ✂️ **{BRAND_NAME}**")
 st.sidebar.caption(f"Operator: **{st.session_state.username}**")
 st.sidebar.markdown("---")
-st.sidebar.markdown("### Studio Menu")
-
-if st.sidebar.button("Main Hub (Home)", use_container_width=True):
-    navigate("Dashboard")
-    st.rerun()
-
-if st.sidebar.button("1. Register Client", use_container_width=True):
-    navigate("New Client")
-    st.rerun()
-
-if st.sidebar.button("2. Record Measurements", use_container_width=True):
-    navigate("New Measurement")
-    st.rerun()
-
-if st.sidebar.button("3. New Order", use_container_width=True):
-    navigate("New Order")
-    st.rerun()
-
-if st.sidebar.button("4. Print Receipt", use_container_width=True):
-    navigate("Print Slip")
-    st.rerun()
-
-if st.sidebar.button("5. Order Tracking", use_container_width=True):
-    navigate("Order Tracking")
-    st.rerun()
-
-if st.sidebar.button("6. Order Status & Sales", use_container_width=True):
-    navigate("Order Status")
-    st.rerun()
-
-if st.sidebar.button("7. Database", use_container_width=True):
-    navigate("Client Records")
-    st.rerun()
+sidebar_links = [
+    ("Main Hub (Home)", "Dashboard"),
+    ("1. Register Client", "New Client"),
+    ("2. Record Measurements", "New Measurement"),
+    ("3. New Order & Allotment", "New Order"),
+    ("4. Print Receipt", "Print Slip"),
+    ("5. Workshop & Allotment", "Order Tracking"),
+    ("6. Craftsmen & Payroll", "Workers"),
+    ("7. ✂️ Pattern Studio", "Pattern Studio"),
+    ("8. Order Status & Sales", "Order Status"),
+    ("9. Client Database", "Client Records")
+]
+for label, p_target in sidebar_links:
+    if st.sidebar.button(label, use_container_width=True):
+        navigate(p_target)
+        st.rerun()
 
 if st.session_state.is_admin:
-    if st.sidebar.button("Admin Control Panel", use_container_width=True):
+    if st.sidebar.button("Admin Control & Price Book", use_container_width=True):
         navigate("Admin Settings")
         st.rerun()
 
 st.sidebar.markdown("---")
 if st.sidebar.button("Logout", use_container_width=True):
     st.session_state.authenticated = False
-    st.session_state.is_admin = False
-    st.session_state.username = ""
-    st.session_state.active_client_id = None
-    st.session_state.active_order_no = None
-    st.session_state.page = "Dashboard"
     st.rerun()
 
-
 # ---------------------------------------------------------
-# LANDING PAGE: MAIN HUB
+# 0. MAIN HUB
 # ---------------------------------------------------------
 if st.session_state.page == "Dashboard":
     st.markdown(f"<div class='brand-title'>{BRAND_NAME}</div>", unsafe_allow_html=True)
     st.markdown(f"<div class='brand-tagline'>{BRAND_TAGLINE}</div>", unsafe_allow_html=True)
-    
-    with get_db() as conn:
+    with get_db_connection() as conn:
         total_clients = conn.cursor().execute("SELECT COUNT(*) FROM clients").fetchone()[0]
         active_orders = conn.cursor().execute("SELECT COUNT(*) FROM orders WHERE workflow_status != 'Delivered'").fetchone()[0]
-        unpaid_count = conn.cursor().execute("SELECT COUNT(*) FROM orders WHERE payment_status IN ('Due', 'Advance Paid', 'Half Paid')").fetchone()[0]
+        total_workers = conn.cursor().execute("SELECT COUNT(*) FROM workers WHERE status = 'Active'").fetchone()[0]
+        pending_payroll = conn.cursor().execute("SELECT COALESCE(SUM(worker_payout_amount), 0) FROM orders WHERE worker_payment_status = 'Pending' AND assigned_worker_id IS NOT NULL").fetchone()[0]
 
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Client Profiles", f"{total_clients}")
-    c2.metric("In Production", f"{active_orders}")
-    c3.metric("Payments Due", f"{unpaid_count}")
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Clients", f"{total_clients}")
+    c2.metric("In Workshop", f"{active_orders}")
+    c3.metric("Active Craftsmen", f"{total_workers}")
+    c4.metric("Pending Piece Payroll", f"₹{pending_payroll:,.0f}")
     
     st.markdown("<div class='section-title-btn'>Studio Action Centre</div>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("Register New Client", key="btn_hub_client", use_container_width=True):
-            navigate("New Client")
-            st.rerun()
-        if st.button("Record Client Measurements", key="btn_hub_measure", use_container_width=True):
-            navigate("New Measurement")
-            st.rerun()
-        if st.button("Create New Garment Order", key="btn_hub_new_order", use_container_width=True):
-            navigate("New Order")
-            st.rerun()
-
+        if st.button("Register New Client", key="hub_btn_client", use_container_width=True): navigate("New Client"); st.rerun()
+        if st.button("Record Measurements", key="hub_btn_meas", use_container_width=True): navigate("New Measurement"); st.rerun()
+        if st.button("Create Order & Allot Work", key="hub_btn_order", use_container_width=True): navigate("New Order"); st.rerun()
     with col2:
-        if st.button("Order Tracking (Workshop)", key="btn_hub_track_orders", use_container_width=True):
-            navigate("Order Tracking")
-            st.rerun()
-        if st.button("Order Status & Financials", key="btn_hub_status_orders", use_container_width=True):
-            navigate("Order Status")
-            st.rerun()
-        if st.button("Print Order Receipt Slip", key="btn_hub_print_slip", use_container_width=True):
-            navigate("Print Slip")
-            st.rerun()
-        if st.button("Client Database", key="btn_hub_records", use_container_width=True):
-            navigate("Client Records")
-            st.rerun()
-
+        if st.button("Workshop Allotments & Tracking", key="hub_btn_track", use_container_width=True): navigate("Order Tracking"); st.rerun()
+        if st.button("Craftsmen Ledger & Daily Tasks", key="hub_btn_workers", use_container_width=True): navigate("Workers"); st.rerun()
+        if st.button("✂️ Master Pattern Studio", key="hub_btn_pat", use_container_width=True): navigate("Pattern Studio"); st.rerun()
 
 # ---------------------------------------------------------
 # 1. REGISTER CLIENT
 # ---------------------------------------------------------
 elif st.session_state.page == "New Client":
     st.markdown("<div class='section-title-btn'>Step 1: Register Client Profile</div>", unsafe_allow_html=True)
-    if st.button("← Back to Main Hub", key="btn_back_client"):
-        navigate("Dashboard")
-        st.rerun()
-        
-    with get_db() as conn:
-        cur = conn.cursor()
-        cur.execute("SELECT client_code FROM clients")
-        rows = cur.fetchall()
-        highest_num = 0
-        for r in rows:
-            code_str = str(r[0]).strip() if r[0] else ""
-            if code_str.isdigit():
-                val = int(code_str)
-                if val > highest_num:
-                    highest_num = val
-        next_num = highest_num + 1
-        default_client_code = f"{next_num:03d}"
-        
+    if st.button("← Back to Main Hub", key="back_client"): navigate("Dashboard"); st.rerun()
+    with get_db_connection() as conn:
+        rows = conn.cursor().execute("SELECT client_code FROM clients").fetchall()
+        highest = max([int(r[0]) for r in rows if str(r[0]).isdigit()] or [0])
+        default_code = f"{highest + 1:03d}"
     c1, c2 = st.columns(2)
     with c1:
-        client_code = st.text_input("Client ID *", value=default_client_code)
-        full_name = st.text_input("Full Name *")
-        phone = st.text_input("Contact Number *")
-        email = st.text_input("Email (Optional)")
+        ccode = st.text_input("Client ID *", value=default_code)
+        cname = st.text_input("Full Name *")
+        cphone = st.text_input("Contact Number *")
+        cemail = st.text_input("Email (Optional)")
     with c2:
-        posture_notes = st.text_area("Posture Observations", placeholder="e.g., Erect stance, forward sloping shoulders...")
-        asymmetry_notes = st.text_area("Asymmetry Notes", placeholder="e.g., Right shoulder 0.5 in lower...")
-    
-    submitted = st.button("Save & Proceed to Measurements →", use_container_width=True)
-    if submitted and client_code and full_name and phone:
+        posture = st.text_area("Posture Observations", placeholder="e.g., Erect stance, sloping shoulders...")
+        asymmetry = st.text_area("Asymmetry Notes", placeholder="e.g., Right shoulder 0.5 in lower...")
+    if st.button("Save & Proceed to Measurements →", use_container_width=True) and ccode and cname and cphone:
         try:
-            with get_db() as conn:
+            with get_db_connection() as conn:
                 cur = conn.cursor()
-                cur.execute("""
-                INSERT INTO clients (client_code, full_name, phone, email, posture_notes, asymmetry_notes)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """, (client_code.strip(), full_name.strip(), phone.strip(), email.strip(), posture_notes, asymmetry_notes))
+                cur.execute("INSERT INTO clients (client_code, full_name, phone, email, posture_notes, asymmetry_notes) VALUES (?, ?, ?, ?, ?, ?)",
+                            (ccode.strip(), cname.strip(), cphone.strip(), cemail.strip(), posture, asymmetry))
                 new_id = cur.lastrowid
                 conn.commit()
             st.session_state.active_client_id = new_id
-            st.success(f"Client '{full_name}' saved to local storage! Redirecting...")
-            navigate("New Measurement")
-            st.rerun()
+            st.success(f"Client '{cname}' registered!")
+            navigate("New Measurement"); st.rerun()
         except sqlite3.IntegrityError:
-            st.error("Client ID or Phone already exists. Please choose a different ID.")
-
+            st.error("Client ID or Phone already exists.")
 
 # ---------------------------------------------------------
-# 2. RECORD MEASUREMENTS (SEAMLESS TALLY STEPPER)
+# 2. MEASUREMENTS (DYNAMIC GARMENT REMEMBERING & CONTRA HIPS)
 # ---------------------------------------------------------
 elif st.session_state.page == "New Measurement":
     st.markdown("<div class='section-title-btn'>Step 2: Record Client Measurements</div>", unsafe_allow_html=True)
-    if st.button("← Back to Main Hub", key="btn_back_measure"):
-        navigate("Dashboard")
-        st.rerun()
-        
-    with get_db() as conn:
+    if st.button("← Back to Main Hub", key="back_meas"): navigate("Dashboard"); st.rerun()
+    with get_db_connection() as conn:
         clients = conn.cursor().execute("SELECT id, client_code, full_name FROM clients ORDER BY id DESC").fetchall()
-    
+        catalog_rows = conn.cursor().execute("SELECT garment_name FROM garment_catalog ORDER BY id ASC").fetchall()
+        garment_opts = [r['garment_name'] for r in catalog_rows] or ["Kurta saya", "Shirt", "Trousers", "Two-Piece Suit"]
+
     if not clients:
-        st.warning("Register a client first before taking measurements.")
+        st.warning("Please register a client first.")
     else:
-        client_dict = {f"{c['client_code']} — {c['full_name']}": c['id'] for c in clients}
+        cdict = {f"{c['client_code']} — {c['full_name']}": c['id'] for c in clients}
+        d_idx = list(cdict.values()).index(st.session_state.active_client_id) if st.session_state.active_client_id in cdict.values() else 0
+        sel_c_label = st.selectbox("Client Selection", list(cdict.keys()), index=d_idx)
+        sel_c_id = cdict[sel_c_label]
+        st.session_state.active_client_id = sel_c_id
         
-        default_idx = 0
-        if st.session_state.active_client_id:
-            for idx, cid in enumerate(client_dict.values()):
-                if cid == st.session_state.active_client_id:
-                    default_idx = idx
-                    break
+        with get_db_connection() as conn:
+            prev_m = conn.cursor().execute("SELECT * FROM measurements WHERE client_id = ? ORDER BY id DESC LIMIT 1", (sel_c_id,)).fetchone()
+        
+        default_garment_idx = 0
+        if st.session_state.selected_garment_type and st.session_state.selected_garment_type in garment_opts:
+            default_garment_idx = garment_opts.index(st.session_state.selected_garment_type)
+        elif prev_m and prev_m['garment_category'] in garment_opts:
+            default_garment_idx = garment_opts.index(prev_m['garment_category'])
 
-        selected_client_label = st.selectbox("Client Selection", list(client_dict.keys()), index=default_idx)
-        selected_client_id = client_dict[selected_client_label]
-        st.session_state.active_client_id = selected_client_id
-        
-        with get_db() as conn:
-            prev_m = conn.cursor().execute(
-                "SELECT * FROM measurements WHERE client_id = ? ORDER BY id DESC LIMIT 1", 
-                (selected_client_id,)
-            ).fetchone()
-
-        garment_options = [
-            "Kurta saya", "Kurta saya with izar", "Pehran", "Only kurta",
-            "Kurta Short)", "Pajama", "Shirt", "Trousers", "Sherwani",
-            "Nehru Jacket", "Waistcoat", "Jodhpuri Suit", "Pathani Suit",
-            "Two-Piece / Three-Piece Suit", "Blazer / Formal Coat",
-            "Shirt & Trousers", "Safari Suit"
-        ]
-        
-        selected_garment_type = st.selectbox("Choose Garment Type to Measure", garment_options)
+        sel_garment = st.selectbox("Choose Garment Type to Record*", garment_opts, index=default_garment_idx)
         
         h1, h2 = st.columns(2)
-        with h1:
-            rec_date = st.date_input("Date Taken", datetime.date.today())
-        with h2:
-            unit = st.selectbox("Measurement Unit", ["Inches", "Centimeters"])
+        with h1: rdate = st.date_input("Date Taken", datetime.date.today())
+        with h2: unit = st.selectbox("Measurement Unit", ["Inches", "Centimeters"])
         
-        st.markdown("<div class='section-title-btn'>Upper Body Dimensions</div>", unsafe_allow_html=True)
-        full_length_jacket = st.number_input("Length", value=float(prev_m['full_length_jacket']) if prev_m and prev_m['full_length_jacket'] else None, min_value=0.0, step=0.25, placeholder="0.00")
+        # --- UPPER BODY / TORSO ---
+        st.markdown("<div class='section-title-btn'>Upper Body (Torso) Dimensions</div>", unsafe_allow_html=True)
+        flen = st.number_input("Length (Top / Kurta / Shirt / Coat)", value=float(prev_m['full_length_jacket']) if prev_m and prev_m['full_length_jacket'] else None, min_value=0.0, step=0.25, placeholder="0.00")
         neck = st.number_input("Neck", value=float(prev_m['neck']) if prev_m and prev_m['neck'] else None, min_value=0.0, step=0.25, placeholder="0.00")
-        cross_shoulder = st.number_input("Shoulder", value=float(prev_m['cross_shoulder']) if prev_m and prev_m['cross_shoulder'] else None, min_value=0.0, step=0.25, placeholder="0.00")
-        chest_full = st.number_input("Chest", value=float(prev_m['chest_full']) if prev_m and prev_m['chest_full'] else None, min_value=0.0, step=0.25, placeholder="0.00")
-        waist_stomach = st.number_input("Stomach", value=float(prev_m['waist_stomach']) if prev_m and prev_m['waist_stomach'] else None, min_value=0.0, step=0.25, placeholder="0.00")
-        seat_hip = st.number_input("Hips", value=float(prev_m['seat_hip']) if prev_m and prev_m['seat_hip'] else None, min_value=0.0, step=0.25, placeholder="0.00")
-        armhole = st.number_input("Armhole", value=float(prev_m['armhole']) if prev_m and prev_m['armhole'] else None, min_value=0.0, step=0.25, placeholder="0.00")
-        sleeve_length = st.number_input("Sleeve", value=float(prev_m['sleeve_length']) if prev_m and prev_m['sleeve_length'] else None, min_value=0.0, step=0.25, placeholder="0.00")
-        wrist = st.number_input("Wrist", value=float(prev_m['wrist']) if prev_m and prev_m['wrist'] else None, min_value=0.0, step=0.25, placeholder="0.00")
+        shld = st.number_input("Shoulder", value=float(prev_m['cross_shoulder']) if prev_m and prev_m['cross_shoulder'] else None, min_value=0.0, step=0.25, placeholder="0.00")
+        chest = st.number_input("Chest", value=float(prev_m['chest_full']) if prev_m and prev_m['chest_full'] else None, min_value=0.0, step=0.25, placeholder="0.00")
+        stom = st.number_input("Stomach", value=float(prev_m['waist_stomach']) if prev_m and prev_m['waist_stomach'] else None, min_value=0.0, step=0.25, placeholder="0.00")
+        hips_upper = st.number_input("Hips / Seat (Torso Contra Entry)", value=float(prev_m['seat_hip']) if prev_m and prev_m['seat_hip'] else None, min_value=0.0, step=0.25, placeholder="0.00", key="hips_torso")
+        armh = st.number_input("Armhole", value=float(prev_m['armhole']) if prev_m and prev_m['armhole'] else None, min_value=0.0, step=0.25, placeholder="0.00")
+        slv = st.number_input("Sleeve", value=float(prev_m['sleeve_length']) if prev_m and prev_m['sleeve_length'] else None, min_value=0.0, step=0.25, placeholder="0.00")
+        wrst = st.number_input("Wrist", value=float(prev_m['wrist']) if prev_m and prev_m['wrist'] else None, min_value=0.0, step=0.25, placeholder="0.00")
 
+        # --- LOWER BODY ---
         st.markdown("<div class='section-title-btn'>Lower Side Dimensions</div>", unsafe_allow_html=True)
-        trouser_waist = st.number_input("Waist", value=float(prev_m['trouser_waist']) if prev_m and prev_m['trouser_waist'] else None, min_value=0.0, step=0.25, placeholder="0.00")
-        front_rise = st.number_input("Front Rise", value=float(prev_m['front_rise']) if prev_m and prev_m['front_rise'] else None, min_value=0.0, step=0.25, placeholder="0.00")
-        crotch_depth = st.number_input("Crotch", value=float(prev_m['crotch_depth']) if prev_m and prev_m['crotch_depth'] else None, min_value=0.0, step=0.25, placeholder="0.00")
+        tlen = st.number_input("Length (Trouser / Pajama / Salwar)", value=float(prev_m['trouser_length']) if prev_m and 'trouser_length' in prev_m.keys() and prev_m['trouser_length'] else None, min_value=0.0, step=0.25, placeholder="0.00")
+        waist = st.number_input("Waist", value=float(prev_m['trouser_waist']) if prev_m and prev_m['trouser_waist'] else None, min_value=0.0, step=0.25, placeholder="0.00")
+        frise = st.number_input("Front Rise", value=float(prev_m['front_rise']) if prev_m and prev_m['front_rise'] else None, min_value=0.0, step=0.25, placeholder="0.00")
+        crotch = st.number_input("Crotch Depth", value=float(prev_m['crotch_depth']) if prev_m and prev_m['crotch_depth'] else None, min_value=0.0, step=0.25, placeholder="0.00")
+        hips_lower = st.number_input("Seat / Hips (Lower Contra Entry)", value=float(hips_upper) if hips_upper is not None else (float(prev_m['seat_hip']) if prev_m and prev_m['seat_hip'] else None), min_value=0.0, step=0.25, placeholder="0.00", key="hips_bottom")
         thigh = st.number_input("Thigh", value=float(prev_m['thigh']) if prev_m and prev_m['thigh'] else None, min_value=0.0, step=0.25, placeholder="0.00")
-        bottom_opening = st.number_input("Bottom Opening", value=float(prev_m['bottom_opening']) if prev_m and prev_m['bottom_opening'] else None, min_value=0.0, step=0.25, placeholder="0.00")
+        bot = st.number_input("Bottom Opening (Mori / Hem)", value=float(prev_m['bottom_opening']) if prev_m and prev_m['bottom_opening'] else None, min_value=0.0, step=0.25, placeholder="0.00")
 
-        m_notes = st.text_area("Measurement Session & Fit Notes", value=str(prev_m['notes'] or "") if prev_m else "", placeholder="e.g., Slim tapering requested...")
-        
-        save_m = st.button("Save & Proceed to Order / Billing →", use_container_width=True)
-        if save_m:
-            with get_db() as conn:
+        final_seat_hips = hips_lower if hips_lower is not None else hips_upper
+
+        mnotes = st.text_area("Measurement Session Notes", value=str(prev_m['notes'] or "") if prev_m else "")
+        if st.button(f"Save '{sel_garment}' & Proceed to Order / Billing →", use_container_width=True):
+            with get_db_connection() as conn:
                 conn.cursor().execute("""
                 INSERT INTO measurements (
-                    client_id, revision_label, garment_category, unit, date_recorded,
-                    full_length_jacket, neck, cross_shoulder, chest_full, waist_stomach,
-                    seat_hip, armhole, sleeve_length, wrist, trouser_waist,
-                    front_rise, crotch_depth, thigh, bottom_opening, notes
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    client_id, revision_label, garment_category, unit, date_recorded, 
+                    full_length_jacket, neck, cross_shoulder, chest_full, waist_stomach, 
+                    seat_hip, armhole, sleeve_length, wrist, 
+                    trouser_length, trouser_waist, front_rise, crotch_depth, thigh, bottom_opening, notes
+                ) VALUES (?, 'Standard', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
-                    selected_client_id, "Standard", selected_garment_type, unit, rec_date,
-                    full_length_jacket, neck, cross_shoulder, chest_full, waist_stomach,
-                    seat_hip, armhole, sleeve_length, wrist, trouser_waist,
-                    front_rise, crotch_depth, thigh, bottom_opening, m_notes
+                    sel_c_id, sel_garment, unit, rdate, 
+                    flen, neck, shld, chest, stom, 
+                    final_seat_hips, armh, slv, wrst, 
+                    tlen, waist, frise, crotch, thigh, bot, mnotes
                 ))
                 conn.commit()
-            st.success("Measurements recorded to database! Proceeding to Order / Billing...")
-            navigate("New Order")
-            st.rerun()
-
+            st.session_state.selected_garment_type = sel_garment
+            st.success(f"Measurements saved strictly for '{sel_garment}'!")
+            navigate("New Order"); st.rerun()
 
 # ---------------------------------------------------------
-# 3. CREATE NEW ORDER / BILLING (STARTING AT 10001)
+# 3. NEW ORDER (WITH QASAR FIT & BARIK KALI)
 # ---------------------------------------------------------
 elif st.session_state.page == "New Order":
-    st.markdown("<div class='section-title-btn'>New Order Booking & Billing</div>", unsafe_allow_html=True)
-    if st.button("← Back to Main Hub", key="btn_back_order"):
-        navigate("Dashboard")
-        st.rerun()
-        
-    with get_db() as conn:
+    st.markdown("<div class='section-title-btn'>New Order Booking, Auto-Billing & Work Allotment</div>", unsafe_allow_html=True)
+    if st.button("← Back to Main Hub", key="back_ord"): navigate("Dashboard"); st.rerun()
+    with get_db_connection() as conn:
         clients = conn.cursor().execute("SELECT id, client_code, full_name, phone FROM clients ORDER BY full_name ASC").fetchall()
+        workers = conn.cursor().execute("SELECT id, worker_code, name, role_designation FROM workers WHERE status = 'Active' ORDER BY name ASC").fetchall()
+        catalog = conn.cursor().execute("SELECT * FROM garment_catalog ORDER BY id ASC").fetchall()
+        rows = conn.cursor().execute("SELECT order_number FROM orders").fetchall()
+        highest_order = max([int(r[0]) for r in rows if str(r[0]).isdigit()] or [10000])
+        next_order_id = str(highest_order + 1)
         
-        cur = conn.cursor()
-        cur.execute("SELECT order_number FROM orders")
-        rows = cur.fetchall()
-        highest_order_num = 10000
-        for r in rows:
-            ord_str = str(r[0]).strip() if r[0] else ""
-            if ord_str.isdigit():
-                val = int(ord_str)
-                if val > highest_order_num:
-                    highest_order_num = val
-        next_order_id = str(highest_order_num + 1)
-        
+    catalog_dict = {item['garment_name']: (float(item['default_selling_price']), float(item['worker_making_cost'])) for item in catalog}
+    
     if not clients:
-        st.warning("Please register a client before creating orders.")
+        st.warning("Please register a client before billing.")
     else:
-        client_options = {f"{c['full_name']} (Phone: {c['phone']} | ID: {c['client_code']})": c['id'] for c in clients}
+        copts = {f"{c['full_name']} (Phone: {c['phone']} | ID: {c['client_code']})": c['id'] for c in clients}
+        d_idx = list(copts.values()).index(st.session_state.active_client_id) if st.session_state.active_client_id in copts.values() else 0
+        sel_c_label = st.selectbox("Search & Select Client", list(copts.keys()), index=d_idx)
+        sel_c_id = copts[sel_c_label]
+        st.session_state.active_client_id = sel_c_id
         
-        default_idx = 0
-        if st.session_state.active_client_id:
-            for idx, cid in enumerate(client_options.values()):
-                if cid == st.session_state.active_client_id:
-                    default_idx = idx
-                    break
-
-        selected_client_label = st.selectbox("Search & Select Client (Type Name or Phone)", list(client_options.keys()), index=default_idx)
-        selected_client_id = client_options[selected_client_label]
-        st.session_state.active_client_id = selected_client_id
-        
-        with get_db() as conn:
-            latest_m = conn.cursor().execute(
-                "SELECT id, date_recorded FROM measurements WHERE client_id = ? ORDER BY id DESC LIMIT 1", 
-                (selected_client_id,)
-            ).fetchone()
-
-        st.markdown("### Client Action Options")
-        col_act_m, col_act_b = st.columns(2)
-        with col_act_m:
-            if st.button("Update / Adjust Measurements First", use_container_width=True):
-                navigate("New Measurement")
-                st.rerun()
-        with col_act_b:
-            st.info("Or fill billing details below to proceed directly")
-            
-        st.markdown("---")
+        with get_db_connection() as conn:
+            latest_m = conn.cursor().execute("SELECT * FROM measurements WHERE client_id = ? ORDER BY id DESC LIMIT 1", (sel_c_id,)).fetchone()
             
         if not latest_m:
-            st.error("No measurements found for this client. Please record measurements first before billing.")
-            if st.button("Record Measurements Now →", use_container_width=True):
-                navigate("New Measurement")
-                st.rerun()
+            st.error("No measurements recorded for this client.")
+            if st.button("Record Measurements Now →", use_container_width=True): navigate("New Measurement"); st.rerun()
         else:
-            measurement_id = latest_m['id']
+            m_id = latest_m['id']
+            recorded_garment = latest_m['garment_category']
+            catalog_keys = list(catalog_dict.keys())
+            g_idx = catalog_keys.index(recorded_garment) if recorded_garment in catalog_keys else 0
+            
             o1, o2 = st.columns(2)
             with o1:
-                order_no = st.text_input("Order Reference ID*", value=next_order_id)
-                garment_type = st.selectbox("Garment to Stitch", [
-                    "Kurta saya", "Kurta saya with izar", "Pehran", "Only kurta",
-                    "Kurta Short)", "Pajama", "Shirt", "Trousers", "Sherwani",
-                    "Nehru Jacket", "Waistcoat", "Jodhpuri Suit", "Pathani Suit",
-                    "Two-Piece / Three-Piece Suit", "Blazer / Formal Coat",
-                    "Shirt & Trousers", "Safari Suit"
-                ])
-                fit_preference = st.selectbox("Fit Preference", ["Slim Fit", "Regular Fit", "Relaxed Fit", "Traditional Loose"])
-            with o2:
-                total_amount = st.number_input("Total Garment Price (₹)", value=None, min_value=0.0, step=500.0, placeholder="Enter total price")
-                amount_paid = st.number_input("Initial Amount Received (₹)", value=None, min_value=0.0, step=500.0, placeholder="Enter advance paid")
-                payment_mode = st.selectbox("Payment Mode*", ["Cash", "UPI / QR", "Credit/Debit Card", "Bank Transfer"])
+                ord_no = st.text_input("Order Reference ID*", value=next_order_id)
+                g_type = st.selectbox("Garment to Stitch*", catalog_keys, index=g_idx)
                 
-                calc_total = float(total_amount or 0.0)
-                calc_paid = float(amount_paid or 0.0)
+                fit_options = ["Slim Fit", "Regular Fit", "Relaxed Fit", "Qasar fit", "Barik kali"]
+                fit_pref = st.selectbox("Fit Preference", fit_options)
                 
-                auto_status = "Due"
-                if calc_paid >= calc_total and calc_total > 0:
-                    auto_status = "Fully Paid"
-                elif calc_paid == (calc_total / 2) and calc_total > 0:
-                    auto_status = "Half Paid"
-                elif calc_paid > 0:
-                    auto_status = "Advance Paid"
-                    
-                payment_status = st.selectbox("Payment Status*", ["Due", "Advance Paid", "Half Paid", "Fully Paid"], index=["Due", "Advance Paid", "Half Paid", "Fully Paid"].index(auto_status))
-                delivery_date = st.date_input("Target Delivery Date (Completion)", datetime.date.today() + datetime.timedelta(days=12))
+                auto_sell_p, auto_making_p = catalog_dict.get(g_type, (1500.0, 400.0))
+                
+                st.markdown("<div class='section-title-btn'>Worker Allotment (Cloth Making)</div>", unsafe_allow_html=True)
+                worker_opts = {"Unassigned / Later Allotment": None}
+                for w in workers:
+                    worker_opts[f"{w['name']} ({w['worker_code']} - {w['role_designation']})"] = w['id']
+                
+                sel_w_label = st.selectbox("Assign Craftsman / Tailor for this Garment", list(worker_opts.keys()))
+                assigned_w_id = worker_opts[sel_w_label]
+                worker_cost = st.number_input("Worker Piece-Rate Making Cost (₹)", value=float(auto_making_p), step=50.0)
 
-            fabric_details = st.text_area("Fabric Specifications & Mill Details", placeholder="e.g., Pure Silk, Worsted Wool...")
-            remarks = st.text_area("Specific Cutting / Fitting Requirements")
-            
-            place_order = st.button("Submit Order & Generate Receipt →", use_container_width=True)
-            if place_order:
-                with get_db() as conn:
+            with o2:
+                tot_p = st.number_input("Total Client Price (₹)* [Auto-filled]", value=float(auto_sell_p), step=100.0)
+                amt_p = st.number_input("Initial Advance Paid (₹)", value=0.0, step=500.0)
+                pay_m = st.selectbox("Payment Mode*", ["Cash", "UPI / QR", "Credit/Debit Card", "Bank Transfer"])
+                
+                c_tot, c_paid = float(tot_p or 0.0), float(amt_p or 0.0)
+                auto_stat = "Fully Paid" if (c_paid >= c_tot and c_tot > 0) else ("Half Paid" if c_paid == (c_tot/2) and c_tot > 0 else ("Advance Paid" if c_paid > 0 else "Due"))
+                pay_stat = st.selectbox("Payment Status*", ["Due", "Advance Paid", "Half Paid", "Fully Paid"], index=["Due", "Advance Paid", "Half Paid", "Fully Paid"].index(auto_stat))
+                deliv_d = st.date_input("Target Delivery Date", datetime.date.today() + datetime.timedelta(days=12))
+
+            fabric_d = st.text_area("Fabric Specifications & Mill Details")
+            fit_rem = st.text_area("Specific Cutting / Fitting Requirements")
+            if st.button(f"Submit Order for '{g_type}' & Generate Receipt →", use_container_width=True):
+                with get_db_connection() as conn:
                     conn.cursor().execute("""
                     INSERT INTO orders (
                         order_number, client_id, measurement_id, garment_type, fit_preference, 
-                        fabric_details, total_amount, amount_paid, payment_mode, payment_status, delivery_date, fitting_remarks
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        fabric_details, total_amount, amount_paid, payment_mode, payment_status, delivery_date, 
+                        assigned_worker_id, worker_payout_amount, worker_payment_status, fitting_remarks
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?)
                     """, (
-                        order_no.strip(), selected_client_id, measurement_id, garment_type, fit_preference,
-                        fabric_details, calc_total, calc_paid, payment_mode, payment_status, delivery_date, remarks
+                        ord_no.strip(), sel_c_id, m_id, g_type, fit_pref,
+                        fabric_d, c_tot, c_paid, pay_m, pay_stat, deliv_d,
+                        assigned_w_id, worker_cost, fit_rem
                     ))
                     conn.commit()
-                st.session_state.active_order_no = order_no.strip()
-                st.success(f"Order {order_no} committed to local storage! Generating Receipt...")
-                navigate("Print Slip")
-                st.rerun()
-
+                st.session_state.active_order_no = ord_no.strip()
+                st.success(f"Order {ord_no} for '{g_type}' booked successfully!")
+                navigate("Print Slip"); st.rerun()
 
 # ---------------------------------------------------------
-# 4. PRINT RECEIPT (WITH FIT PREFERENCE)
+# 4. PRINT RECEIPT
 # ---------------------------------------------------------
 elif st.session_state.page == "Print Slip":
     st.markdown("<div class='section-title-btn'>Step 4: Print A5 Receipt Slip</div>", unsafe_allow_html=True)
-    if st.button("← Back to Main Hub", key="btn_back_slip"):
-        navigate("Dashboard")
-        st.rerun()
-        
-    with get_db() as conn:
-        orders = conn.cursor().execute("""
-        SELECT o.order_number, c.full_name FROM orders o JOIN clients c ON o.client_id = c.id ORDER BY o.id DESC
-        """).fetchall()
-        
+    if st.button("← Back to Main Hub", key="back_slip"): navigate("Dashboard"); st.rerun()
+    with get_db_connection() as conn:
+        orders = conn.cursor().execute("SELECT o.order_number, c.full_name FROM orders o JOIN clients c ON o.client_id = c.id ORDER BY o.id DESC").fetchall()
     if not orders:
-        st.info("No orders found to generate slips.")
+        st.info("No orders found to print.")
     else:
-        order_opts = {f"{o['order_number']} — {o['full_name']}": o['order_number'] for o in orders}
-        
-        default_o_idx = 0
-        if st.session_state.active_order_no:
-            for idx, ono in enumerate(order_opts.values()):
-                if ono == st.session_state.active_order_no:
-                    default_o_idx = idx
-                    break
-
-        selected_slip_order = st.selectbox("Select Order Reference", list(order_opts.keys()), index=default_o_idx)
-        ord_no = order_opts[selected_slip_order]
-        st.session_state.active_order_no = ord_no
-        
-        with get_db() as conn:
+        opts = {f"{o['order_number']} — {o['full_name']}": o['order_number'] for o in orders}
+        d_idx = list(opts.values()).index(st.session_state.active_order_no) if st.session_state.active_order_no in opts.values() else 0
+        sel_order = st.selectbox("Select Order", list(opts.keys()), index=d_idx)
+        ord_no = opts[sel_order]
+        with get_db_connection() as conn:
             slip_data = conn.cursor().execute("""
-            SELECT o.*, c.client_code, c.full_name as client_name, c.phone, c.email,
-                   m.unit, m.neck, m.chest_full, m.waist_stomach, m.cross_shoulder,
-                   m.armhole, m.wrist, m.sleeve_length,
-                   m.full_length_jacket, m.trouser_waist, m.seat_hip, m.thigh,
-                   m.bottom_opening, m.front_rise, m.crotch_depth
-            FROM orders o
-            JOIN clients c ON o.client_id = c.id
-            JOIN measurements m ON o.measurement_id = m.id
+            SELECT o.*, c.client_code, c.full_name AS client_name, c.phone, c.email,
+                   m.unit, m.neck, m.chest_full, m.waist_stomach, m.cross_shoulder, m.armhole, m.wrist, 
+                   m.sleeve_length, m.full_length_jacket, m.trouser_length, m.trouser_waist, m.seat_hip, 
+                   m.thigh, m.bottom_opening, m.front_rise, m.crotch_depth
+            FROM orders o 
+            JOIN clients c ON o.client_id = c.id 
+            JOIN measurements m ON o.measurement_id = m.id 
             WHERE o.order_number = ?
             """, (ord_no,)).fetchone()
-            
         if slip_data:
-            total_amt = float(slip_data['total_amount'] or 0.0)
-            paid_amt = float(slip_data['amount_paid'] or 0.0)
-            bal_amt = total_amt - paid_amt
-            
-            c_name = str(slip_data['client_name'])
-            c_id = str(slip_data['client_code'])
-            c_phone = str(slip_data['phone'])
-            ord_id = str(slip_data['order_number'])
-            book_date = str(slip_data['created_at'])[:10]
-            del_date = str(slip_data['delivery_date'])
-            garment = str(slip_data['garment_type'])
-            fit = str(slip_data['fit_preference'] or 'Regular Fit')
-            pay_mode = str(slip_data['payment_mode'] or 'Cash')
-            pay_stat = str(slip_data['payment_status'])
-            unit = str(slip_data['unit'])
-
-            up_len = str(slip_data['full_length_jacket'] or '-')
-            up_neck = str(slip_data['neck'] or '-')
-            up_shld = str(slip_data['cross_shoulder'] or '-')
-            up_chest = str(slip_data['chest_full'] or '-')
-            up_stom = str(slip_data['waist_stomach'] or '-')
-            up_hip = str(slip_data['seat_hip'] or '-')
-            up_armh = str(slip_data['armhole'] or '-')
-            up_slv = str(slip_data['sleeve_length'] or '-')
-            up_wrst = str(slip_data['wrist'] or '-')
-
-            lw_waist = str(slip_data['trouser_waist'] or '-')
-            lw_frise = str(slip_data['front_rise'] or '-')
-            lw_crotch = str(slip_data['crotch_depth'] or '-')
-            lw_seat = str(slip_data['seat_hip'] or '-')
-            lw_thigh = str(slip_data['thigh'] or '-')
-            lw_bot = str(slip_data['bottom_opening'] or '-')
-
-            receipt_html_parts = [
-                "<!DOCTYPE html><html><head><meta charset='utf-8'>",
-                "<title>Receipt_" + ord_id + "</title>",
-                "<style>",
-                "@page { size: A5 portrait; margin: 5mm; }",
-                "* { box-sizing: border-box; }",
-                "@media print { .print-btn { display: none !important; } }",
-                "</style>",
-                "</head>",
-                "<body style='margin:0; padding:6px; background:#FFFFFF; font-family:Courier New, Courier, monospace; color:#000000; font-size:12px; line-height:1.3;'>",
-                "<button class='print-btn' onclick='window.print()' style='display:block; width:100%; max-width:138mm; margin:0 auto 10px auto; background:#111827; color:#FFFFFF; border:none; padding:10px; font-size:14px; font-weight:bold; cursor:pointer; border-radius:6px;'>PRINT RECEIPT (A5)</button>",
-                "<div style='width:100%; max-width:138mm; margin:0 auto; border:1.5px solid #000000; padding:10px 12px;'>",
-                "<div style='text-align:center;'>",
-                "<div style='font-size:16px; font-weight:bold; letter-spacing:1px; margin:0;'>" + BRAND_NAME + "</div>",
-                "<div style='font-size:10px; margin:2px 0; text-transform:uppercase;'>" + BRAND_TAGLINE + "</div>",
-                "<div style='font-size:11px; font-weight:bold;'>SALES & MEASUREMENT RECEIPT</div>",
-                "</div>",
-                "<hr style='border:none; border-top:1px dashed #000; margin:6px 0;'>",
-                "<table style='width:100%; border-collapse:collapse; font-size:11px;'>",
-                "<tr><td><b>CLIENT:</b> " + c_name + "</td><td style='text-align:right;'><b>DATE:</b> " + book_date + "</td></tr>",
-                "<tr><td><b>CLIENT ID:</b> " + c_id + "</td><td style='text-align:right;'><b>ORDER #:</b> " + ord_id + "</td></tr>",
-                "<tr><td><b>PHONE:</b> " + c_phone + "</td><td style='text-align:right;'><b>FIT PREFERENCE:</b> <b>" + fit + "</b></td></tr>",
-                "<tr><td colspan='2'><b>GARMENT:</b> " + garment + "</td></tr>",
-                "<tr><td colspan='2'><b>DELIVERY DATE:</b> " + del_date + "</td></tr>",
-                "</table>",
-                "<hr style='border:none; border-top:1px dashed #000; margin:6px 0;'>",
-                
-                "<div style='font-weight:bold; font-size:11px; text-align:center; margin-bottom:4px;'>[ BODY MEASUREMENTS (" + unit + ") ]</div>",
-                "<table style='width:100%; border-collapse:collapse; font-size:10.5px;'>",
-                "<tr style='background:#EEEEEE; text-align:center;'>",
-                "<th colspan='2' style='border:1px solid #000; padding:3px;'>UPPER BODY</th>",
-                "<th colspan='2' style='border:1px solid #000; padding:3px;'>LOWER SIDE</th>",
-                "</tr>",
-                "<tr>",
-                "<td style='border:1px solid #000; padding:2px 4px;'>Length</td><td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>" + up_len + "</b></td>",
-                "<td style='border:1px solid #000; padding:2px 4px;'>Waist</td><td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>" + lw_waist + "</b></td>",
-                "</tr>",
-                "<tr>",
-                "<td style='border:1px solid #000; padding:2px 4px;'>Neck</td><td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>" + up_neck + "</b></td>",
-                "<td style='border:1px solid #000; padding:2px 4px;'>Front Rise</td><td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>" + lw_frise + "</b></td>",
-                "</tr>",
-                "<tr>",
-                "<td style='border:1px solid #000; padding:2px 4px;'>Shoulder</td><td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>" + up_shld + "</b></td>",
-                "<td style='border:1px solid #000; padding:2px 4px;'>Crotch</td><td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>" + lw_crotch + "</b></td>",
-                "</tr>",
-                "<tr>",
-                "<td style='border:1px solid #000; padding:2px 4px;'>Chest</td><td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>" + up_chest + "</b></td>",
-                "<td style='border:1px solid #000; padding:2px 4px;'>Seat</td><td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>" + lw_seat + "</b></td>",
-                "</tr>",
-                "<tr>",
-                "<td style='border:1px solid #000; padding:2px 4px;'>Stomach</td><td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>" + up_stom + "</b></td>",
-                "<td style='border:1px solid #000; padding:2px 4px;'>Thigh</td><td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>" + lw_thigh + "</b></td>",
-                "</tr>",
-                "<tr>",
-                "<td style='border:1px solid #000; padding:2px 4px;'>Hips</td><td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>" + up_hip + "</b></td>",
-                "<td style='border:1px solid #000; padding:2px 4px;'>Bottom</td><td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>" + lw_bot + "</b></td>",
-                "</tr>",
-                "<tr>",
-                "<td style='border:1px solid #000; padding:2px 4px;'>Armhole</td><td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>" + up_armh + "</b></td>",
-                "<td style='border:1px solid #000; padding:2px 4px; background:#FAFAFA;'>-</td><td style='border:1px solid #000; padding:2px 4px; background:#FAFAFA; text-align:center;'>-</td>",
-                "</tr>",
-                "<tr>",
-                "<td style='border:1px solid #000; padding:2px 4px;'>Sleeve</td><td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>" + up_slv + "</b></td>",
-                "<td style='border:1px solid #000; padding:2px 4px; background:#FAFAFA;'>-</td><td style='border:1px solid #000; padding:2px 4px; background:#FAFAFA; text-align:center;'>-</td>",
-                "</tr>",
-                "<tr>",
-                "<td style='border:1px solid #000; padding:2px 4px;'>Wrist</td><td style='border:1px solid #000; padding:2px 4px; text-align:center;'><b>" + up_wrst + "</b></td>",
-                "<td style='border:1px solid #000; padding:2px 4px;'>-</td><td style='border:1px solid #000; padding:2px 4px; background:#FAFAFA; text-align:center;'>-</td>",
-                "</tr>",
-                "</table>",
-                
-                "<hr style='border:none; border-top:1px dashed #000; margin:6px 0;'>",
-                "<table style='width:100%; border-collapse:collapse; font-size:11px;'>",
-                "<tr><td><b>TOTAL AMOUNT:</b></td><td style='text-align:right; font-weight:bold;'>Rs. " + f"{total_amt:,.2f}" + "</td></tr>",
-                "<tr><td><b>AMOUNT PAID:</b></td><td style='text-align:right;'>Rs. " + f"{paid_amt:,.2f}" + "</td></tr>",
-                "<tr><td style='font-weight:bold;'>BALANCE DUE:</td><td style='text-align:right; font-weight:bold; font-size:13px;'>Rs. " + f"{bal_amt:,.2f}" + "</td></tr>",
-                "<tr><td><b>PAYMENT MODE:</b></td><td style='text-align:right;'>" + pay_mode + "</td></tr>",
-                "<tr><td><b>PAYMENT STAGE:</b></td><td style='text-align:right; font-weight:bold;'>" + pay_stat + "</td></tr>",
-                "</table>",
-                "<hr style='border:none; border-top:1px dashed #000; margin:6px 0;'>",
-                "<div style='text-align:center; font-size:10px;'>THANK YOU FOR CHOOSING " + BRAND_NAME + "<br>Exact Fit & Master Craftsmanship Guaranteed</div>",
-                "<br>",
-                "<table style='width:100%; font-size:9.5px;'><tr><td>CLIENT SIGN: ____________</td><td style='text-align:right;'>MASTER TAILOR: ____________</td></tr></table>",
-                "</div></body></html>"
-            ]
-
-            pure_receipt_html = "".join(receipt_html_parts)
-            st.components.v1.html(pure_receipt_html, height=720, scrolling=True)
-
+            receipt_html = generate_a5_receipt_html(dict(slip_data), BRAND_NAME, BRAND_TAGLINE)
+            st.components.v1.html(receipt_html, height=720, scrolling=True)
 
 # ---------------------------------------------------------
-# 5A. ORDER TRACKING (WORKSHOP PRODUCTION)
+# 5. WORKSHOP TRACKING & WORKER ALLOTMENTS
 # ---------------------------------------------------------
 elif st.session_state.page == "Order Tracking":
-    st.markdown("<div class='section-title-btn'>Order Tracking (Workshop Production)</div>", unsafe_allow_html=True)
-    if st.button("← Back to Main Hub", key="btn_back_track"):
-        navigate("Dashboard")
-        st.rerun()
-        
-    with get_db() as conn:
-        orders_df = pd.read_sql_query("""
-        SELECT o.id, o.order_number, c.full_name as client_name, c.phone, o.garment_type, 
-               o.workflow_status, o.delivery_date, o.fabric_details, o.fitting_remarks
-        FROM orders o
-        JOIN clients c ON o.client_id = c.id
-        ORDER BY o.delivery_date ASC
+    st.markdown("<div class='section-title-btn'>Workshop Production & Craftsmen Allotments</div>", unsafe_allow_html=True)
+    if st.button("← Back to Main Hub", key="back_tr"): navigate("Dashboard"); st.rerun()
+    
+    with get_db_connection() as conn:
+        df = pd.read_sql_query("""
+            SELECT o.id, o.order_number, c.full_name AS client_name, c.phone, o.garment_type, 
+                   o.workflow_status, o.delivery_date, o.assigned_worker_id, w.name as worker_name,
+                   o.worker_payout_amount, o.worker_payment_status
+            FROM orders o 
+            JOIN clients c ON o.client_id = c.id 
+            LEFT JOIN workers w ON o.assigned_worker_id = w.id
+            ORDER BY o.delivery_date ASC
         """, conn)
-        
-    if orders_df.empty:
-        st.info("No active garment orders in production.")
+        workers_list = conn.cursor().execute("SELECT id, name, worker_code FROM workers WHERE status = 'Active'").fetchall()
+
+    if df.empty:
+        st.info("No orders in workshop production.")
     else:
-        filter_q = st.text_input("Search Order in Workshop by Client Name, Phone or Order #")
-        filtered_orders = orders_df
-        if filter_q:
-            filtered_orders = orders_df[orders_df.apply(lambda r: filter_q.lower() in r.astype(str).str.lower().values, axis=1)]
-
         stages = ['Drafted', 'Fabric Cut', 'Basted Fitting', 'Alterations', 'Final Pressed', 'Delivered']
+        worker_map = {f"{w['name']} ({w['worker_code']})": w['id'] for w in workers_list}
+        worker_map["Unassigned"] = None
         
-        for _, order in filtered_orders.iterrows():
-            with st.container():
-                st.markdown(f"""
-                <div class='order-card'>
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <h3 style="margin:0; font-family:'Cinzel', serif;">{order['order_number']} — {order['garment_type']}</h3>
-                        <span style="font-weight:800; font-size:1.1rem; color:{active_pal['brand_accent']} !important;">Target: {order['delivery_date']}</span>
-                    </div>
-                    <p style="margin: 0.3rem 0;"><b>Client:</b> {order['client_name']} ({order['phone']}) | <b>Current Stage:</b> {order['workflow_status']}</p>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                c_stage, c_del = st.columns([3, 1])
-                with c_stage:
-                    cur_idx = stages.index(order['workflow_status']) if order['workflow_status'] in stages else 0
-                    new_stage = st.selectbox("Update Stage", stages, index=cur_idx, key=f"track_stg_{order['order_number']}")
-                    if new_stage != order['workflow_status']:
-                        with get_db() as conn:
-                            conn.cursor().execute("UPDATE orders SET workflow_status = ? WHERE order_number = ?", (new_stage, order['order_number']))
-                            conn.commit()
-                        st.rerun()
-
-                with c_del:
-                    st.write("")
-                    if st.button(f"Delete Order", key=f"del_track_{order['order_number']}", use_container_width=True):
-                        st.session_state.delete_target_order = order['order_number']
-                
-                if st.session_state.delete_target_order == order['order_number']:
-                    st.warning(f"Confirm deleting {order['order_number']} permanently?")
-                    y_col, n_col = st.columns(2)
-                    with y_col:
-                        if st.button("Yes, Delete", key=f"y_track_{order['order_number']}", use_container_width=True):
-                            with get_db() as conn:
-                                conn.cursor().execute("DELETE FROM orders WHERE order_number = ?", (order['order_number'],))
-                                conn.commit()
-                            st.session_state.delete_target_order = None
-                            st.rerun()
-                    with n_col:
-                        if st.button("Cancel", key=f"n_track_{order['order_number']}", use_container_width=True):
-                            st.session_state.delete_target_order = None
-                            st.rerun()
-                st.markdown(f"<hr style='margin:0.5rem 0 1rem 0; border:0.5px solid {active_pal['border']};'>", unsafe_allow_html=True)
-
+        for _, r in df.iterrows():
+            w_disp = r['worker_name'] if r['worker_name'] else 'Unassigned'
+            st.markdown(f"""
+            <div class='order-card'>
+                <b>{r['order_number']} — {r['garment_type']}</b> (Client: {r['client_name']}) | 
+                Target: <b>{r['delivery_date']}</b> | Assigned Tailor: <b>{w_disp}</b> (Making Fee: ₹{r['worker_payout_amount']:,.0f})<br>
+                Stage: <b>{r['workflow_status']}</b> | Craftsman Payout: <b>{r['worker_payment_status']}</b>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            c_stg, c_work, c_del = st.columns([2, 2, 1])
+            with c_stg:
+                cur_idx = stages.index(r['workflow_status']) if r['workflow_status'] in stages else 0
+                nstg = st.selectbox("Stage", stages, index=cur_idx, key=f"stg_{r['order_number']}")
+                if nstg != r['workflow_status']:
+                    with get_db_connection() as conn:
+                        conn.cursor().execute("UPDATE orders SET workflow_status = ? WHERE order_number = ?", (nstg, r['order_number']))
+                        conn.commit()
+                    st.rerun()
+            with c_work:
+                curr_w_label = "Unassigned"
+                for k, v in worker_map.items():
+                    if v == r['assigned_worker_id']:
+                        curr_w_label = k
+                        break
+                new_w_label = st.selectbox("Re-Allot Craftsman", list(worker_map.keys()), index=list(worker_map.keys()).index(curr_w_label), key=f"allot_{r['order_number']}")
+                if worker_map[new_w_label] != r['assigned_worker_id']:
+                    with get_db_connection() as conn:
+                        conn.cursor().execute("UPDATE orders SET assigned_worker_id = ? WHERE order_number = ?", (worker_map[new_w_label], r['order_number']))
+                        conn.commit()
+                    st.rerun()
+            with c_del:
+                if st.button("Delete", key=f"del_o_{r['order_number']}", use_container_width=True):
+                    with get_db_connection() as conn:
+                        conn.cursor().execute("DELETE FROM orders WHERE order_number = ?", (r['order_number'],))
+                        conn.commit()
+                    st.rerun()
 
 # ---------------------------------------------------------
-# 5B. ORDER STATUS & FINANCIAL SALES REPORT
+# 6. WORKER PROFILES, DAILY TASKS & PAYROLL LEDGER
+# ---------------------------------------------------------
+elif st.session_state.page == "Workers":
+    st.markdown("<div class='section-title-btn'>Craftsmen Management, Daily Tasks & Piece-Rate Payroll</div>", unsafe_allow_html=True)
+    if st.button("← Back to Main Hub", key="back_workers"): navigate("Dashboard"); st.rerun()
+    
+    tab_workers, tab_add_worker, tab_payouts = st.tabs(["Craftsmen Profiles & Performance", "Register New Craftsman", "Pay Craftsman Commissions"])
+    
+    with tab_workers:
+        with get_db_connection() as conn:
+            workers_df = pd.read_sql_query("SELECT * FROM workers ORDER BY id DESC", conn)
+            orders_df = pd.read_sql_query("SELECT o.*, c.full_name as client_name FROM orders o JOIN clients c ON o.client_id = c.id WHERE o.assigned_worker_id IS NOT NULL", conn)
+            
+        if workers_df.empty:
+            st.info("No craftsmen profiles registered yet.")
+        else:
+            for _, w in workers_df.iterrows():
+                w_orders = orders_df[orders_df['assigned_worker_id'] == w['id']]
+                completed_orders = w_orders[w_orders['workflow_status'].isin(['Final Pressed', 'Delivered'])]
+                pending_pay = w_orders[w_orders['worker_payment_status'] == 'Pending']['worker_payout_amount'].sum()
+                settled_pay = w_orders[w_orders['worker_payment_status'] == 'Settled']['worker_payout_amount'].sum()
+                
+                with st.container():
+                    st.markdown(f"""
+                    <div class='order-card'>
+                        <div style="display:flex; justify-content:space-between;">
+                            <h3>{w['name']} ({w['worker_code']}) — {w['role_designation']}</h3>
+                            <span style="font-weight:800; font-size:1.1rem; color:{active_pal['brand_accent']};">Status: {w['status']}</span>
+                        </div>
+                        <b>Phone:</b> {w['phone']} | <b>Govt ID:</b> {w['gov_id_number'] or 'N/A'}<br>
+                        <b>Total Allotted:</b> {len(w_orders)} | <b>Completed:</b> {len(completed_orders)} | 
+                        <b>Unpaid Due:</b> ₹{pending_pay:,.0f} | <b>Total Settled:</b> ₹{settled_pay:,.0f}
+                    </div>
+                    """, unsafe_allow_html=True)
+                    with st.expander(f"View Allotment History for {w['name']}"):
+                        if w_orders.empty: st.caption("No garments allotted.")
+                        else: st.dataframe(w_orders[['order_number', 'garment_type', 'client_name', 'workflow_status', 'worker_payout_amount', 'worker_payment_status', 'created_at']], use_container_width=True)
+
+    with tab_add_worker:
+        with st.form("new_worker_form"):
+            st.subheader("Register New Workshop Craftsman")
+            w1, w2 = st.columns(2)
+            with w1:
+                w_code = st.text_input("Worker ID / Code*", value=f"WRK-{datetime.date.today().strftime('%y')}{datetime.datetime.now().strftime('%M%S')}")
+                w_name = st.text_input("Craftsman Full Name*")
+                w_phone = st.text_input("Contact Phone Number*")
+            with w2:
+                w_govid = st.text_input("Govt ID Number (Aadhaar / Voter ID)")
+                w_role = st.selectbox("Designation", ["Master Tailor / Cutter", "Coat Stitcher", "Pant Stitcher", "Kurta Specialist", "Sherwani Hand-Embroiderer", "Ironing & Finisher", "General Assistant"])
+                w_status = st.selectbox("Status", ["Active", "On Leave", "Inactive"])
+                
+            if st.form_submit_button("Register Craftsman Profile", use_container_width=True) and w_name and w_phone:
+                try:
+                    with get_db_connection() as conn:
+                        conn.cursor().execute("INSERT INTO workers (worker_code, name, phone, gov_id_number, role_designation, status, joined_date) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                                            (w_code.strip(), w_name.strip(), w_phone.strip(), w_govid.strip(), w_role, w_status, datetime.date.today()))
+                        conn.commit()
+                    st.success(f"Profile created for {w_name}!")
+                    st.rerun()
+                except sqlite3.IntegrityError:
+                    st.error("Worker Code already registered.")
+
+    with tab_payouts:
+        st.subheader("💸 Settle Craftsman Piece-Rate Commissions")
+        with get_db_connection() as conn:
+            pending_df = pd.read_sql_query("SELECT o.id, o.order_number, w.name as worker_name, w.worker_code, o.garment_type, o.workflow_status, o.worker_payout_amount FROM orders o JOIN workers w ON o.assigned_worker_id = w.id WHERE o.worker_payment_status = 'Pending' ORDER BY o.id DESC", conn)
+            
+        if pending_df.empty:
+            st.success("All craftsman piece-rate commissions are completely settled!")
+        else:
+            for _, pr in pending_df.iterrows():
+                c_p1, c_p2 = st.columns([3.5, 1])
+                with c_p1:
+                    st.markdown(f"**{pr['worker_name']}** ({pr['worker_code']}) — Order: `{pr['order_number']}` ({pr['garment_type']}) | Stage: `{pr['workflow_status']}` | **Due: ₹{pr['worker_payout_amount']:,.2f}**")
+                with c_p2:
+                    if st.button(f"Mark Paid (₹{pr['worker_payout_amount']:,.0f})", key=f"pay_wrk_{pr['id']}", use_container_width=True):
+                        with get_db_connection() as conn:
+                            conn.cursor().execute("UPDATE orders SET worker_payment_status = 'Settled' WHERE id = ?", (pr['id'],))
+                            conn.commit()
+                        st.success("Payment marked as settled!")
+                        st.rerun()
+
+# ---------------------------------------------------------
+# 7. MASTER PATTERN STUDIO (2D VECTOR CUTTING BLUEPRINTS)
+# ---------------------------------------------------------
+elif st.session_state.page == "Pattern Studio":
+    st.markdown("<div class='section-title-btn'>✂️ Master Pattern Studio & Parametric Cutting Engine</div>", unsafe_allow_html=True)
+    if st.button("← Back to Main Hub", key="back_pat"): navigate("Dashboard"); st.rerun()
+
+    with get_db_connection() as conn:
+        clients = conn.cursor().execute("SELECT id, client_code, full_name, phone FROM clients ORDER BY full_name ASC").fetchall()
+
+    if not clients:
+        st.warning("Please register a client with measurements first.")
+    else:
+        cdict = {f"{c['full_name']} (ID: {c['client_code']})": c['id'] for c in clients}
+        d_idx = list(cdict.values()).index(st.session_state.active_client_id) if st.session_state.active_client_id in cdict.values() else 0
+        sel_c_label = st.selectbox("Select Client for Pattern Generation", list(cdict.keys()), index=d_idx)
+        sel_c_id = cdict[sel_c_label]
+
+        with get_db_connection() as conn:
+            m_row = conn.cursor().execute("SELECT * FROM measurements WHERE client_id = ? ORDER BY id DESC LIMIT 1", (sel_c_id,)).fetchone()
+
+        if not m_row:
+            st.error("No measurements recorded for this client. Please record measurements first.")
+        else:
+            m_data = dict(m_row)
+            c_p1, c_p2, c_p3 = st.columns([1.5, 1.5, 1])
+            with c_p1:
+                pattern_garment = st.selectbox("Draft Garment Block", ["Kurta / Upper Body Panel", "Trouser / Pajama Front Panel"])
+            with c_p2:
+                pattern_fit = st.selectbox("Apply Fit Ease Calculation", ["Slim Fit", "Regular Fit", "Relaxed Fit", "Qasar fit", "Barik kali"], index=3)
+            with c_p3:
+                seam_allowance = st.number_input("Seam Allowance (Inches)", value=0.5, step=0.25)
+
+            if "Kurta" in pattern_garment:
+                draft = PatternDraftingEngine.draft_kurta(m_data, pattern_fit, seam_allowance)
+            else:
+                draft = PatternDraftingEngine.draft_trouser(m_data, pattern_fit, seam_allowance)
+
+            col_diagram, col_chalk = st.columns([1.3, 1])
+            with col_diagram:
+                st.markdown("#### 📐 Parametric 2D Blueprint (Center Fold)")
+                svg_code = PatternDraftingEngine.render_svg_pattern(draft)
+                st.components.v1.html(svg_code, height=720, scrolling=True)
+                st.download_button(
+                    label="💾 Export Cutting Pattern Vector (.SVG)",
+                    data=svg_code,
+                    file_name=f"{m_data.get('garment_category', 'Pattern')}_{pattern_fit}_{sel_c_id}.svg",
+                    mime="image/svg+xml",
+                    use_container_width=True
+                )
+
+            with col_chalk:
+                st.markdown("#### ✂️ Master Cutter Chalking Table")
+                st.info(f"**Garment Block:** {draft['garment']}\n**Applied Fit:** {draft['fit']}\n**Client Unit:** {draft['unit']}")
+                metrics_df = pd.DataFrame(list(draft["metrics"].items()), columns=["Chalk Marking Parameter", "Exact Dimension (Inches)"])
+                st.dataframe(metrics_df, use_container_width=True, hide_index=True)
+
+                st.markdown("#### 📍 Coordinate Nodes for Workshop Masters")
+                pts_df = pd.DataFrame(draft["points"])
+                st.dataframe(pts_df, use_container_width=True, hide_index=True)
+
+# ---------------------------------------------------------
+# 8. FINANCIAL SALES REPORT
 # ---------------------------------------------------------
 elif st.session_state.page == "Order Status":
     st.markdown("<div class='section-title-btn'>Order Status & Financial Sales Report</div>", unsafe_allow_html=True)
-    if st.button("← Back to Main Hub", key="btn_back_status"):
-        navigate("Dashboard")
-        st.rerun()
-        
-    with get_db() as conn:
-        orders_df = pd.read_sql_query("""
-        SELECT o.id, o.order_number, c.full_name as client_name, c.phone, o.garment_type, 
-               o.payment_status, o.payment_mode, o.total_amount, o.amount_paid,
-               (o.total_amount - o.amount_paid) as balance_due,
-               o.delivery_date
-        FROM orders o
-        JOIN clients c ON o.client_id = c.id
-        ORDER BY o.delivery_date ASC
+    if st.button("← Back to Main Hub", key="back_fin"): navigate("Dashboard"); st.rerun()
+    with get_db_connection() as conn:
+        df = pd.read_sql_query("""
+            SELECT o.order_number, c.full_name AS client_name, c.phone, o.garment_type, o.payment_status, 
+                   o.total_amount, o.amount_paid, (o.total_amount - o.amount_paid) as balance_due,
+                   w.name AS craftsman, o.worker_payout_amount, o.worker_payment_status
+            FROM orders o 
+            JOIN clients c ON o.client_id = c.id
+            LEFT JOIN workers w ON o.assigned_worker_id = w.id
         """, conn)
         
-    if orders_df.empty:
-        st.info("No sales or billing records found.")
+    if df.empty:
+        st.info("No billing records found.")
     else:
-        total_revenue = orders_df['total_amount'].sum()
-        total_collected = orders_df['amount_paid'].sum()
-        total_receivable = total_revenue - total_collected
-        
-        st.markdown("### Financial & Billing Summary")
+        tot_rev, tot_col = df['total_amount'].sum(), df['amount_paid'].sum()
         m1, m2, m3 = st.columns(3)
-        m1.metric("Gross Sales Booked", f"₹{total_revenue:,.2f}")
-        m2.metric("Payments Collected", f"₹{total_collected:,.2f}")
-        m3.metric("Outstanding Balance Due", f"₹{total_receivable:,.2f}")
+        m1.metric("Gross Sales Booked", f"₹{tot_rev:,.2f}")
+        m2.metric("Payments Collected", f"₹{tot_col:,.2f}")
+        m3.metric("Outstanding Balance Due", f"₹{(tot_rev - tot_col):,.2f}")
+        st.dataframe(df, use_container_width=True)
         
-        st.markdown("---")
-        st.markdown("### Order Financial List")
-        st.dataframe(orders_df, use_container_width=True)
-        
-        st.markdown("### 💬 Outstanding Payment Reminders & Settlement")
-        unpaid_orders = orders_df[orders_df['balance_due'] > 0]
-        
-        if unpaid_orders.empty:
-            st.success("All client orders are fully settled! No outstanding balances.")
-        else:
-            for _, order in unpaid_orders.iterrows():
-                with st.container():
-                    c_details, c_msg, c_paid = st.columns([2.5, 1.5, 1.2])
-                    with c_details:
-                        st.markdown(f"**{order['client_name']}** (`{order['phone']}`)<br>"
-                                    f"Order: `{order['order_number']}` ({order['garment_type']}) | "
-                                    f"**Due: ₹{order['balance_due']:,.2f}**", unsafe_allow_html=True)
-                    with c_msg:
-                        clean_phone = "".join(filter(str.isdigit, str(order['phone'])))
-                        if len(clean_phone) == 10:
-                            clean_phone = "91" + clean_phone
-                        
-                        wa_text = (
-                            f"Dear {order['client_name']},\n\n"
-                            f"This is a payment reminder from *{BRAND_NAME}* regarding your order *{order['order_number']}* ({order['garment_type']}).\n\n"
-                            f"• Total Order Price: ₹{order['total_amount']:,.2f}\n"
-                            f"• Amount Received: ₹{order['amount_paid']:,.2f}\n"
-                            f"• *Balance Due: ₹{order['balance_due']:,.2f}*\n\n"
-                            f"Kindly clear the remaining balance at your earliest convenience.\n\n"
-                            f"Thank you,\n*{BRAND_NAME}*"
-                        )
-                        encoded_msg = urllib.parse.quote(wa_text)
-                        wa_link = f"https://wa.me/{clean_phone}?text={encoded_msg}"
-                        
-                        st.markdown(
-                            f"""<a href="{wa_link}" target="_blank" style="text-decoration:none;">
-                                <button style="width:100%; background:#25D366; color:#FFFFFF; border:none; 
-                                border-radius:10px; padding:0.6rem; font-weight:800; font-size:0.95rem; cursor:pointer;">
-                                💬 Send WhatsApp
-                                </button>
-                            </a>""", 
-                            unsafe_allow_html=True
-                        )
-                    with c_paid:
-                        if st.button(f"Mark Full Paid (₹{order['balance_due']:,.0f})", key=f"reconcile_{order['order_number']}", use_container_width=True):
-                            with get_db() as conn:
-                                conn.cursor().execute("UPDATE orders SET amount_paid = total_amount, payment_status = 'Fully Paid' WHERE order_number = ?", (order['order_number'],))
-                                conn.commit()
-                            st.success(f"Order {order['order_number']} marked Fully Paid!")
-                            st.rerun()
-                    st.markdown(f"<hr style='margin:0.4rem 0 0.8rem 0; border:0.5px solid {active_pal['border']};'>", unsafe_allow_html=True)
-
+        st.markdown("### 💬 Outstanding Payment Reminders & Settlements")
+        unpaid = df[df['balance_due'] > 0]
+        for _, uo in unpaid.iterrows():
+            c_d, c_msg, c_set = st.columns([2.5, 1.5, 1.2])
+            with c_d:
+                st.markdown(f"**{uo['client_name']}** (`{uo['phone']}`) | Due: **₹{uo['balance_due']:,.2f}**")
+            with c_msg:
+                clean_p = "".join(filter(str.isdigit, str(uo['phone'])))
+                if len(clean_p) == 10: clean_p = "91" + clean_p
+                wa_txt = f"Dear {uo['client_name']},\nReminder from *{BRAND_NAME}* regarding order *{uo['order_number']}*.\nBalance Due: *₹{uo['balance_due']:,.2f}*."
+                st.markdown(f"""<a href="https://wa.me/{clean_p}?text={urllib.parse.quote(wa_txt)}" target="_blank"><button style="width:100%; background:#25D366; color:#FFF; border:none; border-radius:8px; padding:6px; font-weight:bold;">💬 Send WhatsApp</button></a>""", unsafe_allow_html=True)
+            with c_set:
+                if st.button(f"Mark Full Paid", key=f"rec_{uo['order_number']}", use_container_width=True):
+                    with get_db_connection() as conn:
+                        conn.cursor().execute("UPDATE orders SET amount_paid = total_amount, payment_status = 'Fully Paid' WHERE order_number = ?", (uo['order_number'],))
+                        conn.commit()
+                    st.rerun()
 
 # ---------------------------------------------------------
-# 6. DATABASE (CLIENT SEARCH & MANAGEMENT)
+# 9. CLIENT DATABASE
 # ---------------------------------------------------------
 elif st.session_state.page == "Client Records":
     st.markdown("<div class='section-title-btn'>Client Database</div>", unsafe_allow_html=True)
-    if st.button("← Back to Main Hub", key="btn_back_db"):
-        navigate("Dashboard")
-        st.rerun()
-        
-    with get_db() as conn:
+    if st.button("← Back to Main Hub", key="back_cdb"): navigate("Dashboard"); st.rerun()
+    with get_db_connection() as conn:
         clients_df = pd.read_sql_query("SELECT id, client_code, full_name, phone, posture_notes, asymmetry_notes FROM clients ORDER BY full_name", conn)
-        
-    if not clients_df.empty:
-        search_query = st.text_input("Search Client by Name or Phone Number", placeholder="Type name or phone...")
-        
-        matched_clients = clients_df
-        if search_query:
-            matched_clients = clients_df[clients_df.apply(lambda r: search_query.lower() in r.astype(str).str.lower().values, axis=1)]
-        
-        st.markdown("### Matched Client Records")
-        if matched_clients.empty:
-            st.info("No client records matched your search.")
-        else:
-            for _, client in matched_clients.iterrows():
-                with st.container():
-                    c_info, c_action, c_del = st.columns([2.5, 2, 0.7])
-                    with c_info:
-                        st.markdown(f"**{client['full_name']}** (ID: `{client['client_code']}` | Phone: `{client['phone']}`)")
-                    with c_action:
-                        with st.popover(f"Actions for {client['full_name']}"):
-                            st.write(f"Choose next step for **{client['full_name']}**:")
-                            if st.button("Update Measurements", key=f"pop_m_{client['id']}", use_container_width=True):
-                                st.session_state.active_client_id = client['id']
-                                navigate("New Measurement")
-                                st.rerun()
-                            if st.button("Proceed to Direct Billing (New Order)", key=f"pop_o_{client['id']}", use_container_width=True):
-                                st.session_state.active_client_id = client['id']
-                                navigate("New Order")
-                                st.rerun()
-                    with c_del:
-                        if st.button("Delete", key=f"db_del_{client['id']}", use_container_width=True):
-                            st.session_state.delete_target_client = client['id']
-                    
-                    if st.session_state.delete_target_client == client['id']:
-                        st.error(f"Confirm deleting {client['full_name']} & all history?")
-                        cy, cn = st.columns(2)
-                        with cy:
-                            if st.button("Yes, Delete", key=f"cy_{client['id']}", use_container_width=True):
-                                with get_db() as conn:
-                                    cur = conn.cursor()
-                                    cur.execute("DELETE FROM orders WHERE client_id = ?", (client['id'],))
-                                    cur.execute("DELETE FROM measurements WHERE client_id = ?", (client['id'],))
-                                    cur.execute("DELETE FROM clients WHERE id = ?", (client['id'],))
-                                    conn.commit()
-                                st.session_state.delete_target_client = None
-                                st.success("Client and all history deleted successfully.")
-                                st.rerun()
-                        with cn:
-                            if st.button("Cancel", key=f"cn_{client['id']}", use_container_width=True):
-                                st.session_state.delete_target_client = None
-                                st.rerun()
-                    st.markdown(f"<hr style='margin:0.3rem 0 0.8rem 0; border:0.5px solid {active_pal['border']};'>", unsafe_allow_html=True)
-    else:
-        st.info("No client records found in the database.")
-
+    sq = st.text_input("Search Client by Name or Phone")
+    if sq: clients_df = clients_df[clients_df.apply(lambda r: sq.lower() in r.astype(str).str.lower().values, axis=1)]
+    for _, c in clients_df.iterrows():
+        c_i, c_a, c_d = st.columns([3, 2, 0.8])
+        with c_i: st.markdown(f"**{c['full_name']}** (ID: `{c['client_code']}` | Phone: `{c['phone']}`)")
+        with c_a:
+            with st.popover(f"Actions for {c['full_name']}"):
+                if st.button("Update Measurements", key=f"um_{c['id']}", use_container_width=True):
+                    st.session_state.active_client_id = c['id']
+                    navigate("New Measurement"); st.rerun()
+                if st.button("Book Order", key=f"bo_{c['id']}", use_container_width=True):
+                    st.session_state.active_client_id = c['id']
+                    navigate("New Order"); st.rerun()
+        with c_d:
+            if st.button("Delete", key=f"del_c_{c['id']}", use_container_width=True):
+                with get_db_connection() as conn:
+                    conn.cursor().execute("DELETE FROM clients WHERE id = ?", (c['id'],))
+                    conn.commit()
+                st.rerun()
 
 # ---------------------------------------------------------
-# 7. ADMIN PANEL (CONTROLS, BACKUP &  MASTER VAULT)
-# ---------------------------------------------------------
-# ---------------------------------------------------------
-# 7. ADMIN PANEL (CONTROLS, BACKUP &  MASTER VAULT)
+# 10. ADMIN PANEL (PRICE-BOOK & MASTER CONFIGURATION)
 # ---------------------------------------------------------
 elif st.session_state.page == "Admin Settings":
     if not st.session_state.is_admin:
-        st.error("Unauthorized. Please log in using the Admin Master Key.")
+        st.error("Unauthorized access. Administrator Master Password required.")
         st.stop()
+        
+    st.markdown("<div class='section-title-btn'>Admin Control Panel & Price Book</div>", unsafe_allow_html=True)
+    if st.button("← Back to Main Hub", key="back_adm"): navigate("Dashboard"); st.rerun()
 
-    st.markdown("<div class='section-title-btn'>Admin Control Panel</div>", unsafe_allow_html=True)
-    if st.button("← Back to Main Hub", key="btn_back_admin"):
-        navigate("Dashboard")
-        st.rerun()
-
-    app_directory = os.path.dirname(os.path.abspath(__file__))
-    current_db = os.path.join(app_directory, "master_tailor.db")
-    current_backup_dir = os.path.join(app_directory, "backups")
-    os.makedirs(current_backup_dir, exist_ok=True)
-
-    # --- 1. LOCAL STORAGE & DATABASE BACKUP ECOSYSTEM ---
-    st.markdown("###  Local Storage & Database Backup Ecosystem")
-    st.info(f"**Active Database File Path:** `{current_db}`\n\nAll records are saved directly to this local database file on your laptop drive.")
-
-    col_bk1, col_bk2 = st.columns(2)
-    with col_bk1:
-        if st.button(" Create Manual Snapshot Backup Now", use_container_width=True):
-            if os.path.exists(current_db):
-                ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                b_path = os.path.join(current_backup_dir, f"manual_backup_{ts}.db")
-                shutil.copy2(current_db, b_path)
-                st.success(f"Snapshot created successfully: `{os.path.basename(b_path)}`")
-            else:
-                st.error("Active database file not found to backup.")
-
-    with col_bk2:
-        backup_files = [f for f in os.listdir(current_backup_dir) if f.endswith(".db")]
-        st.markdown(f"**Available Local Backups ({len(backup_files)} found):**")
-        if backup_files:
-            selected_backup = st.selectbox("Select Snapshot to Restore", sorted(backup_files, reverse=True))
-            if st.button("⚠️ Restore Selected Backup", use_container_width=True):
-                src = os.path.join(current_backup_dir, selected_backup)
-                shutil.copy2(src, current_db)
-                st.success("Database restored to the selected snapshot state!")
+    st.markdown("### 🏷️ Studio Garment Price Book & Worker Piece-Rate Card")
+    st.write("Set fixed selling prices for clients and fixed stitching fees for workers. New orders will automatically populate with these amounts.")
+    
+    with get_db_connection() as conn:
+        cat_df = pd.read_sql_query("SELECT * FROM garment_catalog ORDER BY id ASC", conn)
+        
+    for _, row in cat_df.iterrows():
+        cp1, cp2, cp3, cp4 = st.columns([2, 1.5, 1.5, 1])
+        with cp1:
+            g_name = st.text_input("Garment", value=row['garment_name'], key=f"gname_{row['id']}")
+        with cp2:
+            s_price = st.number_input("Client Price (₹)", value=float(row['default_selling_price']), step=100.0, key=f"sprice_{row['id']}")
+        with cp3:
+            w_cost = st.number_input("Worker Piece Rate (₹)", value=float(row['worker_making_cost']), step=50.0, key=f"wcost_{row['id']}")
+        with cp4:
+            st.write("")
+            if st.button("Save", key=f"save_rate_{row['id']}", use_container_width=True):
+                with get_db_connection() as conn:
+                    conn.cursor().execute("UPDATE garment_catalog SET garment_name = ?, default_selling_price = ?, worker_making_cost = ? WHERE id = ?", (g_name, s_price, w_cost, row['id']))
+                    conn.commit()
+                st.success(f"Updated {g_name} rate!")
                 st.rerun()
-        else:
-            st.caption("No snapshot backups created yet.")
+
+    with st.expander("➕ Add New Garment to Studio Price Book"):
+        with st.form("add_new_catalog_item"):
+            ng1, ng2, ng3 = st.columns(3)
+            with ng1: n_gname = st.text_input("New Garment Name*")
+            with ng2: n_sprice = st.number_input("Default Selling Price (₹)*", value=1500.0, step=100.0)
+            with ng3: n_wcost = st.number_input("Worker Stitching Fee (₹)*", value=400.0, step=50.0)
+            if st.form_submit_button("Add Garment to Catalog") and n_gname:
+                with get_db_connection() as conn:
+                    conn.cursor().execute("INSERT OR IGNORE INTO garment_catalog (garment_name, default_selling_price, worker_making_cost) VALUES (?, ?, ?)", (n_gname.strip(), n_sprice, n_wcost))
+                    conn.commit()
+                st.success("New garment added to Price Book!")
+                st.rerun()
 
     st.markdown("---")
+    st.markdown("### 💾 Local Storage & Snapshot Backups")
+    st.info(f"**Database Location:** `{DB_FILE}`")
+    c_bk1, c_bk2 = st.columns(2)
+    with c_bk1:
+        if st.button("🔄 Create Manual Snapshot Backup", use_container_width=True):
+            ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            bpath = os.path.join(BACKUP_DIR, f"manual_backup_{ts}.db")
+            shutil.copy2(DB_FILE, bpath)
+            st.success(f"Backup saved: `{os.path.basename(bpath)}`")
+    with c_bk2:
+        bk_files = [f for f in os.listdir(BACKUP_DIR) if f.endswith(".db")]
+        if bk_files:
+            s_bk = st.selectbox("Select Backup to Restore", sorted(bk_files, reverse=True))
+            if st.button("⚠️ Restore Selected Backup", use_container_width=True):
+                shutil.copy2(os.path.join(BACKUP_DIR, s_bk), DB_FILE)
+                st.success("Database restored successfully!")
+                st.rerun()
 
-    # --- 2. BACKUP ENGINE ---
-    st.markdown("###Backup")
-    st.write(
-        "Export the **entire studio brain** into a consolidated, audit-ready Excel workbook. "
-        "Every single parameter (clients, measurements, workshop production statuses, fabric remarks, financial dues) is preserved."
-    )
-
-    with get_db() as conn:
-        df_master = pd.read_sql_query("""
-            SELECT 
-                o.order_number AS [Order Reference],
-                o.workflow_status AS [Workshop Stage (Cloth Making)],
-                o.garment_type AS [Garment Type],
-                o.fit_preference AS [Fit Preference],
-                o.delivery_date AS [Target Delivery Date],
-                o.fabric_details AS [Fabric & Mill Specs],
-                o.fitting_remarks AS [Fitting / Cutting Remarks],
-                o.total_amount AS [Total Price (INR)],
-                o.amount_paid AS [Amount Received (INR)],
-                (o.total_amount - o.amount_paid) AS [Balance Due (INR)],
-                o.payment_status AS [Payment Status],
-                o.payment_mode AS [Payment Mode],
-                c.client_code AS [Client ID],
-                c.full_name AS [Client Name],
-                c.phone AS [Client Phone],
-                c.email AS [Client Email],
-                c.posture_notes AS [Posture Observations],
-                c.asymmetry_notes AS [Asymmetry Notes],
-                m.unit AS [Measurement Unit],
-                m.garment_category AS [Measurement Category],
-                m.full_length_jacket AS [Length],
-                m.neck AS [Neck],
-                m.cross_shoulder AS [Shoulder],
-                m.chest_full AS [Chest],
-                m.waist_stomach AS [Stomach],
-                m.seat_hip AS [Hips],
-                m.armhole AS [Armhole],
-                m.sleeve_length AS [Sleeve],
-                m.wrist AS [Wrist],
-                m.trouser_waist AS [Waist],
-                m.front_rise AS [Front Rise],
-                m.crotch_depth AS [Crotch],
-                m.thigh AS [Thigh],
-                m.bottom_opening AS [Bottom Opening],
-                m.notes AS [Measurement Notes],
-                o.created_at AS [Order Date]
-            FROM orders o
-            LEFT JOIN clients c ON o.client_id = c.id
-            LEFT JOIN measurements m ON o.measurement_id = m.id
-            ORDER BY o.id DESC
-        """, conn)
-
-        df_clients = pd.read_sql_query("SELECT * FROM clients ORDER BY id ASC", conn)
-        df_measurements = pd.read_sql_query("""
-            SELECT m.*, c.client_code, c.full_name AS client_name, c.phone 
-            FROM measurements m 
-            LEFT JOIN clients c ON m.client_id = c.id 
-            ORDER BY m.id ASC
-        """, conn)
-        df_orders = pd.read_sql_query("""
-            SELECT o.*, c.client_code, c.full_name AS client_name, c.phone, (o.total_amount - o.amount_paid) AS balance_due
-            FROM orders o 
-            LEFT JOIN clients c ON o.client_id = c.id 
-            ORDER BY o.id ASC
-        """, conn)
-        df_workshop = pd.read_sql_query("""
-            SELECT 
-                o.order_number, c.full_name AS client_name, c.phone, o.garment_type, o.workflow_status, 
-                o.delivery_date, o.fabric_details, o.fitting_remarks, o.created_at
-            FROM orders o
-            LEFT JOIN clients c ON o.client_id = c.id
-            WHERE o.workflow_status != 'Delivered'
-            ORDER BY o.delivery_date ASC
-        """, conn)
-        df_settings = pd.read_sql_query("SELECT * FROM settings", conn)
-
-    excel_buffer = io.BytesIO()
-    with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-        df_master.to_excel(writer, sheet_name='_Master_Ledger', index=False)
-        df_orders.to_excel(writer, sheet_name='All_Orders_Detailed', index=False)
-        df_workshop.to_excel(writer, sheet_name='Workshop_Under_Making', index=False)
-        df_measurements.to_excel(writer, sheet_name='Measurements_Vault', index=False)
-        df_clients.to_excel(writer, sheet_name='Clients_Directory', index=False)
-        df_settings.to_excel(writer, sheet_name='System_Settings_Metadata', index=False)
-
-    excel_data = excel_buffer.getvalue()
-    today_str = datetime.date.today().strftime('%Y-%m-%d')
-    
+    st.markdown("---")
+    st.markdown("### 🏛️ Apocalypse-Grade Master Data Backup (Excel .xlsx)")
     st.download_button(
-        label=" Full Backup",
-        data=excel_data,
-        file_name=f"{BRAND_NAME.replace(' ', '_')}Backup_{today_str}.xlsx",
+        label="🛡️ Download Apocalypse Master Backup (Full Excel .xlsx)",
+        data=build_apocalypse_excel_buffer(),
+        file_name=f"{BRAND_NAME.replace(' ', '_')}_Apocalypse_Backup_{datetime.date.today().strftime('%Y-%m-%d')}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True
     )
 
     st.markdown("---")
-
-    # --- 3. THEME & COLOR PALETTE ---
-    st.markdown("### Studio Visual Theme & Color Palette")
-    st.write("Select an atelier palette. The background is always soft and legible, with matched high-contrast text and buttons.")
-    
-    with st.form("admin_theme_palette_form"):
-        palette_names = list(COLOR_PALETTES.keys())
-        chosen_theme = st.selectbox(
-            "Select Atelier Theme Palette",
-            palette_names,
-            index=palette_names.index(CURRENT_THEME) if CURRENT_THEME in palette_names else 0
-        )
-        
-        p_info = COLOR_PALETTES[chosen_theme]
-        c1, c2, c3, c4 = st.columns(4)
-        c1.markdown(f"<div style='background:{p_info['bg']}; padding:10px; border-radius:8px; border:1px solid {p_info['border']}; text-align:center; font-weight:bold; color:{p_info['text']};'>Background</div>", unsafe_allow_html=True)
-        c2.markdown(f"<div style='background:{p_info['accent_banner']}; padding:10px; border-radius:8px; border:1px solid {p_info['border']}; text-align:center; font-weight:bold; color:{p_info['accent_banner_text']};'>Banner Accent</div>", unsafe_allow_html=True)
-        c3.markdown(f"<div style='background:{p_info['btn_bg']}; padding:10px; border-radius:8px; text-align:center; font-weight:bold; color:{p_info['btn_text']};'>Button Style</div>", unsafe_allow_html=True)
-        c4.markdown(f"<div style='background:{p_info['sidebar_bg']}; padding:10px; border-radius:8px; text-align:center; font-weight:bold; color:#FFFFFF;'>Sidebar Base</div>", unsafe_allow_html=True)
-        
-        save_theme_btn = st.form_submit_button("Apply & Save Color Palette", use_container_width=True)
-        if save_theme_btn:
+    st.markdown("### Studio Branding & Security Configurations")
+    with st.form("admin_settings_form"):
+        b_name = st.text_input("Brand Name", value=BRAND_NAME)
+        b_tag = st.text_input("Brand Tagline", value=BRAND_TAGLINE)
+        adm_pwd = st.text_input("Admin Password", value=get_setting("admin_master_key", "ADMIN176920"), type="password")
+        tlr_pwd = st.text_input("Tailor Password", value=get_setting("tailor_master_key", "176920"), type="password")
+        rec_phone = st.text_input("Admin Recovery Phone", value=get_setting("admin_recovery_phone", ""))
+        chosen_theme = st.selectbox("Theme Palette", list(COLOR_PALETTES.keys()), index=list(COLOR_PALETTES.keys()).index(CURRENT_THEME) if CURRENT_THEME in COLOR_PALETTES else 0)
+        if st.form_submit_button("Save Studio Configurations", use_container_width=True):
+            set_setting("brand_name", b_name.strip())
+            set_setting("brand_tagline", b_tag.strip())
+            set_setting("admin_master_key", adm_pwd.strip())
+            set_setting("tailor_master_key", tlr_pwd.strip())
+            set_setting("admin_recovery_phone", rec_phone.strip())
             set_setting("theme_palette", chosen_theme)
-            st.success(f"Applied '{chosen_theme}' palette!")
+            st.success("Configurations updated successfully!")
             st.rerun()
 
     st.markdown("---")
-
-    # --- 4. ADMIN SECURITY & PASSWORD MANAGEMENT ---
-    st.markdown("### Admin Security & Password Recovery Setup")
-    with st.form("admin_security_config_form"):
-        s1, s2 = st.columns(2)
-        with s1:
-            new_admin_key_val = st.text_input("Admin Master Password", value=get_setting("admin_master_key", "ADMIN176920"), type="password")
-            new_tailor_key_val = st.text_input("Staff / Tailor Master Password", value=get_setting("tailor_master_key", "176920"), type="password")
-        with s2:
-            recovery_phone_val = st.text_input("Admin Recovery Phone Number (Used for Password Reset)", value=get_setting("admin_recovery_phone", ""), placeholder="e.g., +91 9876543210")
-            st.caption("Used on the sign-in page if you forget your master password.")
-
-        save_security = st.form_submit_button("Save Security Credentials", use_container_width=True)
-        if save_security:
-            if new_admin_key_val.strip() and new_tailor_key_val.strip():
-                set_setting("admin_master_key", new_admin_key_val.strip())
-                set_setting("tailor_master_key", new_tailor_key_val.strip())
-                set_setting("admin_recovery_phone", recovery_phone_val.strip())
-                st.success("Security settings and passwords updated successfully!")
-                st.rerun()
-            else:
-                st.error("Master passwords cannot be empty.")
-
-    st.markdown("---")
-
-    # --- 5. BRAND CUSTOMIZATION ---
-    st.markdown("### Studio Branding & Identity Customizer")
-    with st.form("admin_brand_settings_form"):
-        b1, b2 = st.columns(2)
-        with b1:
-            new_brand = st.text_input("Brand / Studio Name", value=BRAND_NAME)
-        with b2:
-            new_tagline = st.text_input("Tagline (Appears on Receipts & Headers)", value=BRAND_TAGLINE)
-        
-        save_brand = st.form_submit_button("Save Branding Settings", use_container_width=True)
-        if save_brand:
-            set_setting("brand_name", new_brand.strip())
-            set_setting("brand_tagline", new_tagline.strip())
-            st.success("Brand identity updated across the entire application and receipts!")
-            st.rerun()
-
-    st.markdown("---")
-
-    # --- 6. TALLY PRIME SALES XML EXPORT ---
-    st.markdown("### Tally Prime XML Integration (Direct Accounting Import)")
-    with st.form("admin_tally_config_form"):
-        t1, t2, t3 = st.columns(3)
-        with t1:
-            sales_ledger = st.text_input("Tally Sales Ledger Name", value=get_setting("tally_ledger", "Tailoring Sales"))
-        with t2:
-            cash_ledger = st.text_input("Tally Cash Ledger Name", value=get_setting("tally_cash_ledger", "Cash"))
-        with t3:
-            bank_ledger = st.text_input("Tally Bank Ledger Name", value=get_setting("tally_bank_ledger", "Bank Account"))
-        
-        save_tally = st.form_submit_button("Update Tally Ledger Names", use_container_width=True)
-        if save_tally:
-            set_setting("tally_ledger", sales_ledger.strip())
-            set_setting("tally_cash_ledger", cash_ledger.strip())
-            set_setting("tally_bank_ledger", bank_ledger.strip())
-            st.success("Tally ledger configurations saved!")
-            st.rerun()
-
-    def build_tally_xml(orders_dataframe, sales_acc, cash_acc, bank_acc):
-        xml = [
-            '<ENVELOPE>',
-            '  <HEADER>',
-            '    <TALLYREQUEST>Import Data</TALLYREQUEST>',
-            '  </HEADER>',
-            '  <BODY>',
-            '    <IMPORTDATA>',
-            '      <REQUESTDESC>',
-            '        <REPORTNAME>Vouchers</REPORTNAME>',
-            '      </REQUESTDESC>',
-            '      <REQUESTDATA>'
-        ]
-        
-        for _, ord_row in orders_dataframe.iterrows():
-            v_date = datetime.date.today().strftime('%Y%m%d')
-            if 'created_at' in ord_row and ord_row['created_at']:
-                try:
-                    v_date = str(ord_row['created_at'])[:10].replace('-', '')
-                except:
-                    pass
-                    
-            total_val = float(ord_row.get('total_amount') or 0.0)
-            paid_val = float(ord_row.get('amount_paid') or 0.0)
-            raw_client = ord_row.get('client_name') or ord_row.get('full_name') or 'Direct Client'
-            client_party = str(raw_client).replace('&', '&amp;').replace('<', '&lt;')
-            ord_ref = str(ord_row.get('order_number') or '')
-            garment_item = str(ord_row.get('garment_type') or 'Garment')
-            pay_mode = str(ord_row.get('payment_mode') or 'Cash')
-            
-            debit_ledger = cash_acc if 'Cash' in pay_mode else bank_acc
-
-            xml.append('        <TALLYMESSAGE xmlns:UDF="TallyUDF">')
-            xml.append(f'          <VOUCHER VCHTYPE="Sales" ACTION="Create">')
-            xml.append(f'            <DATE>{v_date}</DATE>')
-            xml.append(f'            <VOUCHERTYPENAME>Sales</VOUCHERTYPENAME>')
-            xml.append(f'            <VOUCHERNUMBER>{ord_ref}</VOUCHERNUMBER>')
-            xml.append(f'            <PARTYLEDGERNAME>{client_party}</PARTYLEDGERNAME>')
-            xml.append(f'            <NARRATION>Bespoke order {ord_ref} ({garment_item}) for {client_party}</NARRATION>')
-            
-            xml.append('            <ALLLEDGERENTRIES.LIST>')
-            xml.append(f'              <LEDGERNAME>{client_party}</LEDGERNAME>')
-            xml.append('              <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>')
-            xml.append(f'              <AMOUNT>-{total_val:.2f}</AMOUNT>')
-            xml.append('            </ALLLEDGERENTRIES.LIST>')
-            
-            xml.append('            <ALLLEDGERENTRIES.LIST>')
-            xml.append(f'              <LEDGERNAME>{sales_acc}</LEDGERNAME>')
-            xml.append('              <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>')
-            xml.append(f'              <AMOUNT>{total_val:.2f}</AMOUNT>')
-            xml.append('            </ALLLEDGERENTRIES.LIST>')
-            xml.append('          </VOUCHER>')
-            xml.append('        </TALLYMESSAGE>')
-
-            if paid_val > 0:
-                xml.append('        <TALLYMESSAGE xmlns:UDF="TallyUDF">')
-                xml.append(f'          <VOUCHER VCHTYPE="Receipt" ACTION="Create">')
-                xml.append(f'            <DATE>{v_date}</DATE>')
-                xml.append(f'            <VOUCHERTYPENAME>Receipt</VOUCHERTYPENAME>')
-                xml.append(f'            <VOUCHERNUMBER>RCT-{ord_ref}</VOUCHERNUMBER>')
-                xml.append(f'            <PARTYLEDGERNAME>{client_party}</PARTYLEDGERNAME>')
-                xml.append(f'            <NARRATION>Payment received via {pay_mode} for order {ord_ref}</NARRATION>')
-                
-                xml.append('            <ALLLEDGERENTRIES.LIST>')
-                xml.append(f'              <LEDGERNAME>{debit_ledger}</LEDGERNAME>')
-                xml.append('              <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>')
-                xml.append(f'              <AMOUNT>-{paid_val:.2f}</AMOUNT>')
-                xml.append('            </ALLLEDGERENTRIES.LIST>')
-                
-                xml.append('            <ALLLEDGERENTRIES.LIST>')
-                xml.append(f'              <LEDGERNAME>{client_party}</LEDGERNAME>')
-                xml.append('              <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>')
-                xml.append(f'              <AMOUNT>{paid_val:.2f}</AMOUNT>')
-                xml.append('            </ALLLEDGERENTRIES.LIST>')
-                
-                xml.append('          </VOUCHER>')
-                xml.append('        </TALLYMESSAGE>')
-
-        xml.append('      </REQUESTDATA>')
-        xml.append('    </IMPORTDATA>')
-        xml.append('  </BODY>')
-        xml.append('</ENVELOPE>')
-        return "\n".join(xml)
-
-    if not df_orders.empty:
-        tally_xml_string = build_tally_xml(
-            df_orders, 
-            get_setting("tally_ledger", "Tailoring Sales"),
-            get_setting("tally_cash_ledger", "Cash"),
-            get_setting("tally_bank_ledger", "Bank Account")
-        )
-        st.download_button(
-            label="Export Sales & Receipts for Tally Prime (.xml)",
-            data=tally_xml_string,
-            file_name=f"Tally_Import_Vouchers_{today_str}.xml",
-            mime="application/xml",
-            use_container_width=True
-        )
+    st.markdown("### Tally Prime XML Integration")
+    s_acc = st.text_input("Sales Ledger Name", value=get_setting("tally_ledger", "Tailoring Sales"))
+    c_acc = st.text_input("Cash Ledger Name", value=get_setting("tally_cash_ledger", "Cash"))
+    b_acc = st.text_input("Bank Ledger Name", value=get_setting("tally_bank_ledger", "Bank Account"))
+    st.download_button(
+        label="Export Sales & Receipts for Tally Prime (.xml)",
+        data=build_tally_xml(s_acc, c_acc, b_acc),
+        file_name=f"Tally_Vouchers_{datetime.date.today().strftime('%Y-%m-%d')}.xml",
+        mime="application/xml",
+        use_container_width=True
+    )
