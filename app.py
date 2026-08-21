@@ -1292,10 +1292,10 @@ elif st.session_state.page == "Client Records":
 
 
 # ---------------------------------------------------------
-# 7. ADMIN PANEL (CONTROLS, BACKUP & APOCALYPSE MASTER VAULT)
+# 7. ADMIN PANEL (CONTROLS, BACKUP &  MASTER VAULT)
 # ---------------------------------------------------------
 # ---------------------------------------------------------
-# 7. ADMIN PANEL (CONTROLS, BACKUP & APOCALYPSE MASTER VAULT)
+# 7. ADMIN PANEL (CONTROLS, BACKUP &  MASTER VAULT)
 # ---------------------------------------------------------
 elif st.session_state.page == "Admin Settings":
     if not st.session_state.is_admin:
@@ -1313,12 +1313,12 @@ elif st.session_state.page == "Admin Settings":
     os.makedirs(current_backup_dir, exist_ok=True)
 
     # --- 1. LOCAL STORAGE & DATABASE BACKUP ECOSYSTEM ---
-    st.markdown("### 💾 Local Storage & Database Backup Ecosystem")
+    st.markdown("###  Local Storage & Database Backup Ecosystem")
     st.info(f"**Active Database File Path:** `{current_db}`\n\nAll records are saved directly to this local database file on your laptop drive.")
 
     col_bk1, col_bk2 = st.columns(2)
     with col_bk1:
-        if st.button("🔄 Create Manual Snapshot Backup Now", use_container_width=True):
+        if st.button(" Create Manual Snapshot Backup Now", use_container_width=True):
             if os.path.exists(current_db):
                 ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
                 b_path = os.path.join(current_backup_dir, f"manual_backup_{ts}.db")
@@ -1342,8 +1342,8 @@ elif st.session_state.page == "Admin Settings":
 
     st.markdown("---")
 
-    # --- 2. APOCALYPSE-GRADE EXCEL BACKUP ENGINE ---
-    st.markdown("### 🏛️ Apocalypse-Grade Master Data Backup (Excel .xlsx)")
+    # --- 2. BACKUP ENGINE ---
+    st.markdown("###Backup")
     st.write(
         "Export the **entire studio brain** into a consolidated, audit-ready Excel workbook. "
         "Every single parameter (clients, measurements, workshop production statuses, fabric remarks, financial dues) is preserved."
@@ -1420,7 +1420,7 @@ elif st.session_state.page == "Admin Settings":
 
     excel_buffer = io.BytesIO()
     with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-        df_master.to_excel(writer, sheet_name='Apocalypse_Master_Ledger', index=False)
+        df_master.to_excel(writer, sheet_name='_Master_Ledger', index=False)
         df_orders.to_excel(writer, sheet_name='All_Orders_Detailed', index=False)
         df_workshop.to_excel(writer, sheet_name='Workshop_Under_Making', index=False)
         df_measurements.to_excel(writer, sheet_name='Measurements_Vault', index=False)
@@ -1431,9 +1431,9 @@ elif st.session_state.page == "Admin Settings":
     today_str = datetime.date.today().strftime('%Y-%m-%d')
     
     st.download_button(
-        label="🛡️ Download Apocalypse Master Backup (Full Excel .xlsx)",
+        label=" Full Backup",
         data=excel_data,
-        file_name=f"{BRAND_NAME.replace(' ', '_')}_Apocalypse_Backup_{today_str}.xlsx",
+        file_name=f"{BRAND_NAME.replace(' ', '_')}Backup_{today_str}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True
     )
