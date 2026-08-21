@@ -1409,9 +1409,9 @@ elif st.session_state.page == "Admin Settings":
 
     st.markdown("---")
 # ---------------------------------------------------------
-    # 2. APOCALYPSE-GRADE EXCEL BACKUP ENGINE (MULTI-SHEET VAULT)
+    # 2. BACKUP
     # ---------------------------------------------------------
-    st.markdown("### 🏛️ Apocalypse-Grade Master Data Backup (Excel .xlsx)")
+    st.markdown("###Data Backup")
     st.write(
         "Export the **entire studio brain** into a consolidated, audit-ready Excel workbook. "
         "Every single parameter (clients, measurements, workshop production statuses, fabric remarks, financial dues) is preserved."
