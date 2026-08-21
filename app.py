@@ -689,7 +689,7 @@ elif st.session_state.page == "New Measurement":
         with h2:
             unit = st.selectbox("Measurement Unit", ["Inches", "Centimeters"])
         
-       # ---------------------------------------------------------
+# ---------------------------------------------------------
 # TALLY-STYLE SEQUENTIAL ENTER NAVIGATION & SUBMIT ENGINE
 # ---------------------------------------------------------
 st.components.v1.html("""
