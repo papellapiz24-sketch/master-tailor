@@ -18,7 +18,89 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# ABSOLUTE PERSISTENT LOCAL DATABASE ENGINE
+# TALLY-STYLE ENTER KEY STEPPER & FORM NAVIGATION ENGINE
+# ---------------------------------------------------------
+st.components.v1.html("""
+<script>
+(function() {
+    function getRootDocument() {
+        try {
+            return window.parent.document || window.document;
+        } catch (e) {
+            return window.document;
+        }
+    }
+
+    function handleTallyEnterNavigation(e) {
+        if (e.key !== 'Enter') return;
+
+        const doc = getRootDocument();
+        const active = doc.activeElement;
+        if (!active) return;
+
+        const isInput = active.tagName === 'INPUT' && !['button', 'submit', 'checkbox', 'radio', 'file'].includes(active.type);
+        const isTextArea = active.tagName === 'TEXTAREA';
+
+        if (isInput || isTextArea) {
+            if (isTextArea && e.shiftKey) return;
+
+            const form = active.closest('form') || doc.querySelector('form');
+            if (!form) return;
+
+            const interactiveElements = Array.from(form.querySelectorAll(
+                'input:not([type="hidden"]):not([disabled]):not([type="submit"]):not([type="button"]), textarea:not([disabled])'
+            )).filter(el => {
+                const style = window.getComputedStyle(el);
+                const rect = el.getBoundingClientRect();
+                return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
+            });
+
+            const currentIndex = interactiveElements.indexOf(active);
+
+            if (currentIndex > -1 && currentIndex < interactiveElements.length - 1) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+
+                active.dispatchEvent(new Event('change', { bubbles: true }));
+
+                const nextElement = interactiveElements[currentIndex + 1];
+                nextElement.focus();
+                if (typeof nextElement.select === 'function') {
+                    nextElement.select();
+                }
+            } else if (currentIndex === interactiveElements.length - 1) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+
+                active.dispatchEvent(new Event('change', { bubbles: true }));
+
+                const submitBtn = form.querySelector('button[kind="primaryFormSubmit"], button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.focus();
+                    setTimeout(() => {
+                        submitBtn.click();
+                    }, 250);
+                }
+            }
+        }
+    }
+
+    function attachListener() {
+        const doc = getRootDocument();
+        doc.removeEventListener('keydown', handleTallyEnterNavigation, true);
+        doc.addEventListener('keydown', handleTallyEnterNavigation, true);
+    }
+
+    attachListener();
+    setInterval(attachListener, 1000);
+})();
+</script>
+""", height=0, width=0)
+
+# ---------------------------------------------------------
+# DATABASE PERSISTENCE ENGINE (ABSOLUTE LOCAL PATH)
 # ---------------------------------------------------------
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_FILE = os.path.join(APP_DIR, "master_tailor.db")
@@ -268,7 +350,6 @@ st.markdown(f"""
         border: 1.5px solid {active_pal['border']} !important;
     }}
 
-    /* High-contrast buttons */
     .stButton>button {{
         background-color: {active_pal['btn_bg']} !important;
         border: 1.5px solid {active_pal['btn_bg']} !important;
@@ -501,12 +582,12 @@ if st.sidebar.button("1. Register Client", use_container_width=True):
     navigate("New Client")
     st.rerun()
 
-if st.sidebar.button("2. Record Measurements", use_container_width=True):
-    navigate("New Measurement")
+if st.sidebar.button("2. New Order", use_container_width=True):
+    navigate("New Order")
     st.rerun()
 
-if st.sidebar.button("3. New Order & Billing", use_container_width=True):
-    navigate("New Order")
+if st.sidebar.button("3. Record Measurements", use_container_width=True):
+    navigate("New Measurement")
     st.rerun()
 
 if st.sidebar.button("4. Print Receipt", use_container_width=True):
@@ -632,7 +713,7 @@ elif st.session_state.page == "New Client":
                     new_id = cur.lastrowid
                     conn.commit()
                 st.session_state.active_client_id = new_id
-                st.success(f"Client '{full_name}' created with ID {client_code}! Proceeding to measurements...")
+                st.success(f"Client '{full_name}' created with ID {client_code}! Redirecting to measurements...")
                 navigate("New Measurement")
                 st.rerun()
             except sqlite3.IntegrityError:
@@ -640,7 +721,7 @@ elif st.session_state.page == "New Client":
 
 
 # ---------------------------------------------------------
-# 2. RECORD MEASUREMENTS (PERFECT SINGLE-BOX ENTER NAVIGATION)
+# 2. RECORD MEASUREMENTS
 # ---------------------------------------------------------
 elif st.session_state.page == "New Measurement":
     st.markdown("<div class='section-title-btn'>Step 2: Record Client Measurements</div>", unsafe_allow_html=True)
@@ -683,146 +764,52 @@ elif st.session_state.page == "New Measurement":
         
         selected_garment_type = st.selectbox("Choose Garment Type to Measure", garment_options)
         
-        h1, h2 = st.columns(2)
-        with h1:
-            rec_date = st.date_input("Date Taken", datetime.date.today())
-        with h2:
-            unit = st.selectbox("Measurement Unit", ["Inches", "Centimeters"])
-        
-# ---------------------------------------------------------
-# TALLY-STYLE SEQUENTIAL ENTER NAVIGATION & SUBMIT ENGINE
-# ---------------------------------------------------------
-st.components.v1.html("""
-<script>
-(function() {
-    function getRootDocument() {
-        try {
-            return window.parent.document || window.document;
-        } catch (e) {
-            return window.document;
-        }
-    }
+        with st.form("measurement_form"):
+            h1, h2 = st.columns(2)
+            with h1:
+                rec_date = st.date_input("Date Taken", datetime.date.today())
+            with h2:
+                unit = st.selectbox("Measurement Unit", ["Inches", "Centimeters"])
+            
+            st.markdown("<div class='section-title-btn'>Upper Body Dimensions</div>", unsafe_allow_html=True)
+            full_length_jacket = st.number_input("Length", value=float(prev_m['full_length_jacket']) if prev_m and prev_m['full_length_jacket'] else None, min_value=0.0, step=0.25, placeholder="0.00")
+            neck = st.number_input("Neck", value=float(prev_m['neck']) if prev_m and prev_m['neck'] else None, min_value=0.0, step=0.25, placeholder="0.00")
+            cross_shoulder = st.number_input("Shoulder", value=float(prev_m['cross_shoulder']) if prev_m and prev_m['cross_shoulder'] else None, min_value=0.0, step=0.25, placeholder="0.00")
+            chest_full = st.number_input("Chest", value=float(prev_m['chest_full']) if prev_m and prev_m['chest_full'] else None, min_value=0.0, step=0.25, placeholder="0.00")
+            waist_stomach = st.number_input("Stomach", value=float(prev_m['waist_stomach']) if prev_m and prev_m['waist_stomach'] else None, min_value=0.0, step=0.25, placeholder="0.00")
+            seat_hip = st.number_input("Hips", value=float(prev_m['seat_hip']) if prev_m and prev_m['seat_hip'] else None, min_value=0.0, step=0.25, placeholder="0.00")
+            armhole = st.number_input("Armhole", value=float(prev_m['armhole']) if prev_m and prev_m['armhole'] else None, min_value=0.0, step=0.25, placeholder="0.00")
+            sleeve_length = st.number_input("Sleeve", value=float(prev_m['sleeve_length']) if prev_m and prev_m['sleeve_length'] else None, min_value=0.0, step=0.25, placeholder="0.00")
+            wrist = st.number_input("Wrist", value=float(prev_m['wrist']) if prev_m and prev_m['wrist'] else None, min_value=0.0, step=0.25, placeholder="0.00")
 
-    function handleTallyEnterNavigation(e) {
-        if (e.key !== 'Enter') return;
+            st.markdown("<div class='section-title-btn'>Lower Side Dimensions</div>", unsafe_allow_html=True)
+            trouser_waist = st.number_input("Waist", value=float(prev_m['trouser_waist']) if prev_m and prev_m['trouser_waist'] else None, min_value=0.0, step=0.25, placeholder="0.00")
+            front_rise = st.number_input("Front Rise", value=float(prev_m['front_rise']) if prev_m and prev_m['front_rise'] else None, min_value=0.0, step=0.25, placeholder="0.00")
+            crotch_depth = st.number_input("Crotch", value=float(prev_m['crotch_depth']) if prev_m and prev_m['crotch_depth'] else None, min_value=0.0, step=0.25, placeholder="0.00")
+            thigh = st.number_input("Thigh", value=float(prev_m['thigh']) if prev_m and prev_m['thigh'] else None, min_value=0.0, step=0.25, placeholder="0.00")
+            bottom_opening = st.number_input("Bottom Opening", value=float(prev_m['bottom_opening']) if prev_m and prev_m['bottom_opening'] else None, min_value=0.0, step=0.25, placeholder="0.00")
 
-        const doc = getRootDocument();
-        const active = doc.activeElement;
-        if (!active) return;
-
-        const isInput = active.tagName === 'INPUT' && !['button', 'submit', 'checkbox', 'radio', 'file'].includes(active.type);
-        const isTextArea = active.tagName === 'TEXTAREA';
-
-        if (isInput || isTextArea) {
-            // Allow Shift+Enter inside textareas for standard line breaks
-            if (isTextArea && e.shiftKey) return;
-
-            const form = active.closest('form') || doc.querySelector('form');
-            if (!form) return;
-
-            // Find all visible, interactive form inputs in natural DOM sequence
-            const interactiveElements = Array.from(form.querySelectorAll(
-                'input:not([type="hidden"]):not([disabled]):not([type="submit"]):not([type="button"]), textarea:not([disabled])'
-            )).filter(el => {
-                const style = window.getComputedStyle(el);
-                const rect = el.getBoundingClientRect();
-                return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
-            });
-
-            const currentIndex = interactiveElements.indexOf(active);
-
-            // Step to next box
-            if (currentIndex > -1 && currentIndex < interactiveElements.length - 1) {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-
-                // Trigger change event to lock current value in Streamlit state
-                active.dispatchEvent(new Event('change', { bubbles: true }));
-
-                const nextElement = interactiveElements[currentIndex + 1];
-                nextElement.focus();
-                if (typeof nextElement.select === 'function') {
-                    nextElement.select();
-                }
-            } 
-            // On the final box, smoothly trigger Accept / Submit
-            else if (currentIndex === interactiveElements.length - 1) {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-
-                active.dispatchEvent(new Event('change', { bubbles: true }));
-
-                const submitBtn = form.querySelector('button[kind="primaryFormSubmit"], button[type="submit"]');
-                if (submitBtn) {
-                    submitBtn.focus();
-                    setTimeout(() => {
-                        submitBtn.click();
-                    }, 300);
-                }
-            }
-        }
-    }
-
-    function attachListener() {
-        const doc = getRootDocument();
-        doc.removeEventListener('keydown', handleTallyEnterNavigation, true);
-        doc.addEventListener('keydown', handleTallyEnterNavigation, true);
-    }
-
-    attachListener();
-    setInterval(attachListener, 1000);
-})();
-</script>
-""", height=0, width=0)
-
-      st.markdown("<div class='section-title-btn'>Upper Body Dimensions</div>", unsafe_allow_html=True)
-        col_u1, col_u2 = st.columns(2)
-        with col_u1:
-            full_length_jacket = st.number_input("Length", value=float(prev_m['full_length_jacket']) if prev_m and prev_m['full_length_jacket'] else None, min_value=0.0, step=0.25, placeholder="0.00", key="m_len")
-            neck = st.number_input("Neck", value=float(prev_m['neck']) if prev_m and prev_m['neck'] else None, min_value=0.0, step=0.25, placeholder="0.00", key="m_neck")
-            cross_shoulder = st.number_input("Shoulder", value=float(prev_m['cross_shoulder']) if prev_m and prev_m['cross_shoulder'] else None, min_value=0.0, step=0.25, placeholder="0.00", key="m_shld")
-            chest_full = st.number_input("Chest", value=float(prev_m['chest_full']) if prev_m and prev_m['chest_full'] else None, min_value=0.0, step=0.25, placeholder="0.00", key="m_chest")
-            waist_stomach = st.number_input("Stomach", value=float(prev_m['waist_stomach']) if prev_m and prev_m['waist_stomach'] else None, min_value=0.0, step=0.25, placeholder="0.00", key="m_stom")
-        with col_u2:
-            seat_hip = st.number_input("Hips", value=float(prev_m['seat_hip']) if prev_m and prev_m['seat_hip'] else None, min_value=0.0, step=0.25, placeholder="0.00", key="m_hip")
-            armhole = st.number_input("Armhole", value=float(prev_m['armhole']) if prev_m and prev_m['armhole'] else None, min_value=0.0, step=0.25, placeholder="0.00", key="m_armh")
-            sleeve_length = st.number_input("Sleeve", value=float(prev_m['sleeve_length']) if prev_m and prev_m['sleeve_length'] else None, min_value=0.0, step=0.25, placeholder="0.00", key="m_slv")
-            wrist = st.number_input("Wrist", value=float(prev_m['wrist']) if prev_m and prev_m['wrist'] else None, min_value=0.0, step=0.25, placeholder="0.00", key="m_wrst")
-
-        st.markdown("<div class='section-title-btn'>Lower Side Dimensions</div>", unsafe_allow_html=True)
-        col_l1, col_l2 = st.columns(2)
-        with col_l1:
-            trouser_waist = st.number_input("Waist", value=float(prev_m['trouser_waist']) if prev_m and prev_m['trouser_waist'] else None, min_value=0.0, step=0.25, placeholder="0.00", key="m_twaist")
-            front_rise = st.number_input("Front Rise", value=float(prev_m['front_rise']) if prev_m and prev_m['front_rise'] else None, min_value=0.0, step=0.25, placeholder="0.00", key="m_frise")
-            crotch_depth = st.number_input("Crotch", value=float(prev_m['crotch_depth']) if prev_m and prev_m['crotch_depth'] else None, min_value=0.0, step=0.25, placeholder="0.00", key="m_crotch")
-        with col_l2:
-            thigh = st.number_input("Thigh", value=float(prev_m['thigh']) if prev_m and prev_m['thigh'] else None, min_value=0.0, step=0.25, placeholder="0.00", key="m_thigh")
-            bottom_opening = st.number_input("Bottom Opening", value=float(prev_m['bottom_opening']) if prev_m and prev_m['bottom_opening'] else None, min_value=0.0, step=0.25, placeholder="0.00", key="m_bot")
-
-        m_notes = st.text_area("Measurement Session & Fit Notes", value=str(prev_m['notes'] or "") if prev_m else "", placeholder="e.g., Slim tapering requested...", key="m_notes_txt")
-        
-        st.write("")
-        if st.button("💾 Save Measurements & Proceed to Billing →", use_container_width=True):
-            with get_db() as conn:
-                conn.cursor().execute("""
-                INSERT INTO measurements (
-                    client_id, revision_label, garment_category, unit, date_recorded,
-                    full_length_jacket, neck, cross_shoulder, chest_full, waist_stomach,
-                    seat_hip, armhole, sleeve_length, wrist, trouser_waist,
-                    front_rise, crotch_depth, thigh, bottom_opening, notes
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    selected_client_id, "Standard", selected_garment_type, unit, rec_date,
-                    full_length_jacket, neck, cross_shoulder, chest_full, waist_stomach,
-                    seat_hip, armhole, sleeve_length, wrist, trouser_waist,
-                    front_rise, crotch_depth, thigh, bottom_opening, m_notes
-                ))
-                conn.commit()
-            st.success("Measurements recorded successfully! Proceeding to Billing...")
-            navigate("New Order")
-            st.rerun()
+            m_notes = st.text_area("Measurement Session & Fit Notes", value=str(prev_m['notes'] or "") if prev_m else "", placeholder="e.g., Slim tapering requested...")
+            save_m = st.form_submit_button("Save & Proceed to Order / Billing →", use_container_width=True)
+            if save_m:
+                with get_db() as conn:
+                    conn.cursor().execute("""
+                    INSERT INTO measurements (
+                        client_id, revision_label, garment_category, unit, date_recorded,
+                        full_length_jacket, neck, cross_shoulder, chest_full, waist_stomach,
+                        seat_hip, armhole, sleeve_length, wrist, trouser_waist,
+                        front_rise, crotch_depth, thigh, bottom_opening, notes
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        selected_client_id, "Standard", selected_garment_type, unit, rec_date,
+                        full_length_jacket, neck, cross_shoulder, chest_full, waist_stomach,
+                        seat_hip, armhole, sleeve_length, wrist, trouser_waist,
+                        front_rise, crotch_depth, thigh, bottom_opening, m_notes
+                    ))
+                    conn.commit()
+                st.success("Measurements recorded! Proceeding to New Order / Billing...")
+                navigate("New Order")
+                st.rerun()
 
 
 # ---------------------------------------------------------
@@ -1538,6 +1525,7 @@ elif st.session_state.page == "Admin Settings":
                 xml.append('              <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>')
                 xml.append(f'              <AMOUNT>{paid_val:.2f}</AMOUNT>')
                 xml.append('            </ALLLEDGERENTRIES.LIST>')
+                
                 xml.append('          </VOUCHER>')
                 xml.append('        </TALLYMESSAGE>')
 
