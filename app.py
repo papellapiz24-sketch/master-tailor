@@ -1292,6 +1292,9 @@ elif st.session_state.page == "Client Records":
 # ---------------------------------------------------------
 # 7. ADMIN PANEL (CONTROLS, BACKUP & APOCALYPSE MASTER VAULT)
 # ---------------------------------------------------------
+# ---------------------------------------------------------
+# 7. ADMIN PANEL (CONTROLS, BACKUP & APOCALYPSE MASTER VAULT)
+# ---------------------------------------------------------
 elif st.session_state.page == "Admin Settings":
     if not st.session_state.is_admin:
         st.error("Unauthorized. Please log in using the Admin Master Key.")
@@ -1391,20 +1394,20 @@ elif st.session_state.page == "Admin Settings":
 
         df_clients = pd.read_sql_query("SELECT * FROM clients ORDER BY id ASC", conn)
         df_measurements = pd.read_sql_query("""
-            SELECT m.*, c.client_code, c.full_name, c.phone 
+            SELECT m.*, c.client_code, c.full_name AS client_name, c.phone 
             FROM measurements m 
             LEFT JOIN clients c ON m.client_id = c.id 
             ORDER BY m.id ASC
         """, conn)
         df_orders = pd.read_sql_query("""
-            SELECT o.*, c.client_code, c.full_name, c.phone, (o.total_amount - o.amount_paid) AS balance_due
+            SELECT o.*, c.client_code, c.full_name AS client_name, c.phone, (o.total_amount - o.amount_paid) AS balance_due
             FROM orders o 
             LEFT JOIN clients c ON o.client_id = c.id 
             ORDER BY o.id ASC
         """, conn)
         df_workshop = pd.read_sql_query("""
             SELECT 
-                o.order_number, c.full_name, c.phone, o.garment_type, o.workflow_status, 
+                o.order_number, c.full_name AS client_name, c.phone, o.garment_type, o.workflow_status, 
                 o.delivery_date, o.fabric_details, o.fitting_remarks, o.created_at
             FROM orders o
             LEFT JOIN clients c ON o.client_id = c.id
@@ -1539,17 +1542,19 @@ elif st.session_state.page == "Admin Settings":
         
         for _, ord_row in orders_dataframe.iterrows():
             v_date = datetime.date.today().strftime('%Y%m%d')
-            if ord_row['created_at']:
+            if 'created_at' in ord_row and ord_row['created_at']:
                 try:
                     v_date = str(ord_row['created_at'])[:10].replace('-', '')
                 except:
                     pass
                     
-            total_val = float(ord_row['total_amount'] or 0.0)
-            paid_val = float(ord_row['amount_paid'] or 0.0)
-            client_party = str(ord_row['client_name']).replace('&', '&amp;').replace('<', '&lt;')
-            ord_ref = str(ord_row['order_number'])
-            pay_mode = str(ord_row['payment_mode'] or 'Cash')
+            total_val = float(ord_row.get('total_amount') or 0.0)
+            paid_val = float(ord_row.get('amount_paid') or 0.0)
+            raw_client = ord_row.get('client_name') or ord_row.get('full_name') or 'Direct Client'
+            client_party = str(raw_client).replace('&', '&amp;').replace('<', '&lt;')
+            ord_ref = str(ord_row.get('order_number') or '')
+            garment_item = str(ord_row.get('garment_type') or 'Garment')
+            pay_mode = str(ord_row.get('payment_mode') or 'Cash')
             
             debit_ledger = cash_acc if 'Cash' in pay_mode else bank_acc
 
@@ -1559,7 +1564,7 @@ elif st.session_state.page == "Admin Settings":
             xml.append(f'            <VOUCHERTYPENAME>Sales</VOUCHERTYPENAME>')
             xml.append(f'            <VOUCHERNUMBER>{ord_ref}</VOUCHERNUMBER>')
             xml.append(f'            <PARTYLEDGERNAME>{client_party}</PARTYLEDGERNAME>')
-            xml.append(f'            <NARRATION>Bespoke order {ord_ref} ({ord_row["garment_type"]}) for {client_party}</NARRATION>')
+            xml.append(f'            <NARRATION>Bespoke order {ord_ref} ({garment_item}) for {client_party}</NARRATION>')
             
             xml.append('            <ALLLEDGERENTRIES.LIST>')
             xml.append(f'              <LEDGERNAME>{client_party}</LEDGERNAME>')
