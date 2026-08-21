@@ -882,7 +882,7 @@ elif st.session_state.page == "New Order":
                         "Two-Piece / Three-Piece Suit", "Blazer / Formal Coat",
                         "Shirt & Trousers", "Safari Suit"
                     ])
-                    fit_preference = st.selectbox("Fit Preference", ["Slim Fit", "Regular Fit", "Relaxed Fit", "Traditional Loose"])
+                    fit_preference = st.selectbox("Fit Preference", ["Slim Fit", "Regular Fit", "Relaxed Fit", "Qasar fit ","Barik kali ",])
                 with o2:
                     total_amount = st.number_input("Total Garment Price (₹)", value=None, min_value=0.0, step=500.0, placeholder="Enter total price")
                     amount_paid = st.number_input("Initial Amount Received (₹)", value=None, min_value=0.0, step=500.0, placeholder="Enter advance paid")
