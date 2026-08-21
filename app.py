@@ -776,8 +776,7 @@ st.components.v1.html("""
 })();
 </script>
 """, height=0, width=0)
-
-        st.markdown("<div class='section-title-btn'>Upper Body Dimensions</div>", unsafe_allow_html=True)
+      st.markdown("<div class='section-title-btn'>Upper Body Dimensions</div>", unsafe_allow_html=True)
         col_u1, col_u2 = st.columns(2)
         with col_u1:
             full_length_jacket = st.number_input("Length", value=float(prev_m['full_length_jacket']) if prev_m and prev_m['full_length_jacket'] else None, min_value=0.0, step=0.25, placeholder="0.00", key="m_len")
