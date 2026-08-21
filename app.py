@@ -979,7 +979,7 @@ elif st.session_state.page == "Print Slip":
             book_date = str(slip_data['created_at'])[:10]
             del_date = str(slip_data['delivery_date'])
             garment = str(slip_data['garment_type'])
-            fit = str(slip_data['fit_preference'])
+            fit = str(slip_data['fit_preference'] or 'Regular Fit')
             pay_mode = str(slip_data['payment_mode'] or 'Cash')
             pay_stat = str(slip_data['payment_status'])
             unit = str(slip_data['unit'])
@@ -1021,10 +1021,10 @@ elif st.session_state.page == "Print Slip":
                 "<hr style='border:none; border-top:1px dashed #000; margin:6px 0;'>",
                 "<table style='width:100%; border-collapse:collapse; font-size:11px;'>",
                 "<tr><td><b>CLIENT:</b> " + c_name + "</td><td style='text-align:right;'><b>DATE:</b> " + book_date + "</td></tr>",
-                "<tr><td><b>ID:</b> " + c_id + "</td><td style='text-align:right;'><b>ORDER #:</b> " + ord_id + "</td></tr>",
-                "<tr><td colspan='2'><b>PHONE:</b> " + c_phone + "</td></tr>",
-                "<tr><td colspan='2'><b>GARMENT:</b> " + garment + " (" + fit + ")</td></tr>",
-                "<tr><td colspan='2'><b>DELIVERY:</b> " + del_date + "</td></tr>",
+                "<tr><td><b>CLIENT ID:</b> " + c_id + "</td><td style='text-align:right;'><b>ORDER #:</b> " + ord_id + "</td></tr>",
+                "<tr><td><b>PHONE:</b> " + c_phone + "</td><td style='text-align:right;'><b>FIT PREFERENCE:</b> <b>" + fit + "</b></td></tr>",
+                "<tr><td colspan='2'><b>GARMENT:</b> " + garment + "</td></tr>",
+                "<tr><td colspan='2'><b>DELIVERY DATE:</b> " + del_date + "</td></tr>",
                 "</table>",
                 "<hr style='border:none; border-top:1px dashed #000; margin:6px 0;'>",
                 
