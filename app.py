@@ -689,39 +689,93 @@ elif st.session_state.page == "New Measurement":
         with h2:
             unit = st.selectbox("Measurement Unit", ["Inches", "Centimeters"])
         
-        # Dedicated JS Script for step-by-step box switching without triggering form jump
-        st.components.v1.html("""
-        <script>
-        (function() {
-            function handleMeasurementKeys(e) {
-                if (e.key !== 'Enter') return;
-                
-                const doc = window.parent.document;
-                const active = doc.activeElement;
-                if (!active) return;
-                
-                if (active.tagName === 'INPUT' && active.type !== 'submit' && active.type !== 'button') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    e.stopImmediatePropagation();
-                    
-                    const inputs = Array.from(doc.querySelectorAll('.main input:not([type="hidden"]):not([disabled]):not([type="button"]):not([type="submit"])'));
-                    const currentIndex = inputs.indexOf(active);
-                    
-                    if (currentIndex > -1 && currentIndex < inputs.length - 1) {
-                        const nextInput = inputs[currentIndex + 1];
-                        nextInput.focus();
-                        if (nextInput.select) nextInput.select();
-                    }
+       # ---------------------------------------------------------
+# TALLY-STYLE SEQUENTIAL ENTER NAVIGATION & SUBMIT ENGINE
+# ---------------------------------------------------------
+st.components.v1.html("""
+<script>
+(function() {
+    function getRootDocument() {
+        try {
+            return window.parent.document || window.document;
+        } catch (e) {
+            return window.document;
+        }
+    }
+
+    function handleTallyEnterNavigation(e) {
+        if (e.key !== 'Enter') return;
+
+        const doc = getRootDocument();
+        const active = doc.activeElement;
+        if (!active) return;
+
+        const isInput = active.tagName === 'INPUT' && !['button', 'submit', 'checkbox', 'radio', 'file'].includes(active.type);
+        const isTextArea = active.tagName === 'TEXTAREA';
+
+        if (isInput || isTextArea) {
+            // Allow Shift+Enter inside textareas for standard line breaks
+            if (isTextArea && e.shiftKey) return;
+
+            const form = active.closest('form') || doc.querySelector('form');
+            if (!form) return;
+
+            // Find all visible, interactive form inputs in natural DOM sequence
+            const interactiveElements = Array.from(form.querySelectorAll(
+                'input:not([type="hidden"]):not([disabled]):not([type="submit"]):not([type="button"]), textarea:not([disabled])'
+            )).filter(el => {
+                const style = window.getComputedStyle(el);
+                const rect = el.getBoundingClientRect();
+                return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
+            });
+
+            const currentIndex = interactiveElements.indexOf(active);
+
+            // Step to next box
+            if (currentIndex > -1 && currentIndex < interactiveElements.length - 1) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+
+                // Trigger change event to lock current value in Streamlit state
+                active.dispatchEvent(new Event('change', { bubbles: true }));
+
+                const nextElement = interactiveElements[currentIndex + 1];
+                nextElement.focus();
+                if (typeof nextElement.select === 'function') {
+                    nextElement.select();
+                }
+            } 
+            // On the final box, smoothly trigger Accept / Submit
+            else if (currentIndex === interactiveElements.length - 1) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+
+                active.dispatchEvent(new Event('change', { bubbles: true }));
+
+                const submitBtn = form.querySelector('button[kind="primaryFormSubmit"], button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.focus();
+                    setTimeout(() => {
+                        submitBtn.click();
+                    }, 300);
                 }
             }
-            
-            const parentDoc = window.parent.document;
-            parentDoc.removeEventListener('keydown', handleMeasurementKeys, true);
-            parentDoc.addEventListener('keydown', handleMeasurementKeys, true);
-        })();
-        </script>
-        """, height=0, width=0)
+        }
+    }
+
+    function attachListener() {
+        const doc = getRootDocument();
+        doc.removeEventListener('keydown', handleTallyEnterNavigation, true);
+        doc.addEventListener('keydown', handleTallyEnterNavigation, true);
+    }
+
+    attachListener();
+    setInterval(attachListener, 1000);
+})();
+</script>
+""", height=0, width=0)
 
         st.markdown("<div class='section-title-btn'>Upper Body Dimensions</div>", unsafe_allow_html=True)
         col_u1, col_u2 = st.columns(2)
