@@ -1328,97 +1328,44 @@ elif st.session_state.page == "Admin Settings":
         navigate("Dashboard")
         st.rerun()
 
-    # --- 1. THEME & LIGHT BACKGROUND PALETTE SELECTOR ---
-    st.markdown("### Studio Visual Theme & Color Palette")
-    st.write("Select an atelier palette. The background is always soft and legible, with matched high-contrast text and buttons.")
-    
-    with st.form("theme_palette_form"):
-        palette_names = list(COLOR_PALETTES.keys())
-        chosen_theme = st.selectbox(
-            "Select Atelier Theme Palette",
-            palette_names,
-            index=palette_names.index(CURRENT_THEME) if CURRENT_THEME in palette_names else 0
-        )
-        
-        p_info = COLOR_PALETTES[chosen_theme]
-        c1, c2, c3, c4 = st.columns(4)
-        c1.markdown(f"<div style='background:{p_info['bg']}; padding:10px; border-radius:8px; border:1px solid {p_info['border']}; text-align:center; font-weight:bold; color:{p_info['text']};'>Background</div>", unsafe_allow_html=True)
-        c2.markdown(f"<div style='background:{p_info['accent_banner']}; padding:10px; border-radius:8px; border:1px solid {p_info['border']}; text-align:center; font-weight:bold; color:{p_info['accent_banner_text']};'>Banner Accent</div>", unsafe_allow_html=True)
-        c3.markdown(f"<div style='background:{p_info['btn_bg']}; padding:10px; border-radius:8px; text-align:center; font-weight:bold; color:{p_info['btn_text']};'>Button Style</div>", unsafe_allow_html=True)
-        c4.markdown(f"<div style='background:{p_info['sidebar_bg']}; padding:10px; border-radius:8px; text-align:center; font-weight:bold; color:#FFFFFF;'>Sidebar Base</div>", unsafe_allow_html=True)
-        
-        save_theme_btn = st.form_submit_button("Apply & Save Color Palette", use_container_width=True)
-        if save_theme_btn:
-            set_setting("theme_palette", chosen_theme)
-            st.success(f"Applied '{chosen_theme}' palette!")
-            st.rerun()
+    # --- 1. LOCAL STORAGE & BACKUP MANAGEMENT ECOSYSTEM ---
+    st.markdown("### 💾 Local Storage & Database Backup Ecosystem")
+    st.info(f"**Active Database File Path:** `{DB_FILE}`\n\nAll records are saved directly to this local database file on your laptop drive.")
 
-    st.markdown("---")
-
-    # --- 2. ADMIN SECURITY & PASSWORD MANAGEMENT ---
-    st.markdown("### Admin Security & Password Recovery Setup")
-    with st.form("admin_security_form"):
-        s1, s2 = st.columns(2)
-        with s1:
-            new_admin_key_val = st.text_input(
-                "Admin Master Password", 
-                value=get_setting("admin_master_key", "ADMIN176920"), 
-                type="password"
-            )
-            new_tailor_key_val = st.text_input(
-                "Staff / Tailor Master Password", 
-                value=get_setting("tailor_master_key", "176920"), 
-                type="password"
-            )
-        with s2:
-            recovery_phone_val = st.text_input(
-                "Admin Recovery Phone Number (Used for Password Reset)", 
-                value=get_setting("admin_recovery_phone", ""),
-                placeholder="e.g., +91 9876543210"
-            )
-            st.caption("If you forget your password, you will enter this phone number on the login screen to reset it.")
-
-        save_security = st.form_submit_button("Save Security Credentials", use_container_width=True)
-        if save_security:
-            if new_admin_key_val.strip() and new_tailor_key_val.strip():
-                set_setting("admin_master_key", new_admin_key_val.strip())
-                set_setting("tailor_master_key", new_tailor_key_val.strip())
-                set_setting("admin_recovery_phone", recovery_phone_val.strip())
-                st.success("Security settings and passwords updated successfully!")
-                st.rerun()
+    col_bk1, col_bk2 = st.columns(2)
+    with col_bk1:
+        if st.button("🔄 Create Manual Snapshot Backup Now", use_container_width=True):
+            if os.path.exists(DB_FILE):
+                ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                b_path = os.path.join(BACKUP_DIR, f"manual_backup_{ts}.db")
+                shutil.copy2(DB_FILE, b_path)
+                st.success(f"Snapshot created successfully: `{os.path.basename(b_path)}`")
             else:
-                st.error("Master passwords cannot be empty.")
+                st.error("Active database not found to backup.")
+
+    with col_bk2:
+        backup_files = [f for f in os.listdir(BACKUP_DIR) if f.endswith(".db")]
+        st.markdown(f"**Available Local Backups ({len(backup_files)} found):**")
+        if backup_files:
+            selected_backup = st.selectbox("Select Snapshot to Restore", sorted(backup_files, reverse=True))
+            if st.button("⚠️ Restore Selected Backup", use_container_width=True):
+                src = os.path.join(BACKUP_DIR, selected_backup)
+                shutil.copy2(src, DB_FILE)
+                st.success("Database restored to the selected snapshot state!")
+                st.rerun()
+        else:
+            st.caption("No automatic backups recorded yet.")
 
     st.markdown("---")
 
-    # --- 3. BRAND CUSTOMIZATION ---
-    st.markdown("### Studio Branding & Identity Customizer")
-    with st.form("brand_settings_form"):
-        b1, b2 = st.columns(2)
-        with b1:
-            new_brand = st.text_input("Brand / Studio Name", value=BRAND_NAME)
-        with b2:
-            new_tagline = st.text_input("Tagline (Appears on Receipts & Headers)", value=BRAND_TAGLINE)
-        
-        save_brand = st.form_submit_button("Save Branding Settings", use_container_width=True)
-        if save_brand:
-            set_setting("brand_name", new_brand.strip())
-            set_setting("brand_tagline", new_tagline.strip())
-            st.success("Brand identity updated across the entire application and receipts!")
-            st.rerun()
-
-    st.markdown("---")
-# ---------------------------------------------------------
-    # 2. BACKUP
-    # ---------------------------------------------------------
-    st.markdown("###Data Backup")
+    # --- 2. APOCALYPSE-GRADE EXCEL BACKUP ENGINE ---
+    st.markdown("### 🏛️ Apocalypse-Grade Master Data Backup (Excel .xlsx)")
     st.write(
         "Export the **entire studio brain** into a consolidated, audit-ready Excel workbook. "
         "Every single parameter (clients, measurements, workshop production statuses, fabric remarks, financial dues) is preserved."
     )
 
     with get_db() as conn:
-        # Master Consolidated Query (Every single field linked)
         df_master = pd.read_sql_query("""
             SELECT 
                 o.order_number AS [Order Reference],
@@ -1463,7 +1410,6 @@ elif st.session_state.page == "Admin Settings":
             ORDER BY o.id DESC
         """, conn)
 
-        # Modular Sub-Sheets
         df_clients = pd.read_sql_query("SELECT * FROM clients ORDER BY id ASC", conn)
         df_measurements = pd.read_sql_query("""
             SELECT m.*, c.client_code, c.full_name, c.phone 
@@ -1488,7 +1434,6 @@ elif st.session_state.page == "Admin Settings":
         """, conn)
         df_settings = pd.read_sql_query("SELECT * FROM settings", conn)
 
-    # Compile Excel Workbook with formatting
     excel_buffer = io.BytesIO()
     with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
         df_master.to_excel(writer, sheet_name='Apocalypse_Master_Ledger', index=False)
@@ -1513,7 +1458,7 @@ elif st.session_state.page == "Admin Settings":
 
     # --- 3. THEME & COLOR PALETTE ---
     st.markdown("### Studio Visual Theme & Color Palette")
-    with st.form("theme_palette_form"):
+    with st.form("admin_theme_palette_form"):
         palette_names = list(COLOR_PALETTES.keys())
         chosen_theme = st.selectbox(
             "Select Atelier Theme Palette",
@@ -1538,7 +1483,7 @@ elif st.session_state.page == "Admin Settings":
 
     # --- 4. ADMIN SECURITY & PASSWORD MANAGEMENT ---
     st.markdown("### Admin Security & Password Recovery Setup")
-    with st.form("admin_security_form"):
+    with st.form("admin_security_config_form"):
         s1, s2 = st.columns(2)
         with s1:
             new_admin_key_val = st.text_input("Admin Master Password", value=get_setting("admin_master_key", "ADMIN176920"), type="password")
@@ -1562,7 +1507,7 @@ elif st.session_state.page == "Admin Settings":
 
     # --- 5. BRAND CUSTOMIZATION ---
     st.markdown("### Studio Branding & Identity Customizer")
-    with st.form("brand_settings_form"):
+    with st.form("admin_brand_settings_form"):
         b1, b2 = st.columns(2)
         with b1:
             new_brand = st.text_input("Brand / Studio Name", value=BRAND_NAME)
@@ -1580,7 +1525,7 @@ elif st.session_state.page == "Admin Settings":
 
     # --- 6. TALLY PRIME SALES XML EXPORT ---
     st.markdown("### Tally Prime XML Integration (Direct Accounting Import)")
-    with st.form("tally_config_form"):
+    with st.form("admin_tally_config_form"):
         t1, t2, t3 = st.columns(3)
         with t1:
             sales_ledger = st.text_input("Tally Sales Ledger Name", value=get_setting("tally_ledger", "Tailoring Sales"))
