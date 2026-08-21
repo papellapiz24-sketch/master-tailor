@@ -21,10 +21,12 @@ st.set_page_config(
 # ---------------------------------------------------------
 # DATABASE PERSISTENCE ENGINE & BACKUP SYSTEM
 # ---------------------------------------------------------
-APP_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_FILE = os.path.join(APP_DIR, "master_tailor.db")
-BACKUP_DIR = os.path.join(APP_DIR, "backups")
+# Custom dedicated folder on your D: drive
+CUSTOM_DATA_FOLDER = r"D:\MyStudioData"
 
+os.makedirs(CUSTOM_DATA_FOLDER, exist_ok=True)
+DB_FILE = os.path.join(CUSTOM_DATA_FOLDER, "master_tailor.db")
+BACKUP_DIR = os.path.join(CUSTOM_DATA_FOLDER, "backups")
 os.makedirs(BACKUP_DIR, exist_ok=True)
 
 def create_auto_backup():
