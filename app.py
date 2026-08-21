@@ -18,23 +18,23 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# TALLY-STYLE ENTER KEY STEPPER & FORM NAVIGATION ENGINE
+# TALLY-STYLE KEYBOARD INTERCEPTOR & SEQUENTIAL STEPPER
 # ---------------------------------------------------------
 st.components.v1.html("""
 <script>
 (function() {
-    function getRootDocument() {
+    function getRoot() {
         try {
-            return window.parent.document || window.document;
+            return window.parent.document || document;
         } catch (e) {
-            return window.document;
+            return document;
         }
     }
 
-    function handleTallyEnterNavigation(e) {
+    function handleEnterJump(e) {
         if (e.key !== 'Enter') return;
 
-        const doc = getRootDocument();
+        const doc = getRoot();
         const active = doc.activeElement;
         if (!active) return;
 
@@ -42,59 +42,53 @@ st.components.v1.html("""
         const isTextArea = active.tagName === 'TEXTAREA';
 
         if (isInput || isTextArea) {
-            if (isTextArea && e.shiftKey) return;
+            if (isTextArea && e.shiftKey) return; // Allow Shift+Enter in textareas
 
-            const form = active.closest('form') || doc.querySelector('form');
-            if (!form) return;
+            // Prevent default form submission / page flip
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
 
-            const interactiveElements = Array.from(form.querySelectorAll(
-                'input:not([type="hidden"]):not([disabled]):not([type="submit"]):not([type="button"]), textarea:not([disabled])'
-            )).filter(el => {
-                const style = window.getComputedStyle(el);
-                const rect = el.getBoundingClientRect();
-                return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
-            });
+            // Commit the typed value
+            active.dispatchEvent(new Event('input', { bubbles: true }));
+            active.dispatchEvent(new Event('change', { bubbles: true }));
 
-            const currentIndex = interactiveElements.indexOf(active);
+            // Gather all visible input fields on the page in top-to-bottom visual order
+            const allFields = Array.from(doc.querySelectorAll('input:not([type="hidden"]):not([disabled]), textarea:not([disabled])'))
+                .filter(el => {
+                    const rect = el.getBoundingClientRect();
+                    const style = window.getComputedStyle(el);
+                    return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
+                });
 
-            if (currentIndex > -1 && currentIndex < interactiveElements.length - 1) {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
+            const currentIndex = allFields.indexOf(active);
 
-                active.dispatchEvent(new Event('change', { bubbles: true }));
-
-                const nextElement = interactiveElements[currentIndex + 1];
-                nextElement.focus();
-                if (typeof nextElement.select === 'function') {
-                    nextElement.select();
+            if (currentIndex > -1 && currentIndex < allFields.length - 1) {
+                const nextField = allFields[currentIndex + 1];
+                nextField.focus();
+                if (typeof nextField.select === 'function') {
+                    nextField.select();
                 }
-            } else if (currentIndex === interactiveElements.length - 1) {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-
-                active.dispatchEvent(new Event('change', { bubbles: true }));
-
-                const submitBtn = form.querySelector('button[kind="primaryFormSubmit"], button[type="submit"]');
-                if (submitBtn) {
-                    submitBtn.focus();
-                    setTimeout(() => {
-                        submitBtn.click();
-                    }, 250);
+            } else if (currentIndex === allFields.length - 1) {
+                // Focus save button when reaching the last field
+                const saveButtons = Array.from(doc.querySelectorAll('button')).filter(b => 
+                    b.innerText && (b.innerText.includes('Save') || b.innerText.includes('Proceed') || b.innerText.includes('Submit'))
+                );
+                if (saveButtons.length > 0) {
+                    saveButtons[0].focus();
                 }
             }
         }
     }
 
-    function attachListener() {
-        const doc = getRootDocument();
-        doc.removeEventListener('keydown', handleTallyEnterNavigation, true);
-        doc.addEventListener('keydown', handleTallyEnterNavigation, true);
+    function setup() {
+        const doc = getRoot();
+        doc.removeEventListener('keydown', handleEnterJump, true);
+        doc.addEventListener('keydown', handleEnterJump, true);
     }
 
-    attachListener();
-    setInterval(attachListener, 1000);
+    setup();
+    setInterval(setup, 800);
 })();
 </script>
 """, height=0, width=0)
