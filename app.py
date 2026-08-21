@@ -818,6 +818,19 @@ elif st.session_state.page == "New Order":
     with get_db() as conn:
         clients = conn.cursor().execute("SELECT id, client_code, full_name, phone FROM clients ORDER BY full_name ASC").fetchall()
         
+        # Auto-increment calculation starting from 10001
+        cur = conn.cursor()
+        cur.execute("SELECT order_number FROM orders")
+        rows = cur.fetchall()
+        highest_order_num = 10000
+        for r in rows:
+            ord_str = str(r[0]).strip() if r[0] else ""
+            if ord_str.isdigit():
+                val = int(ord_str)
+                if val > highest_order_num:
+                    highest_order_num = val
+        next_order_id = str(highest_order_num + 1)
+        
     if not clients:
         st.warning("Please register a client before creating orders.")
     else:
@@ -861,7 +874,7 @@ elif st.session_state.page == "New Order":
             with st.form("new_order_form"):
                 o1, o2 = st.columns(2)
                 with o1:
-                    order_no = st.text_input("Order Reference ID*", value=f"BS-{datetime.date.today().strftime('%Y%m%d')}-01")
+                    order_no = st.text_input("Order Reference ID*", value=next_order_id)
                     garment_type = st.selectbox("Garment to Stitch", [
                         "Kurta saya", "Kurta saya with izar", "Pehran", "Only kurta",
                         "Kurta Short)", "Pajama", "Shirt", "Trousers", "Sherwani",
@@ -901,11 +914,11 @@ elif st.session_state.page == "New Order":
                             fabric_details, total_amount, amount_paid, payment_mode, payment_status, delivery_date, fitting_remarks
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """, (
-                            order_no, selected_client_id, measurement_id, garment_type, fit_preference,
+                            order_no.strip(), selected_client_id, measurement_id, garment_type, fit_preference,
                             fabric_details, calc_total, calc_paid, payment_mode, payment_status, delivery_date, remarks
                         ))
                         conn.commit()
-                    st.session_state.active_order_no = order_no
+                    st.session_state.active_order_no = order_no.strip()
                     st.success(f"Order {order_no} generated! Redirecting to Receipt...")
                     navigate("Print Slip")
                     st.rerun()
