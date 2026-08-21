@@ -776,6 +776,7 @@ st.components.v1.html("""
 })();
 </script>
 """, height=0, width=0)
+
       st.markdown("<div class='section-title-btn'>Upper Body Dimensions</div>", unsafe_allow_html=True)
         col_u1, col_u2 = st.columns(2)
         with col_u1:
