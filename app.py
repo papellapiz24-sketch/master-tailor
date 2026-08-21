@@ -1,3 +1,4 @@
+import os
 import sqlite3
 import datetime
 import hashlib
@@ -16,73 +17,11 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Global Enter-Key Navigation & Auto-Submit Engine
-st.components.v1.html("""
-<script>
-(function() {
-    function setupEnterNavigation() {
-        const doc = window.parent.document;
-        if (!doc) return;
-        
-        doc.removeEventListener('keydown', handleGlobalKeyDown, true);
-        doc.addEventListener('keydown', handleGlobalKeyDown, true);
-    }
-
-    function handleGlobalKeyDown(e) {
-        if (e.key !== 'Enter') return;
-        
-        const doc = window.parent.document;
-        const active = doc.activeElement;
-        if (!active) return;
-
-        const printBtn = doc.querySelector('iframe')?.contentDocument?.querySelector('.print-btn') || doc.querySelector('.print-btn');
-        if (printBtn && active.tagName === 'BODY') {
-            printBtn.click();
-            return;
-        }
-
-        const isInput = active.tagName === 'INPUT' && !['submit', 'button', 'checkbox', 'radio'].includes(active.type);
-        const isTextArea = active.tagName === 'TEXTAREA';
-        
-        if (isInput || isTextArea) {
-            if (isTextArea && e.shiftKey) return;
-            
-            const currentForm = active.closest('form');
-            if (currentForm) {
-                const selector = 'input:not([type="hidden"]):not([disabled]):not([type="submit"]):not([type="button"]), textarea:not([disabled])';
-                const formInputs = Array.from(currentForm.querySelectorAll(selector)).filter(el => {
-                    const rect = el.getBoundingClientRect();
-                    return rect.width > 0 && rect.height > 0 && window.getComputedStyle(el).visibility !== 'hidden';
-                });
-                
-                const currentIndex = formInputs.indexOf(active);
-                
-                if (currentIndex > -1 && currentIndex < formInputs.length - 1) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const nextInput = formInputs[currentIndex + 1];
-                    nextInput.focus();
-                    if (nextInput.select) nextInput.select();
-                } else if (currentIndex === formInputs.length - 1) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const submitBtn = currentForm.querySelector('button[kind="primaryFormSubmit"], button[type="submit"]');
-                    if (submitBtn) submitBtn.click();
-                }
-            }
-        }
-    }
-
-    setTimeout(setupEnterNavigation, 300);
-    setInterval(setupEnterNavigation, 1200);
-})();
-</script>
-""", height=0, width=0)
-
 # ---------------------------------------------------------
-# DATABASE ENGINE & SETTINGS TABLE
+# ABSOLUTE PERSISTENT LOCAL DATABASE ENGINE
 # ---------------------------------------------------------
-DB_FILE = "master_tailor.db"
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_FILE = os.path.join(APP_DIR, "master_tailor.db")
 
 def get_db():
     conn = sqlite3.connect(DB_FILE, check_same_thread=False)
@@ -283,7 +222,6 @@ st.markdown(f"""
         font-family: 'Plus Jakarta Sans', sans-serif !important;
     }}
 
-    /* Main Area Typography (Strictly avoiding button overrides) */
     .stApp > header, .main .block-container p, .main .block-container span, 
     .main .block-container label, .main .block-container h1, .main .block-container h2, 
     .main .block-container h3, .main .block-container h4, .main .block-container h5, 
@@ -330,7 +268,7 @@ st.markdown(f"""
         border: 1.5px solid {active_pal['border']} !important;
     }}
 
-    /* Global High-Contrast Balanced Button Engine */
+    /* High-contrast buttons */
     .stButton>button {{
         background-color: {active_pal['btn_bg']} !important;
         border: 1.5px solid {active_pal['btn_bg']} !important;
@@ -470,7 +408,7 @@ if not st.session_state.authenticated:
         if auth_tab == "Sign In":
             with st.form("signin_form"):
                 st.subheader("Studio Sign In")
-                u_name = st.text_input("Username", type="password")
+                u_name = st.text_input("Username / Master Key", type="password")
                 p_word = st.text_input("Password", type="password")
                 btn_login = st.form_submit_button("Sign In to Studio Hub", use_container_width=True)
                 if btn_login:
@@ -563,12 +501,12 @@ if st.sidebar.button("1. Register Client", use_container_width=True):
     navigate("New Client")
     st.rerun()
 
-if st.sidebar.button("2. New Order", use_container_width=True):
-    navigate("New Order")
+if st.sidebar.button("2. Record Measurements", use_container_width=True):
+    navigate("New Measurement")
     st.rerun()
 
-if st.sidebar.button("3. Record Measurements", use_container_width=True):
-    navigate("New Measurement")
+if st.sidebar.button("3. New Order & Billing", use_container_width=True):
+    navigate("New Order")
     st.rerun()
 
 if st.sidebar.button("4. Print Receipt", use_container_width=True):
@@ -682,7 +620,7 @@ elif st.session_state.page == "New Client":
             posture_notes = st.text_area("Posture Observations", placeholder="e.g., Erect stance, forward sloping shoulders...")
             asymmetry_notes = st.text_area("Asymmetry Notes", placeholder="e.g., Right shoulder 0.5 in lower...")
         
-        submitted = st.form_submit_button("Save & Proceed to Measurements → (Press Enter)", use_container_width=True)
+        submitted = st.form_submit_button("Save & Proceed to Measurements →", use_container_width=True)
         if submitted and client_code and full_name and phone:
             try:
                 with get_db() as conn:
@@ -694,7 +632,7 @@ elif st.session_state.page == "New Client":
                     new_id = cur.lastrowid
                     conn.commit()
                 st.session_state.active_client_id = new_id
-                st.success(f"Client '{full_name}' created with ID {client_code}! Redirecting to measurements...")
+                st.success(f"Client '{full_name}' created with ID {client_code}! Proceeding to measurements...")
                 navigate("New Measurement")
                 st.rerun()
             except sqlite3.IntegrityError:
@@ -702,7 +640,7 @@ elif st.session_state.page == "New Client":
 
 
 # ---------------------------------------------------------
-# 2. RECORD MEASUREMENTS
+# 2. RECORD MEASUREMENTS (PERFECT SINGLE-BOX ENTER NAVIGATION)
 # ---------------------------------------------------------
 elif st.session_state.page == "New Measurement":
     st.markdown("<div class='section-title-btn'>Step 2: Record Client Measurements</div>", unsafe_allow_html=True)
@@ -745,52 +683,92 @@ elif st.session_state.page == "New Measurement":
         
         selected_garment_type = st.selectbox("Choose Garment Type to Measure", garment_options)
         
-        with st.form("measurement_form"):
-            h1, h2 = st.columns(2)
-            with h1:
-                rec_date = st.date_input("Date Taken", datetime.date.today())
-            with h2:
-                unit = st.selectbox("Measurement Unit", ["Inches", "Centimeters"])
+        h1, h2 = st.columns(2)
+        with h1:
+            rec_date = st.date_input("Date Taken", datetime.date.today())
+        with h2:
+            unit = st.selectbox("Measurement Unit", ["Inches", "Centimeters"])
+        
+        # Dedicated JS Script for step-by-step box switching without triggering form jump
+        st.components.v1.html("""
+        <script>
+        (function() {
+            function handleMeasurementKeys(e) {
+                if (e.key !== 'Enter') return;
+                
+                const doc = window.parent.document;
+                const active = doc.activeElement;
+                if (!active) return;
+                
+                if (active.tagName === 'INPUT' && active.type !== 'submit' && active.type !== 'button') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    
+                    const inputs = Array.from(doc.querySelectorAll('.main input:not([type="hidden"]):not([disabled]):not([type="button"]):not([type="submit"])'));
+                    const currentIndex = inputs.indexOf(active);
+                    
+                    if (currentIndex > -1 && currentIndex < inputs.length - 1) {
+                        const nextInput = inputs[currentIndex + 1];
+                        nextInput.focus();
+                        if (nextInput.select) nextInput.select();
+                    }
+                }
+            }
             
-            st.markdown("<div class='section-title-btn'>Upper Body Dimensions</div>", unsafe_allow_html=True)
-            full_length_jacket = st.number_input("Length", value=float(prev_m['full_length_jacket']) if prev_m and prev_m['full_length_jacket'] else None, min_value=0.0, step=0.25, placeholder="0.00")
-            neck = st.number_input("Neck", value=float(prev_m['neck']) if prev_m and prev_m['neck'] else None, min_value=0.0, step=0.25, placeholder="0.00")
-            cross_shoulder = st.number_input("Shoulder", value=float(prev_m['cross_shoulder']) if prev_m and prev_m['cross_shoulder'] else None, min_value=0.0, step=0.25, placeholder="0.00")
-            chest_full = st.number_input("Chest", value=float(prev_m['chest_full']) if prev_m and prev_m['chest_full'] else None, min_value=0.0, step=0.25, placeholder="0.00")
-            waist_stomach = st.number_input("Stomach", value=float(prev_m['waist_stomach']) if prev_m and prev_m['waist_stomach'] else None, min_value=0.0, step=0.25, placeholder="0.00")
-            seat_hip = st.number_input("Hips", value=float(prev_m['seat_hip']) if prev_m and prev_m['seat_hip'] else None, min_value=0.0, step=0.25, placeholder="0.00")
-            armhole = st.number_input("Armhole", value=float(prev_m['armhole']) if prev_m and prev_m['armhole'] else None, min_value=0.0, step=0.25, placeholder="0.00")
-            sleeve_length = st.number_input("Sleeve", value=float(prev_m['sleeve_length']) if prev_m and prev_m['sleeve_length'] else None, min_value=0.0, step=0.25, placeholder="0.00")
-            wrist = st.number_input("Wrist", value=float(prev_m['wrist']) if prev_m and prev_m['wrist'] else None, min_value=0.0, step=0.25, placeholder="0.00")
+            const parentDoc = window.parent.document;
+            parentDoc.removeEventListener('keydown', handleMeasurementKeys, true);
+            parentDoc.addEventListener('keydown', handleMeasurementKeys, true);
+        })();
+        </script>
+        """, height=0, width=0)
 
-            st.markdown("<div class='section-title-btn'>Lower Side Dimensions</div>", unsafe_allow_html=True)
-            trouser_waist = st.number_input("Waist", value=float(prev_m['trouser_waist']) if prev_m and prev_m['trouser_waist'] else None, min_value=0.0, step=0.25, placeholder="0.00")
-            front_rise = st.number_input("Front Rise", value=float(prev_m['front_rise']) if prev_m and prev_m['front_rise'] else None, min_value=0.0, step=0.25, placeholder="0.00")
-            crotch_depth = st.number_input("Crotch", value=float(prev_m['crotch_depth']) if prev_m and prev_m['crotch_depth'] else None, min_value=0.0, step=0.25, placeholder="0.00")
-            thigh = st.number_input("Thigh", value=float(prev_m['thigh']) if prev_m and prev_m['thigh'] else None, min_value=0.0, step=0.25, placeholder="0.00")
-            bottom_opening = st.number_input("Bottom Opening", value=float(prev_m['bottom_opening']) if prev_m and prev_m['bottom_opening'] else None, min_value=0.0, step=0.25, placeholder="0.00")
+        st.markdown("<div class='section-title-btn'>Upper Body Dimensions</div>", unsafe_allow_html=True)
+        col_u1, col_u2 = st.columns(2)
+        with col_u1:
+            full_length_jacket = st.number_input("Length", value=float(prev_m['full_length_jacket']) if prev_m and prev_m['full_length_jacket'] else None, min_value=0.0, step=0.25, placeholder="0.00", key="m_len")
+            neck = st.number_input("Neck", value=float(prev_m['neck']) if prev_m and prev_m['neck'] else None, min_value=0.0, step=0.25, placeholder="0.00", key="m_neck")
+            cross_shoulder = st.number_input("Shoulder", value=float(prev_m['cross_shoulder']) if prev_m and prev_m['cross_shoulder'] else None, min_value=0.0, step=0.25, placeholder="0.00", key="m_shld")
+            chest_full = st.number_input("Chest", value=float(prev_m['chest_full']) if prev_m and prev_m['chest_full'] else None, min_value=0.0, step=0.25, placeholder="0.00", key="m_chest")
+            waist_stomach = st.number_input("Stomach", value=float(prev_m['waist_stomach']) if prev_m and prev_m['waist_stomach'] else None, min_value=0.0, step=0.25, placeholder="0.00", key="m_stom")
+        with col_u2:
+            seat_hip = st.number_input("Hips", value=float(prev_m['seat_hip']) if prev_m and prev_m['seat_hip'] else None, min_value=0.0, step=0.25, placeholder="0.00", key="m_hip")
+            armhole = st.number_input("Armhole", value=float(prev_m['armhole']) if prev_m and prev_m['armhole'] else None, min_value=0.0, step=0.25, placeholder="0.00", key="m_armh")
+            sleeve_length = st.number_input("Sleeve", value=float(prev_m['sleeve_length']) if prev_m and prev_m['sleeve_length'] else None, min_value=0.0, step=0.25, placeholder="0.00", key="m_slv")
+            wrist = st.number_input("Wrist", value=float(prev_m['wrist']) if prev_m and prev_m['wrist'] else None, min_value=0.0, step=0.25, placeholder="0.00", key="m_wrst")
 
-            m_notes = st.text_area("Measurement Session & Fit Notes", value=str(prev_m['notes'] or "") if prev_m else "", placeholder="e.g., Slim tapering requested...")
-            save_m = st.form_submit_button("Save & Proceed to Order / Billing → (Press Enter)", use_container_width=True)
-            if save_m:
-                with get_db() as conn:
-                    conn.cursor().execute("""
-                    INSERT INTO measurements (
-                        client_id, revision_label, garment_category, unit, date_recorded,
-                        full_length_jacket, neck, cross_shoulder, chest_full, waist_stomach,
-                        seat_hip, armhole, sleeve_length, wrist, trouser_waist,
-                        front_rise, crotch_depth, thigh, bottom_opening, notes
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (
-                        selected_client_id, "Standard", selected_garment_type, unit, rec_date,
-                        full_length_jacket, neck, cross_shoulder, chest_full, waist_stomach,
-                        seat_hip, armhole, sleeve_length, wrist, trouser_waist,
-                        front_rise, crotch_depth, thigh, bottom_opening, m_notes
-                    ))
-                    conn.commit()
-                st.success("Measurements recorded! Proceeding to New Order / Billing...")
-                navigate("New Order")
-                st.rerun()
+        st.markdown("<div class='section-title-btn'>Lower Side Dimensions</div>", unsafe_allow_html=True)
+        col_l1, col_l2 = st.columns(2)
+        with col_l1:
+            trouser_waist = st.number_input("Waist", value=float(prev_m['trouser_waist']) if prev_m and prev_m['trouser_waist'] else None, min_value=0.0, step=0.25, placeholder="0.00", key="m_twaist")
+            front_rise = st.number_input("Front Rise", value=float(prev_m['front_rise']) if prev_m and prev_m['front_rise'] else None, min_value=0.0, step=0.25, placeholder="0.00", key="m_frise")
+            crotch_depth = st.number_input("Crotch", value=float(prev_m['crotch_depth']) if prev_m and prev_m['crotch_depth'] else None, min_value=0.0, step=0.25, placeholder="0.00", key="m_crotch")
+        with col_l2:
+            thigh = st.number_input("Thigh", value=float(prev_m['thigh']) if prev_m and prev_m['thigh'] else None, min_value=0.0, step=0.25, placeholder="0.00", key="m_thigh")
+            bottom_opening = st.number_input("Bottom Opening", value=float(prev_m['bottom_opening']) if prev_m and prev_m['bottom_opening'] else None, min_value=0.0, step=0.25, placeholder="0.00", key="m_bot")
+
+        m_notes = st.text_area("Measurement Session & Fit Notes", value=str(prev_m['notes'] or "") if prev_m else "", placeholder="e.g., Slim tapering requested...", key="m_notes_txt")
+        
+        st.write("")
+        if st.button("💾 Save Measurements & Proceed to Billing →", use_container_width=True):
+            with get_db() as conn:
+                conn.cursor().execute("""
+                INSERT INTO measurements (
+                    client_id, revision_label, garment_category, unit, date_recorded,
+                    full_length_jacket, neck, cross_shoulder, chest_full, waist_stomach,
+                    seat_hip, armhole, sleeve_length, wrist, trouser_waist,
+                    front_rise, crotch_depth, thigh, bottom_opening, notes
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    selected_client_id, "Standard", selected_garment_type, unit, rec_date,
+                    full_length_jacket, neck, cross_shoulder, chest_full, waist_stomach,
+                    seat_hip, armhole, sleeve_length, wrist, trouser_waist,
+                    front_rise, crotch_depth, thigh, bottom_opening, m_notes
+                ))
+                conn.commit()
+            st.success("Measurements recorded successfully! Proceeding to Billing...")
+            navigate("New Order")
+            st.rerun()
 
 
 # ---------------------------------------------------------
@@ -879,7 +857,7 @@ elif st.session_state.page == "New Order":
                 fabric_details = st.text_area("Fabric Specifications & Mill Details", placeholder="e.g., Pure Silk, Worsted Wool...")
                 remarks = st.text_area("Specific Cutting / Fitting Requirements")
                 
-                place_order = st.form_submit_button("Submit Order & Generate Receipt → (Press Enter)", use_container_width=True)
+                place_order = st.form_submit_button("Submit Order & Generate Receipt →", use_container_width=True)
                 if place_order:
                     with get_db() as conn:
                         conn.cursor().execute("""
@@ -985,7 +963,7 @@ elif st.session_state.page == "Print Slip":
                 "</style>",
                 "</head>",
                 "<body style='margin:0; padding:6px; background:#FFFFFF; font-family:Courier New, Courier, monospace; color:#000000; font-size:12px; line-height:1.3;'>",
-                "<button class='print-btn' onclick='window.print()' style='display:block; width:100%; max-width:138mm; margin:0 auto 10px auto; background:#111827; color:#FFFFFF; border:none; padding:10px; font-size:14px; font-weight:bold; cursor:pointer; border-radius:6px;'>PRINT RECEIPT (A5) / PRESS ENTER</button>",
+                "<button class='print-btn' onclick='window.print()' style='display:block; width:100%; max-width:138mm; margin:0 auto 10px auto; background:#111827; color:#FFFFFF; border:none; padding:10px; font-size:14px; font-weight:bold; cursor:pointer; border-radius:6px;'>PRINT RECEIPT (A5)</button>",
                 "<div style='width:100%; max-width:138mm; margin:0 auto; border:1.5px solid #000000; padding:10px 12px;'>",
                 "<div style='text-align:center;'>",
                 "<div style='font-size:16px; font-weight:bold; letter-spacing:1px; margin:0;'>" + BRAND_NAME + "</div>",
@@ -1290,7 +1268,7 @@ elif st.session_state.page == "Client Records":
 
 
 # ---------------------------------------------------------
-# 7. ADMIN PANEL (THEME & BACKGROUND PALETTE, SECURITY & EXPORTS)
+# 7. ADMIN PANEL (THEME, SECURITY, RECOVERY & EXPORTS)
 # ---------------------------------------------------------
 elif st.session_state.page == "Admin Settings":
     if not st.session_state.is_admin:
@@ -1314,7 +1292,6 @@ elif st.session_state.page == "Admin Settings":
             index=palette_names.index(CURRENT_THEME) if CURRENT_THEME in palette_names else 0
         )
         
-        # Preview palette details
         p_info = COLOR_PALETTES[chosen_theme]
         c1, c2, c3, c4 = st.columns(4)
         c1.markdown(f"<div style='background:{p_info['bg']}; padding:10px; border-radius:8px; border:1px solid {p_info['border']}; text-align:center; font-weight:bold; color:{p_info['text']};'>Background</div>", unsafe_allow_html=True)
@@ -1507,7 +1484,6 @@ elif st.session_state.page == "Admin Settings":
                 xml.append('              <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>')
                 xml.append(f'              <AMOUNT>{paid_val:.2f}</AMOUNT>')
                 xml.append('            </ALLLEDGERENTRIES.LIST>')
-                
                 xml.append('          </VOUCHER>')
                 xml.append('        </TALLYMESSAGE>')
 
