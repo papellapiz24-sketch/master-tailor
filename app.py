@@ -1408,41 +1408,178 @@ elif st.session_state.page == "Admin Settings":
             st.rerun()
 
     st.markdown("---")
-
-    # --- 4. MS EXCEL BACKUP ---
-    st.markdown("### Microsoft Excel Backup & Data Export")
-    st.write("Export your entire studio database (Clients, Measurements, Billing Ledgers) into an Excel workbook for local storage and reporting.")
+# ---------------------------------------------------------
+    # 2. APOCALYPSE-GRADE EXCEL BACKUP ENGINE (MULTI-SHEET VAULT)
+    # ---------------------------------------------------------
+    st.markdown("### 🏛️ Apocalypse-Grade Master Data Backup (Excel .xlsx)")
+    st.write(
+        "Export the **entire studio brain** into a consolidated, audit-ready Excel workbook. "
+        "Every single parameter (clients, measurements, workshop production statuses, fabric remarks, financial dues) is preserved."
+    )
 
     with get_db() as conn:
-        df_clients = pd.read_sql_query("SELECT * FROM clients", conn)
-        df_measurements = pd.read_sql_query("SELECT * FROM measurements", conn)
-        df_orders = pd.read_sql_query("""
-            SELECT o.*, c.client_code, c.full_name as client_name, c.phone 
-            FROM orders o JOIN clients c ON o.client_id = c.id
+        # Master Consolidated Query (Every single field linked)
+        df_master = pd.read_sql_query("""
+            SELECT 
+                o.order_number AS [Order Reference],
+                o.workflow_status AS [Workshop Stage (Cloth Making)],
+                o.garment_type AS [Garment Type],
+                o.fit_preference AS [Fit Preference],
+                o.delivery_date AS [Target Delivery Date],
+                o.fabric_details AS [Fabric & Mill Specs],
+                o.fitting_remarks AS [Fitting / Cutting Remarks],
+                o.total_amount AS [Total Price (INR)],
+                o.amount_paid AS [Amount Received (INR)],
+                (o.total_amount - o.amount_paid) AS [Balance Due (INR)],
+                o.payment_status AS [Payment Status],
+                o.payment_mode AS [Payment Mode],
+                c.client_code AS [Client ID],
+                c.full_name AS [Client Name],
+                c.phone AS [Client Phone],
+                c.email AS [Client Email],
+                c.posture_notes AS [Posture Observations],
+                c.asymmetry_notes AS [Asymmetry Notes],
+                m.unit AS [Measurement Unit],
+                m.garment_category AS [Measurement Category],
+                m.full_length_jacket AS [Length],
+                m.neck AS [Neck],
+                m.cross_shoulder AS [Shoulder],
+                m.chest_full AS [Chest],
+                m.waist_stomach AS [Stomach],
+                m.seat_hip AS [Hips],
+                m.armhole AS [Armhole],
+                m.sleeve_length AS [Sleeve],
+                m.wrist AS [Wrist],
+                m.trouser_waist AS [Waist],
+                m.front_rise AS [Front Rise],
+                m.crotch_depth AS [Crotch],
+                m.thigh AS [Thigh],
+                m.bottom_opening AS [Bottom Opening],
+                m.notes AS [Measurement Notes],
+                o.created_at AS [Order Date]
+            FROM orders o
+            LEFT JOIN clients c ON o.client_id = c.id
+            LEFT JOIN measurements m ON o.measurement_id = m.id
+            ORDER BY o.id DESC
         """, conn)
 
+        # Modular Sub-Sheets
+        df_clients = pd.read_sql_query("SELECT * FROM clients ORDER BY id ASC", conn)
+        df_measurements = pd.read_sql_query("""
+            SELECT m.*, c.client_code, c.full_name, c.phone 
+            FROM measurements m 
+            LEFT JOIN clients c ON m.client_id = c.id 
+            ORDER BY m.id ASC
+        """, conn)
+        df_orders = pd.read_sql_query("""
+            SELECT o.*, c.client_code, c.full_name, c.phone, (o.total_amount - o.amount_paid) AS balance_due
+            FROM orders o 
+            LEFT JOIN clients c ON o.client_id = c.id 
+            ORDER BY o.id ASC
+        """, conn)
+        df_workshop = pd.read_sql_query("""
+            SELECT 
+                o.order_number, c.full_name, c.phone, o.garment_type, o.workflow_status, 
+                o.delivery_date, o.fabric_details, o.fitting_remarks, o.created_at
+            FROM orders o
+            LEFT JOIN clients c ON o.client_id = c.id
+            WHERE o.workflow_status != 'Delivered'
+            ORDER BY o.delivery_date ASC
+        """, conn)
+        df_settings = pd.read_sql_query("SELECT * FROM settings", conn)
+
+    # Compile Excel Workbook with formatting
     excel_buffer = io.BytesIO()
     with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-        df_clients.to_excel(writer, sheet_name='Clients', index=False)
-        df_measurements.to_excel(writer, sheet_name='Measurements', index=False)
-        df_orders.to_excel(writer, sheet_name='Orders_and_Billing', index=False)
-    
+        df_master.to_excel(writer, sheet_name='Apocalypse_Master_Ledger', index=False)
+        df_orders.to_excel(writer, sheet_name='All_Orders_Detailed', index=False)
+        df_workshop.to_excel(writer, sheet_name='Workshop_Under_Making', index=False)
+        df_measurements.to_excel(writer, sheet_name='Measurements_Vault', index=False)
+        df_clients.to_excel(writer, sheet_name='Clients_Directory', index=False)
+        df_settings.to_excel(writer, sheet_name='System_Settings_Metadata', index=False)
+
     excel_data = excel_buffer.getvalue()
     today_str = datetime.date.today().strftime('%Y-%m-%d')
+    
     st.download_button(
-        label="Download Full Database as Excel (.xlsx)",
+        label="🛡️ Download Apocalypse Master Backup (Full Excel .xlsx)",
         data=excel_data,
-        file_name=f"{BRAND_NAME.replace(' ', '_')}_Backup_{today_str}.xlsx",
+        file_name=f"{BRAND_NAME.replace(' ', '_')}_Apocalypse_Backup_{today_str}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True
     )
 
     st.markdown("---")
 
-    # --- 5. TALLY PRIME SALES XML EXPORT ---
+    # --- 3. THEME & COLOR PALETTE ---
+    st.markdown("### Studio Visual Theme & Color Palette")
+    with st.form("theme_palette_form"):
+        palette_names = list(COLOR_PALETTES.keys())
+        chosen_theme = st.selectbox(
+            "Select Atelier Theme Palette",
+            palette_names,
+            index=palette_names.index(CURRENT_THEME) if CURRENT_THEME in palette_names else 0
+        )
+        
+        p_info = COLOR_PALETTES[chosen_theme]
+        c1, c2, c3, c4 = st.columns(4)
+        c1.markdown(f"<div style='background:{p_info['bg']}; padding:10px; border-radius:8px; border:1px solid {p_info['border']}; text-align:center; font-weight:bold; color:{p_info['text']};'>Background</div>", unsafe_allow_html=True)
+        c2.markdown(f"<div style='background:{p_info['accent_banner']}; padding:10px; border-radius:8px; border:1px solid {p_info['border']}; text-align:center; font-weight:bold; color:{p_info['accent_banner_text']};'>Banner Accent</div>", unsafe_allow_html=True)
+        c3.markdown(f"<div style='background:{p_info['btn_bg']}; padding:10px; border-radius:8px; text-align:center; font-weight:bold; color:{p_info['btn_text']};'>Button Style</div>", unsafe_allow_html=True)
+        c4.markdown(f"<div style='background:{p_info['sidebar_bg']}; padding:10px; border-radius:8px; text-align:center; font-weight:bold; color:#FFFFFF;'>Sidebar Base</div>", unsafe_allow_html=True)
+        
+        save_theme_btn = st.form_submit_button("Apply & Save Color Palette", use_container_width=True)
+        if save_theme_btn:
+            set_setting("theme_palette", chosen_theme)
+            st.success(f"Applied '{chosen_theme}' palette!")
+            st.rerun()
+
+    st.markdown("---")
+
+    # --- 4. ADMIN SECURITY & PASSWORD MANAGEMENT ---
+    st.markdown("### Admin Security & Password Recovery Setup")
+    with st.form("admin_security_form"):
+        s1, s2 = st.columns(2)
+        with s1:
+            new_admin_key_val = st.text_input("Admin Master Password", value=get_setting("admin_master_key", "ADMIN176920"), type="password")
+            new_tailor_key_val = st.text_input("Staff / Tailor Master Password", value=get_setting("tailor_master_key", "176920"), type="password")
+        with s2:
+            recovery_phone_val = st.text_input("Admin Recovery Phone Number (Used for Password Reset)", value=get_setting("admin_recovery_phone", ""), placeholder="e.g., +91 9876543210")
+            st.caption("Used on the sign-in page if you forget your master password.")
+
+        save_security = st.form_submit_button("Save Security Credentials", use_container_width=True)
+        if save_security:
+            if new_admin_key_val.strip() and new_tailor_key_val.strip():
+                set_setting("admin_master_key", new_admin_key_val.strip())
+                set_setting("tailor_master_key", new_tailor_key_val.strip())
+                set_setting("admin_recovery_phone", recovery_phone_val.strip())
+                st.success("Security settings and passwords updated successfully!")
+                st.rerun()
+            else:
+                st.error("Master passwords cannot be empty.")
+
+    st.markdown("---")
+
+    # --- 5. BRAND CUSTOMIZATION ---
+    st.markdown("### Studio Branding & Identity Customizer")
+    with st.form("brand_settings_form"):
+        b1, b2 = st.columns(2)
+        with b1:
+            new_brand = st.text_input("Brand / Studio Name", value=BRAND_NAME)
+        with b2:
+            new_tagline = st.text_input("Tagline (Appears on Receipts & Headers)", value=BRAND_TAGLINE)
+        
+        save_brand = st.form_submit_button("Save Branding Settings", use_container_width=True)
+        if save_brand:
+            set_setting("brand_name", new_brand.strip())
+            set_setting("brand_tagline", new_tagline.strip())
+            st.success("Brand identity updated across the entire application and receipts!")
+            st.rerun()
+
+    st.markdown("---")
+
+    # --- 6. TALLY PRIME SALES XML EXPORT ---
     st.markdown("### Tally Prime XML Integration (Direct Accounting Import)")
-    st.write("Generate a Tally-compliant XML sales voucher file. You can import this file directly into **Tally Prime** via **Import > Transactions > XML**.")
-    
     with st.form("tally_config_form"):
         t1, t2, t3 = st.columns(3)
         with t1:
@@ -1556,5 +1693,3 @@ elif st.session_state.page == "Admin Settings":
             mime="application/xml",
             use_container_width=True
         )
-    else:
-        st.info("No order transactions available to export to Tally.")
